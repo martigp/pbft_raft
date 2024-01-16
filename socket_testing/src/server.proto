@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package Raft;
+
+/* Log Entry */
+message Entry {
+    /**
+     * Command to be executed by raft cluster state machine.
+     */
+    optional bytes cmd;
+}
+
+/* AppendEntries RPC */
+message AppendEntries {
+    message Request {
+        /* ID of leader(requestor). */
+        required uint64 term = 1;
+
+        /* ID of leader for client redirection. */
+        required uint64 leaderId = 2;
+
+        /* Index of log entry immediately preceding first entry in entries/ */
+        required uint64 prevLogIndex = 3;
+
+        /* Term of prevLogIndex entry. */
+        required uint64 prevLogTerm = 4;
+
+        /* Log entries to store, empty for heartbeat. */
+        repeated Entry entries = 5;
+
+        /* Leader's commitIndex. */
+        required uint64 leaderCommit;
+    }
+
+    message Response {
+        /* currentTerm, for leader to update itself if larger than its own. */
+        required uint64 term;
+
+        /* true if follower contained entry matching prevLogIndex and 
+           prevLogTerm. */
+        required bool success;
+    }
+}
+
+/* RequestVote RPC */
+message RequestVote {
+    message Request {
+        /* Candidate's (requestor's) term. */
+        required uint64 term;
+
+        /* Candidate's id. */
+        required uint64 candidateId;
+
+        /* Index of candidate's last log entry. */
+        required uint64 lastLogIndex;
+
+        /* Term of candidate's last log entry. */
+        required uint64 lastLogTerm;
+    }
+
+    message Response {
+        /* Current term of responder, for candidate to update itself. */
+        required uint64 term;
+
+        /* true means candidate received vote. */
+        required bool voteGranted;
+    }
+}
