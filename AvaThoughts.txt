@@ -1,0 +1,35 @@
+diff --git a/GordonThoughts.txt b/GordonThoughts.txt
+index c11e392..6fe88f3 100644
+--- a/GordonThoughts.txt
++++ b/GordonThoughts.txt
+@@ -27,7 +27,7 @@ a general purpose parsing and passing it down to a relevant submodule
+     Three approaches
+ 
+     1) Potential to obtain this information from the socket information -> from
+-    class this seems like an approach he wouldn't want.
++    class this seems like an approach he wouldn't want. Ava: why? we have the list of servers
+ 
+     2) Encode this information in the message itself i.e. some high level field
+     that says whether it is from a RaftServer or client
+@@ -53,6 +53,9 @@ a general purpose parsing and passing it down to a relevant submodule
+ 
+     Server should have some array of sockets 
+ 
++    Ava: mixture of methods a/c. I believe we can have knowledge of RaftServer and
++    RaftClient( call ./server or ./client). Two portals open. And keep processing
++    of the responses received on either agnostic.
+ 
+ 
+     /* General purpose socket abstraction to allow for response to events on
+@@ -110,6 +113,11 @@ a general purpose parsing and passing it down to a relevant submodule
+ 
+     On an accepted socket you are simply listening and then sending a respons.
+ 
++    Ava: I would agree with the second appraoch based on the feedback from John
++    that we can open sockets/check status/refresh only when we need to. The two
++    functionalities allows us to define who does that AND leave the listening 
++    socket alone.
++
+ 
+ Event handling:
+ 
