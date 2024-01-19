@@ -79,4 +79,30 @@ class ServerSocket : Socket {
     void handleSocketEvent(struct kevent ev);
 };
 
+/**
+ * @brief A socket that initiates RPC requests and listens for incoming 
+ * Raft RPC responses.
+ * 
+ */
+class ClientSocket : Socket {
+    /**
+     * Constructor.
+     * @brief Construct a new ClientSocket object that initiates RequestRPCs
+     * and sends to the corresponding client. Listens for responses back from
+     * corresponding ServerSocket.
+     * 
+     * @param fd The file descriptor of a socket connected to a client.
+     */
+    Socket(int fd);
+
+    /**
+     * @brief Method called when the kernel notifies us that the socket server
+     * has sent back data. 
+     * 
+     * @param ev The kernel event returned by kevent which indicates there is
+     * data to be read from the socket's read buffer.
+     */
+    void handleSocketEvent(struct kevent ev);
+};
+
 }
