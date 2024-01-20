@@ -14,7 +14,7 @@
 #include <mutex>
 
 #define PORT 1234
-#define NUM_THREADS 100
+#define NUM_THREADS 1
 
 std::mutex globalLock;
 int numServiced = 0;
@@ -59,7 +59,7 @@ restart:
 	while (true) {
 		readBytes = read(clientFd, buffer, 1024 - 1);
 		if (readBytes > 0 ) {
-			printf("%s\n", buffer);
+			printf("[Client %d] received: %s\n", tid, buffer);
 			globalLock.lock();
 			printf("Number served %d", ++numServiced);
 			globalLock.unlock();
