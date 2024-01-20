@@ -12,10 +12,18 @@
 
 /**
  * @brief This method is used to transform a char buffer
- * into separate RPC request packets. Since each RaftServer
+ * into an RPC request packet. Since each RaftServer
  * has a server type socket for listening/receiving requests, 
  * this method will be invoked and can decode knowing it will 
  * only be receiving RPCs of the request format.
+ * 
+ * TODO: converse and make sure that this will only ever be one request
+ * I believe a server can receiver multiple requests, but they will be on different ports,
+ * so different events in queue, so processed and read separately
+ * See raftSever.h. Because if the state machine had to process a bunch of requests how would just
+ * a true/false success readinging back to other server be able to decode that. 
+ * TODO: think about super delayed responses(how to know which request it's from)
+ * TODO: will you have multiple outstanding requests from the same server and how to respond separately(ties into above)
  * 
  * @param buf The char buffer returned from recv on the 
  * server socket.
@@ -25,9 +33,7 @@
  * 
  * @return array of valid, formatted RPC requests
  */
-
-
-vector<message> decodeRequestRecv(char * buf, size_t bytesRead);
+message decodeRequestRecv(char * buf, size_t bytesRead);
 
 /**
  * @brief This method is used to transform a char buffer
@@ -47,5 +53,5 @@ vector<message> decodeRequestRecv(char * buf, size_t bytesRead);
  */
 
 
-vector<message> decodeResponseRecv(char * buf, size_t bytesRead);
+std::vector<message> decodeResponseRecv(char * buf, size_t bytesRead);
 
