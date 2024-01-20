@@ -3,11 +3,6 @@
 #include <socket_testing/src/socket.h>
 
 /**
- * The RaftClient will be responsible for running a simple loop:
- *  (a) read a one-line shell command from standard input
- *  (b) send the command to the cluster leader
- *  (c) print on standard output the results returned by the leader
- * 
  * The RaftClient will be initialized with the list of servers and
  * their addresses and will maintain a record of the last leader
  * server they communicated with as well as the socket information
@@ -16,6 +11,25 @@
 
 class RaftClient {
     public:
+        /**
+         * @brief Method to send a command
+         * Attempts with open leader socket. If it fails, attempt to reopen.
+         * If the previous leader cannot be contacted or responds that it is 
+         * a follower, try with next server on the list. Loop through servers
+         * until leader is found and send the 'Entry' RPC.
+         * 
+         * @param command The string pulled form the command line to send to the leader
+         * 
+        */
+        void sendCommand(std::string command);
+
+        /**
+         * @brief Read a response from the leader you just sent to
+         * TODO: add a timeout on this since the command has failed if the leader fails
+         * Can likely just open a simple poll() on the socket to the leader
+         * 
+        */
+        std::string readResponse();
 
 
     private:
