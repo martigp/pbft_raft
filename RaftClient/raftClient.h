@@ -19,7 +19,6 @@ class RaftClient {
          * until leader is found and send the 'Entry' RPC.
          * 
          * @param command The string pulled form the command line to send to the leader
-         * 
         */
         void sendCommand(std::string command);
 
@@ -27,7 +26,6 @@ class RaftClient {
          * @brief Read a response from the leader you just sent to
          * TODO: add a timeout on this since the command has failed if the leader fails
          * Can likely just open a simple poll() on the socket to the leader
-         * 
         */
         std::string readResponse();
 
@@ -37,20 +35,17 @@ class RaftClient {
          * @brief List of RaftServer Addresses
          * TODO: Should we build a little object for server information? name, addr
          * TODO: Finalize how we store this info: servers, number of them, and address
-         * 
         */
         std::vector<sockaddr_in> raftServerAddrs;
 
         /***
          *  @brief Number of RaftServers, length of raftServerAddrs
-         *  
         */
         int numRaftServers;
         
         /**
          * @brief Current ClientSocket object connected to most recent RaftServerLeader
          * Held to maintain client server connection for as long as possible
-         * 
         */
         ClientSocket currentLeaderSocket;
 
@@ -58,7 +53,6 @@ class RaftClient {
          * @brief Some indicator of which server is the leader that corresponds to above socket
          * TODO: Decide how to do this. Is it an integer index in the array of servers? This 
          * could work as we will likely just loop through servers when trying to find the leader.
-         * 
         */
        int currentLeaderIdx;
 

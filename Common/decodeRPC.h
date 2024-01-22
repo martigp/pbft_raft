@@ -9,7 +9,6 @@
  * namely multiple requests and incomplete/incorrectly formatted.
 */
 
-
 /**
  * @brief This method is used to transform a char buffer
  * into an RPC request packet. Since each RaftServer
@@ -18,7 +17,7 @@
  * only be receiving RPCs of the request format.
  * 
  * TODO: converse and make sure that this will only ever be one request
- * I believe a server can receiver multiple requests, but they will be on different ports,
+ * I believe a server can receive multiple requests, but they will be on different ports,
  * so different events in queue, so processed and read separately
  * See raftSever.h. Because if the state machine had to process a bunch of requests how would just
  * a true/false success readinging back to other server be able to decode that. 

@@ -1,4 +1,6 @@
 /**
+ * Essentially, the main function for our replicated shell application with a raft backing
+ * 
  * At this layer of abstraction, we know:
  *  - the "state machine" in question is a replicated shell
  *  - a list of servers will be passed in through a configuration file TODO: finalize config file
@@ -13,8 +15,6 @@
  *  (c) print on standard output the results returned by the leader
  * 
  * Below is a mockup/pseudocode of the replicatedShellClient
- * This application will be called from the command line:
- *  user raft1 % ./replicatedShellClient
  * 
 */
 
@@ -23,7 +23,7 @@ int main() {
     ServerConfig config = read(./config_file_path)
 
     // Step 2: Initialize RaftClient Object with list of servers
-    RaftClient myRaftConsesusUnit = RaftClient(config)
+    RaftClient raftClient = RaftClient(config)
 
     // Step 3: Launch application 
     char inbuf[256];
@@ -34,10 +34,10 @@ int main() {
         std::getline(std::in, inbuf);
 
         // (b) send the command to the cluster leader
-        myRaftConsesusUnit.sendCommand(inbuf);
+        raftClient.sendCommand(inbuf);
 
         // (b.2) read a response 
-        std::string ret = myRaftConsesusUnit.readResponse();
+        std::string ret = raftClient.readResponse();
 
         // (c) print return value on stdout
         cout << ret << endl;
