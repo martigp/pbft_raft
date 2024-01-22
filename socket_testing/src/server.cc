@@ -3,14 +3,30 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include<sys/poll.h>
+#include <sys/poll.h>
 #include <unistd.h>
 #include <netinet/tcp.h>
+#include <sys/event.h>
+#include <sys/time.h>
+#include <memory>
+#include "RaftGlobals.hh"
+#include "socket.hh"
 
-#define PORT 1234
+#define RAFT_PORT 1234
 #define MAX_CONNECTIONS 1
+#define MAX_EVENTS 1
+#define CONFIG_PATH ""
 
-int createServerSocket(void) {
+using namespace Raft;
+
+/**
+ * @brief Creates a socket that listens for incoming Raft Connections on the
+ * server's listed IP address and default raft port. Will exit with failure
+ * if there is an issue in setting up the socket.
+ * 
+ * @return int The file descriptor of the listening socket.
+ */
+int createListenSocketFd(void) {
 
     int socketFd;
     struct sockaddr_in address;
@@ -31,143 +47,77 @@ int createServerSocket(void) {
     }
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
+    address.sin_port = htons(RAFT_PORT);
  
-    // Forcefully attaching socket to the port PORT
+    // Forcefully attaching socket to the port RAFT_PORT
     if (bind(socketFd, (struct sockaddr*)&address,
              sizeof(address))
         < 0) {
         perror("bind");
         exit(EXIT_FAILURE);
     }
-    return socketFd;
-}
 
-void acceptNewConnection(int listenSocket,
-                         struct pollfd ** pollFds,
-                         int *pollCount) {
-    // struct sockaddr clientAddr;
-    // socklen_t addrLen;
-    printf("<1>");
-    int clientSocket = accept(listenSocket, NULL, NULL);
-    printf("<2>");
-    if (clientSocket < 0) {
-        printf("[Server] invalid client socket %d generated from listenSocket %d", clientSocket, listenSocket);
-        perror("accept");
-        exit(EXIT_FAILURE);
-    }
-    printf("<3>");
-    if (*pollCount > MAX_CONNECTIONS) {
-        printf("[Server] Can't accept because too many connections\n");
-        return;
-    }
-    printf("<4>");
-    (*pollFds)[*pollCount].fd = clientSocket;
-    printf("<5>");
-    (*pollFds)[*pollCount].events = POLLIN;
-    printf("<6>");
-    (*pollCount)++;
-}
-
-int main(int argc, char const* argv[])
-{    
-    int listenSocket;
-
-    struct pollfd pollFds[MAX_CONNECTIONS + 1]; // Array of socket file descriptors
-    int pollCount; // Current number of descriptors in array
-
-    listenSocket = createServerSocket();
-    
-    if (listen(listenSocket, MAX_CONNECTIONS) < 0) {
+    if (listen(socketFd, MAX_CONNECTIONS) < 0) {
         perror("listen");
         exit(EXIT_FAILURE);
     }
 
-    printf("[Server] Listening on port %d\n", PORT);
+    return socketFd;
+}
 
-    memset(pollFds, 0, sizeof(pollFds));
-    pollFds[0].fd = listenSocket;
-    pollFds[0].events = POLLIN;
-    pollCount = 1;
+int main(int argc, char const* argv[])
+{   
+    Raft::Globals globals;
+    int listenSocketFd;
+    // struct kevent listenEv;
+    
+    globals.init(CONFIG_PATH);
 
-    printf("[Server] Set up poll fd array\n");
+    listenSocketFd = createListenSocketFd();
 
-    int numClientsServiced = 0;
+    printf("[Server] Listening on port %d\n", RAFT_PORT);
+
+    Raft::ListenSocket * listenSocket = 
+                            new Raft::ListenSocket(listenSocketFd, &globals);
+
+    globals.addkQueueSocket(listenSocket);
+
+
+    printf("[Server] Set up kqueue with listening socket\n");
 
     while (1) {
-        int pollStatus = poll(pollFds, pollCount, 2000);
+        struct kevent evList[MAX_EVENTS];
+        printf("Starting new loop\n");
+        
+        /* Poll for any events oc*/
+        int numEvents = kevent(globals.kq, NULL, 0, evList, MAX_EVENTS, NULL);
 
-        if (pollStatus == -1) {
-            perror("poll");
+        if (numEvents == -1) {
+            perror("kevent failure");
             exit(EXIT_FAILURE);
         }
-        else if (pollStatus == 0) {
+
+        else if (numEvents == 0) {
             /* No sockets are ready to accepts*/
             printf("[Server] Waiting...\n");
             continue;
         }
-        printf("[Server] Poll status %d is non-zero\n", pollStatus);
 
-        for (int i = 0; i < pollCount; i++) {
-            if((pollFds[i].revents & POLLIN) != 1) {
-                printf("[Server] Different event on socket not ready\n");
-                // Socket isn't ready for reading
-                continue;
-            }
+        printf("[Server] %d Kqueue events\n", numEvents);
 
-            printf("Client [%d] Ready for I/O operation\n", ++numClientsServiced);
-            if (i == 0) {
-                /* 
-                    Client connected to the server socket, accept connection
-                    and add to pollFd to listen for further messages.
-                */
-                int clientSocket = accept(listenSocket, NULL, NULL);
-                if (clientSocket < 0) {
-                    printf("[Server] invalid client socket %d generated from listenSocket %d", clientSocket, listenSocket);
-                    perror("accept");
-                    exit(EXIT_FAILURE);
-                }
-                if (pollCount > MAX_CONNECTIONS) {
-                    printf("[Server] Can't accept because too many connections\n");
-                    close(clientSocket);
-                    continue;
-                }
-                pollFds[pollCount].fd = clientSocket;
-                pollFds[pollCount].events = POLLIN;
-                pollCount++;
+        for (int i = 0; i < numEvents; i++) {
+
+            struct kevent ev = evList[i];
+            printf("[Server] Event socket is %d\n", (int) ev.ident);
+
+            Raft::Socket *evSocket = static_cast<Raft::Socket*>(ev.udata);
+
+            if (ev.fflags & EV_EOF) {
+                globals.removekQueueSocket(evSocket);
             }
             else {
-                // Read message from client and send data
-                ssize_t bytesRead;
-                char clientReadBuffer[256];
-                char msgToSend[256];
-                int clientSocket = pollFds[i].fd;
-
-                memset(clientReadBuffer, 0, sizeof(clientReadBuffer));
-                bytesRead = recv(clientSocket, clientReadBuffer, sizeof(clientReadBuffer) - 1, 0);
-                if (bytesRead <= 0) {
-                    // Error in read
-                    printf("Client [%d] Socket closed with because read %s\n", i, bytesRead == 0 ? "client closed socket" : "Error in read");
-                    close(clientSocket);
-                    pollFds[i] = pollFds[pollCount -1];
-                    memset(pollFds + pollCount -1, 0, sizeof(struct pollfd));
-                    printf("[Server] Total clients serviced: %d\n", numClientsServiced);
-                    pollCount--;
-                }
-                else {
-                    // Print out client message and send confirmation
-                    printf("[Server] Client %d sent message: %s\n", clientSocket, clientReadBuffer);
-                    memset(msgToSend, 0, sizeof(msgToSend));
-                    snprintf(msgToSend, sizeof(msgToSend), "Received your message: %s", clientReadBuffer);
-                    if (send(clientSocket, msgToSend, strnlen(msgToSend, sizeof(msgToSend)), 0) == -1) {
-                        perror("Send to client");
-                        exit(EXIT_FAILURE);
-                    }
-
-                }
+                evSocket->handleSocketEvent(ev);
             }
         }
-
-
     }
 }
