@@ -11,8 +11,6 @@
 #include "RaftGlobals.hh"
 #include "LogStateMachine.hh"
 
-using namespace Common; // TODO: fix this idk
-
 namespace Raft {
 
     class Consensus {
@@ -21,6 +19,12 @@ namespace Raft {
              * @brief Constructor with the globals and config
             */
             explicit Consensus( Raft::Globals& globals, ServerConfig config, std::shared_ptr<Raft::LogStateMachine> stateMachine);
+
+            /**
+             * @brief Begin timer thread within consensus module
+             * 
+             * @return Thread ID for tracking in Global
+            */
 
             /**
              * Enum for: Follower, Candidate, Leader as specified in Figure 2
@@ -38,43 +42,54 @@ namespace Raft {
 
             /**
              * @brief Given an RPC request, process it
+             * Note: This method will be exposed to the IncomingSocketManager either directly or via globals
+             * 
+             * @param rpcReqMessage from a specific server
+             * 
+             * @param serverId integer server ID from config file, or the ID assigned to the client by IncomingSocketManager
              * 
              * @return The response in RPC form
             */
-            message processRPCRequests (message messages);
+            message processRPCRequests (message rpcReqMessage, int serverId);
 
             /**
-             * @brief Given a vector of RPC responses, process them
+             * @brief Given an RPC response, process it
+             * Note: This method will be exposed to the OutgoingSocketManager either directly or via globals
+             * TODO: Decide what to do if this is a vector, will that happen? dicey behavior
+             * 
+             * @param rpcRespMessage from a specific server
+             * 
+             * @param serverId integer server ID from config file
             */
-            void processRPCResponses (std::vector<message> messages);
+            void processRPCResponses (message rpcRespMessage, int serverId);
 
             /**
              * @brief Receiver Implementation of AppendEntriesRPC
              * Produces a response to send back
              * Follows bottom left box in Figure 2
             */
-            AppendEntriesResponse processAppendEntriesRPC(AppendEntriesRequest req); 
+            AppendEntriesResponse receivedAppendEntriesRPC(AppendEntriesRequest req); 
 
             /**
              * @brief Sender Implementation of AppendEntriesRPC
              * Process the response received(term, success)
              * Follows bottom left box in Figure 2
             */
-            void processAppendEntriesRPC(AppendEntriesRequest req);
+            void resp2AppendEntriesRPC(AppendEntriesResponse resp);
 
             /**
              * @brief Receiver Implementation of RequestVoteRPC
              * Produces a response to send back
              * Follows upper right box in Figure 2
             */
-            RequestVoteResponse processRequestVoteRPC(RequestVoteRequest req); 
+            RequestVoteResponse receivedRequestVoteRPC(RequestVoteRequest req); 
 
             /**
              * @brief Sender Implementation of RequestVoteRPC
              * Process the response received(term, voteGranted)
              * Follows upper right box in Figure 2
             */
-            void processRequestVoteRPC(RequestVoteRequest req); 
+            void processRequestVoteRPC(RequestVoteResponse resp); 
 
         private:
             /**

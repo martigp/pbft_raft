@@ -1,12 +1,11 @@
 #include <string>
 #include <sys/event.h>
-#include "RaftIncomingSocketConnections.hh"
+#include "SocketManager.hh"
 #include "socket.hh"
 
 namespace Raft {
     
-    IncomingSocketConnections::IncomingSocketConnections()
-        : config()
+    SocketManager::SocketManager()
     {        
         kq = kqueue();
         if (kq == -1) {
@@ -15,30 +14,14 @@ namespace Raft {
         }
     }
 
-    IncomingSocketConnections::~IncomingSocketConnections()
+    SocketManager::~SocketManager()
     {
     }
 
-    void IncomingSocketConnections::init(ServerConfig config) {
-        this->config = configPath;
-        listenSocketFd = createListenSocketFd();
-
-        printf("[Server] Listening on port %d\n", RAFT_PORT);
-
-        Raft::ListenSocket * listenSocket = 
-                                new Raft::ListenSocket(listenSocketFd, &globals);
-
-        globals.addkQueueSocket(listenSocket);
-
-
-        printf("[Server] Set up kqueue with listening socket\n");
+    void SocketManager::init() {
     }
 
-    void IncomingSocketConnections::start() {
-
-    }
-
-    bool IncomingSocketConnections::addkQueueSocket(Socket* socket) {
+    bool SocketManager::addkQueueSocket(Socket* socket) {
         struct kevent ev;
 
         /* Set flags in event for kernel to notify when data arrives
@@ -53,7 +36,7 @@ namespace Raft {
         return true;
     }
 
-    bool IncomingSocketConnections::removekQueueSocket(Socket* socket) {
+    bool SocketManager::removekQueueSocket(Socket* socket) {
         struct kevent ev;
 
         /* Set flags for an event to stop the kernel from listening for
@@ -68,5 +51,33 @@ namespace Raft {
         delete socket;
 
         return true;
+    }
+
+    IncomingSocketManager::IncomingSocketManager( Raft::Globals& globals, Common::ServerConfig config )
+        : SocketManager()
+        , globals( globals )
+        , config ( config )
+    {        
+    }
+
+    IncomingSocketManager::~IncomingSocketManager()
+    {
+    }
+
+    void IncomingSocketManager::init() {
+    }
+
+    OutgoingSocketManager::OutgoingSocketManager( Raft::Globals& globals, Common::ServerConfig config )
+        : SocketManager()
+        , globals( globals )
+        , config ( config )
+    {        
+    }
+
+    OutgoingSocketManager::~OutgoingSocketManager()
+    {
+    }
+
+    void OutgoingSocketManager::init() {
     }
 }
