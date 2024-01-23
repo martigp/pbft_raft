@@ -10,7 +10,8 @@
 
 namespace Raft {
     
-    Globals::Globals()
+    Globals::Globals( std::string configPath )
+        : config( configPath )
     {        
         kq = kqueue();
         if (kq == -1) {
@@ -23,74 +24,8 @@ namespace Raft {
     {
     }
 
-    void Globals::init(std::string configPath) {
-
-        libconfig::Config cfg;
-
-        // Read the file. If there is an error, report it and exit.
-        try
-        {
-            cfg.readFile(configPath);
-        }
-        catch(const libconfig::FileIOException &fioex)
-        {
-            std::cerr << "I/O error while reading file." << std::endl;
-            exit(EXIT_FAILURE);
-        }
-        catch(const libconfig::ParseException &pex)
-        {
-            std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
-                    << " - " << pex.getError() << std::endl;
-            exit(EXIT_FAILURE);
-        }
-
-        try {
-            std::string cfgListenAddr = cfg.lookup("listenAddress");
-            listenAddr = cfgListenAddr;
-            raftPort = cfg.lookup("raftPort");
-
-            const libconfig::Setting& root = cfg.getRoot();
-            const libconfig::Setting& servers = root["servers"];
-            int numServers = servers.getLength();
-
-            for (int i = 0; i < numServers; i++) {
-                int serverId;
-                std::string serverIPAddr;
-                struct sockaddr_in serverSockAddr;
-
-                const libconfig::Setting &server = servers[i];
-
-                if (!server.lookupValue("id", serverId) ||
-                    !server.lookupValue("address", serverIPAddr)) {
-                        std::cerr << "Failed to read server " << i << 
-                        " config information." << std::endl;
-                        exit(EXIT_FAILURE);
-                    }
-                
-                serverSockAddr.sin_family = AF_INET;
-                serverSockAddr.sin_port = htons(raftPort);
-
-                // Convert IPv4 and IPv6 addresses from text to binary
-                // form
-                if (inet_pton(AF_INET, serverIPAddr.c_str(),
-                              &serverSockAddr.sin_addr) <= 0) {
-                    std::cerr << "Invalid server config address" << 
-                                 serverIPAddr << std::endl;
-                    exit(EXIT_FAILURE);
-                }
-
-                /* Might need to do better memory management here e.g. not
-                   a stack allocated string? */
-                clusterMap[serverId] = serverSockAddr;
-            }
-
-
-        }
-        catch(const libconfig::SettingNotFoundException &nfex)
-        {
-            std::cerr << "Server setting not found in cfg file," << std::endl;
-            exit(EXIT_FAILURE);
-        }
+    void Globals::init()
+    {
     }
 
     bool Globals::addkQueueSocket(Socket* socket) {

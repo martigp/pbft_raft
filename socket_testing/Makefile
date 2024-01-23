@@ -28,7 +28,7 @@ proto_middleman: $(PROTO_DIR)/*.proto
 # 	$(CCX) $(CFLAGS) -c $^ -o $(ODIR)/$@
 
 server: $(SRC_DIR)/RaftGlobals.cc $(SRC_DIR)/socket.cc $(SRC_DIR)/server.cc \
-		$(PROTO_DIR)/test.pb.cc
+		$(PROTO_DIR)/test.pb.cc $(SRC_DIR)/Common/*.cc
 	$(CCX) $(CFLAGS) $(LIBS) $^ -o $(BLD_DIR)/$@
 	export DYLD_LIBRARY_PATH=../install/runtime_libs/
 
