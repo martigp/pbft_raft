@@ -6,6 +6,7 @@
 #include <sys/event.h>
 #include "RaftGlobals.hh"
 #include "socket.hh"
+#include "protobuf/test.pb.h"
 
 namespace Raft {
 
@@ -37,17 +38,23 @@ namespace Raft {
 
         if (ev.filter & EVFILT_READ && (int) ev.data > 0) {
             ssize_t bytesRead;
-            char clientReadBuffer[256];
+            char buf[sizeof(Test::TestMessage)];
             char response[256];
 
-            memset(clientReadBuffer, 0, sizeof(clientReadBuffer));
+            memset(buf, 0, sizeof(buf));
 
-            bytesRead = recv(evSocketFd, clientReadBuffer,
-                             sizeof(clientReadBuffer), 0);
+            bytesRead = recv(evSocketFd, buf, sizeof(buf), 0);
+
+            Test::TestMessage receivedProtoMsg;
+
+            receivedProtoMsg.ParseFromArray(buf, sizeof(buf));
 
             printf("[Server] Bytes Received %zu\n"
-                    "[Server] Client %d sent message: %s\n",
-                                    bytesRead, evSocketFd, clientReadBuffer);
+                    "[Server] Client with id %llu sent message: %s\n",
+                                    bytesRead,
+                                    receivedProtoMsg.sender(),
+                                    receivedProtoMsg.msg().c_str());
+            
             memset(response, 0, sizeof(response));
             strncpy(response, "Received your message", sizeof(response));
 

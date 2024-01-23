@@ -69,13 +69,15 @@ a general purpose parsing and passing it down to a relevant submodule
     /* Socket that listens for incoming connections. */
     class ListenerSocket : public Socket {
 
+        list[str] = addreses (cross reference with what you accept)
+
         /* Accepts valid connections and add the new socket to the list of 
          * sockets polled for events. Drops any invalid connections. */
         void handleSocketEvent()
     }
 
     /* This can be for a RaftClient or RaftServer */
-    class AcceptedSocket : public Socket {
+    class ServerSocket : public Socket {
         
         /* Process request messages recieved from a client. */
         void handleSocketEvent()
@@ -85,11 +87,35 @@ a general purpose parsing and passing it down to a relevant submodule
          * this when it is readable or when received a messaged? */
     }
 
+    class RaftC2SSocket : public ServerSocket {
+
+    }
+
+    class RaftS2SSocket : public ServerSocket {
+
+    }
+
+
+    timerThread
+
+    Leader: heartbeat
+        Send out RPCs only when heartbeatTimer goes off
+    Candidate: electionTimeout
+        Wait for electionTimeout to finish to decide whether you are leader
+    Follower: electionTimeout
+        Become a candidate when electionTimeout goes off
+
+
+    
+    Polling Thread:
+
+    class RaftServer
+
     /* This class will have already sent its request and will therefore be
      * waiting for a response from a server.
      * TODO: Deal with timeouts.
      */
-    class ConnectedSocket : public Socket {
+    class ClientSocket : public Socket {
         /* Process response messages received from a server.  */
         void handleSocketEvent()
 
@@ -108,12 +134,5 @@ a general purpose parsing and passing it down to a relevant submodule
     On a ConnectedSocket (i.e. you are the client), you want want to send some
     data and either receive the response or resent after some timeouts
 
-    On an accepted socket you are simply listening and then sending a respons.
-
-
-Event handling:
-
-To read and react to an event I believe we will need
-- socketFd: to perform any socket operations e.g. respond, close socket etc.
-- 
+    On an accepted socket you are simply listening and then sending a response.
 

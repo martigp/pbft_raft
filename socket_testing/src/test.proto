@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-package candy;
-
-message Message
-{
-    string sender=1;
-    string msg=2;
-}

@@ -12,6 +12,7 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include "protobuf/test.pb.h"
 
 #define PORT 1234
 #define NUM_THREADS 1
@@ -24,7 +25,18 @@ void connectAndSendToServer(int tid)
 restart:
 	int status, readBytes, clientFd;
 	struct sockaddr_in serv_addr;
-	const char* hello = "Message sent from client";
+	Test::TestMessage protoMsg;
+
+	char hello[sizeof(Test::TestMessage)];
+	protoMsg.set_msg("Protobuf Message");
+	protoMsg.set_sender((uint64_t) tid);
+
+	protoMsg.SerializeToArray(hello, sizeof(hello));
+
+	// Raft::AppendEntries::Request deserializedAppendEntriesMsg;
+	// deserializedAppendEntriesMsg.ParseFromArray(hello, sizeof(hello));
+	// printf("Deserialized msg has leader commit of %llu\n", deserializedAppendEntriesMsg.leadercommit());
+
 	char buffer[1024] = { 0 };
 	if ((clientFd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		printf("\n Socket creation error \n");
@@ -50,14 +62,17 @@ restart:
 		< 0) {
 		printf("\nConnection Failed \n");
 		close(clientFd);
-		return;
+		sleep(5);
+		goto restart;
 	}
 	printf("[Client %d] Connected to server\n", tid);
 
-	send(clientFd, hello, strlen(hello), 0);
+	while (send(clientFd, hello, strlen(hello), 0) < 1)
+		sleep(2);
+	
 	printf("[Client %d] Sent msg %s to server\n", tid, hello);
 	while (true) {
-		readBytes = read(clientFd, buffer, 1024 - 1);
+		readBytes = recv(clientFd, buffer, 1024 - 1, 0);
 		if (readBytes > 0 ) {
 			printf("[Client %d] received: %s\n", tid, buffer);
 			globalLock.lock();
@@ -65,8 +80,9 @@ restart:
 			globalLock.unlock();
 
 		} else if (readBytes == 0) {
+			close(clientFd);
 			printf("[Client %d] received no bytes from server\n", tid);
-			break;
+			goto restart;
 		} else {
 			printf("[Client %d] Received bad value from server\n", tid);
 			close(clientFd);

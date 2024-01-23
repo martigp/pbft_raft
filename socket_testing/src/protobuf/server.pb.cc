@@ -245,7 +245,6 @@ static const ::_pbi::MigrationSchema
         {53, -1, -1, sizeof(::Raft::RequestVote_Response)},
         {63, -1, -1, sizeof(::Raft::RequestVote)},
 };
-
 static const ::_pb::Message* const file_default_instances[] = {
     &::Raft::_Entry_default_instance_._instance,
     &::Raft::_AppendEntries_Request_default_instance_._instance,
