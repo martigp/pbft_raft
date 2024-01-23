@@ -14,7 +14,7 @@ namespace Raft {
             /**
              * @brief Construct a new SocketManager that stores the "global socket kqueue" state
              */
-            SocketManager();
+            SocketManager( Globals& globals );
 
             /* Destructor */
             ~SocketManager();
@@ -35,7 +35,7 @@ namespace Raft {
              * @return Whether the file descriptor was registered for
              * monitoring.
              */
-            bool addkQueueSocket(Socket* socket);
+            bool registerSocket( Socket* socket );
 
             /**
              * @brief 
@@ -45,7 +45,7 @@ namespace Raft {
              * @return true 
              * @return false 
              */
-            bool removekQueueSocket(Socket* socket);
+            bool removeSocket( Socket* socket );
         
             /**
              * @brief The file descriptor of the kqueue that alerts a RaftServer
@@ -59,23 +59,17 @@ namespace Raft {
             */
             Raft::Globals& globals;
 
-            /**
-             * @brief The ServerConfig object after configPath is parsed.
-             * Used mainly for the "self" field
-             */
-            Common::ServerConfig config;
-
     }; // class SocketManager
 
-    class IncomingSocketManager: public SocketManager {
+    class ClientSocketManager: public SocketManager {
         public:
             /**
              * @brief Construct a new SocketManager that stores the Global Raft State
              */
-            IncomingSocketManager( Raft::Globals& globals, Common::ServerConfig config );
+            ClientSocketManager( Raft::Globals& globals );
 
             /* Destructor */
-            ~IncomingSocketManager();
+            ~ClientSocketManager();
 
             /**
              * @brief Initialize a SocketManager Listen Socket with parameters 
@@ -87,30 +81,17 @@ namespace Raft {
              * @brief Start the IncomingSocketManager process
              */
             void start();
-        
-        private:
-            /**
-             * @brief Reference to server globals
-            */
-            Raft::Globals& globals;
-
-            /**
-             * @brief The ServerConfig object after configPath is parsed.
-             * Used mainly for the "self" field
-             */
-            Common::ServerConfig config;
-
     }; // class IncomingSocketManager
 
-    class OutgoingSocketManager: public SocketManager {
+    class ServerSocketManager: public SocketManager {
         public:
             /**
              * @brief Construct a new OutgoingSocketManager that stores the Global Raft State
              */
-            OutgoingSocketManager( Raft::Globals& globals, Common::ServerConfig config );
+            ServerSocketManager( Raft::Globals& globals );
 
             /* Destructor */
-            ~OutgoingSocketManager();
+            ~ServerSocketManager();
 
             /**
              * @brief Initialize outgoing manager state 
@@ -121,18 +102,6 @@ namespace Raft {
              * @brief Start the OutgoingSocketManager process
              */
             void start();
-        
-        private:
-            /**
-             * @brief Reference to server globals
-            */
-            Raft::Globals& globals;
-
-            /**
-             * @brief The ServerConfig object after configPath is parsed.
-             * Used mainly for the "self" field
-             */
-            Common::ServerConfig config;
 
     }; // class OutgoingSocketManager
 

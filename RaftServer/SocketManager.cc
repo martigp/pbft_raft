@@ -5,7 +5,8 @@
 
 namespace Raft {
     
-    SocketManager::SocketManager()
+    SocketManager::SocketManager( Globals& globals )
+        : globals(globals)
     {        
         kq = kqueue();
         if (kq == -1) {
@@ -21,7 +22,7 @@ namespace Raft {
     void SocketManager::init() {
     }
 
-    bool SocketManager::addkQueueSocket(Socket* socket) {
+    bool SocketManager::registerSocket( Socket* socket ) {
         struct kevent ev;
 
         /* Set flags in event for kernel to notify when data arrives
@@ -36,7 +37,7 @@ namespace Raft {
         return true;
     }
 
-    bool SocketManager::removekQueueSocket(Socket* socket) {
+    bool SocketManager::removeSocket( Socket* socket ) {
         struct kevent ev;
 
         /* Set flags for an event to stop the kernel from listening for
@@ -53,31 +54,21 @@ namespace Raft {
         return true;
     }
 
-    IncomingSocketManager::IncomingSocketManager( Raft::Globals& globals, Common::ServerConfig config )
-        : SocketManager()
-        , globals( globals )
-        , config ( config )
+    ClientSocketManager::ClientSocketManager( Raft::Globals& globals )
+        : SocketManager( globals )
     {        
     }
 
-    IncomingSocketManager::~IncomingSocketManager()
+    ClientSocketManager::~ClientSocketManager()
     {
     }
 
-    void IncomingSocketManager::init() {
-    }
-
-    OutgoingSocketManager::OutgoingSocketManager( Raft::Globals& globals, Common::ServerConfig config )
-        : SocketManager()
-        , globals( globals )
-        , config ( config )
+    ServerSocketManager::ServerSocketManager( Raft::Globals& globals )
+        : SocketManager( globals )
     {        
     }
 
-    OutgoingSocketManager::~OutgoingSocketManager()
+    ServerSocketManager::~ServerSocketManager()
     {
-    }
-
-    void OutgoingSocketManager::init() {
     }
 }
