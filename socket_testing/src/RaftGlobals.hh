@@ -3,6 +3,9 @@
 
 #include <string>
 #include <memory>
+#include <libconfig.h++>
+#include <unordered_map>
+#include <netinet/in.h>
 #include "socket.hh"
 
 namespace Raft {
@@ -37,7 +40,7 @@ namespace Raft {
             bool addkQueueSocket(Socket* socket);
 
             /**
-             * @brief 
+             * @brief Stop monitoring a socket.
              * 
              * @param socket Socket object to access when an event happens on
              * the corresponding file descriptor.
@@ -51,14 +54,25 @@ namespace Raft {
              * of events on any open sockets the kqueue monitors.
              */
             int kq;
+
+            /**
+             * @brief Port used by Raft
+             */
+            int raftPort;
+
+            /**
+             * @brief Address to listen for incoming connections
+             * 
+             */
+            std::string listenAddr;
         
         private:
 
             /**
-             * @brief The path of the configuration file to be read for Raft
-             * initialization.
+             * @brief Map of ID to address, I think this is better
              */
-            std::string configPath;
+            std::unordered_map<int, sockaddr_in> clusterMap;
+
     }; // class Globals
 } // namespace Raft
 

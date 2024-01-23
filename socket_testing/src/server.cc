@@ -6,16 +6,16 @@
 #include <sys/poll.h>
 #include <unistd.h>
 #include <netinet/tcp.h>
+#include <arpa/inet.h>
 #include <sys/event.h>
 #include <sys/time.h>
 #include <memory>
 #include "RaftGlobals.hh"
 #include "socket.hh"
 
-#define RAFT_PORT 1234
 #define MAX_CONNECTIONS 1
 #define MAX_EVENTS 1
-#define CONFIG_PATH ""
+#define CONFIG_PATH "src/server.cfg"
 
 using namespace Raft;
 
@@ -26,7 +26,7 @@ using namespace Raft;
  * 
  * @return int The file descriptor of the listening socket.
  */
-int createListenSocketFd(void) {
+int createListenSocketFd(Raft::Globals& globals) {
 
     int socketFd;
     struct sockaddr_in address;
@@ -46,8 +46,13 @@ int createListenSocketFd(void) {
         exit(EXIT_FAILURE);
     }
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(RAFT_PORT);
+    address.sin_port = htons(globals.raftPort);
+
+    if (inet_pton(AF_INET, globals.listenAddr.c_str(),
+                              &address.sin_addr) <= 0) {
+        perror("Invalid server listen address");
+        exit(EXIT_FAILURE);
+    }
  
     // Forcefully attaching socket to the port RAFT_PORT
     if (bind(socketFd, (struct sockaddr*)&address,
@@ -69,13 +74,12 @@ int main(int argc, char const* argv[])
 {   
     Raft::Globals globals;
     int listenSocketFd;
-    // struct kevent listenEv;
     
     globals.init(CONFIG_PATH);
 
-    listenSocketFd = createListenSocketFd();
+    listenSocketFd = createListenSocketFd(globals);
 
-    printf("[Server] Listening on port %d\n", RAFT_PORT);
+    printf("[Server] Listening on port %d\n", globals.raftPort);
 
     Raft::ListenSocket * listenSocket = 
                             new Raft::ListenSocket(listenSocketFd, &globals);

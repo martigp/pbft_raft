@@ -1,0 +1,14 @@
+prefix=/Users/g/Desktop/sclass/co_win/cs190/raft1/install
+exec_prefix=/Users/g/Desktop/sclass/co_win/cs190/raft1/install
+libdir=/Users/g/Desktop/sclass/co_win/cs190/raft1/install/lib
+includedir=/Users/g/Desktop/sclass/co_win/cs190/raft1/install/include
+
+Name: libconfig++
+Description: C++ Configuration File Library
+Version: @VERSION@
+URL: http://www.hyperrealm.com/main.php?s=libconfig
+Requires:
+Conflicts:
+Libs: -L${libdir} -lconfig++
+Libs.private: @LIBS@ 
+Cflags: -I${includedir}

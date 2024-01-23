@@ -12,11 +12,11 @@ OBJECTS=$(patsubst %.c, %.o, $(SOURCES))
 CFLAGS += -Wall -Werror -std=c++17
 
 CFLAGS += $(shell export PKG_CONFIG_PATH=$(PWD)/install/lib/pkgconfig; \
-			 pkg-config --cflags protobuf)
+			 pkg-config --cflags protobuf libconfig++)
 
 
 LIBS := $(shell export PKG_CONFIG_PATH=../install/lib/pkgconfig; \
-		  pkg-config --cflags --libs protobuf)
+		  pkg-config --cflags --libs protobuf libconfig++)
 
 # -o specifies the output fiule
 all: proto_middleman server client
@@ -30,6 +30,7 @@ proto_middleman: $(PROTO_DIR)/*.proto
 server: $(SRC_DIR)/RaftGlobals.cc $(SRC_DIR)/socket.cc $(SRC_DIR)/server.cc \
 		$(PROTO_DIR)/test.pb.cc
 	$(CCX) $(CFLAGS) $(LIBS) $^ -o $(BLD_DIR)/$@
+	export DYLD_LIBRARY_PATH=../install/runtime_libs/
 
 # client: $(SRC_DIR)/client.cc
 # 	$(CCX) $(CFLAGS) $< -o $(BLD_DIR)/$@

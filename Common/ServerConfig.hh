@@ -15,14 +15,14 @@ namespace Common {
             /**
              * @brief Construct a new ServerConfig that stores the Raft ServerConfig State
              */
-            ServerConfig(std::string config_path);
+            ServerConfig(std::string configPath);
 
             /* Destructor */
             ~ServerConfig();
 
         private:
             /**
-             * @brief List of addresses
+             * @brief Addresses of the servers
              */
             std::vector<sockaddr_in> addresses;
 

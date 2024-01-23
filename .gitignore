@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-.vscode
-=======
 .vscode/
->>>>>>> ac995559c486f5ed4ea93226455de598602d7963
+protobuf
+libconfig
