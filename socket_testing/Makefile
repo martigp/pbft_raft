@@ -27,8 +27,9 @@ proto_middleman: $(PROTO_DIR)/*.proto
 # server.o: $(SRC_DIR)/server.cc
 # 	$(CCX) $(CFLAGS) -c $^ -o $(ODIR)/$@
 
-server: $(SRC_DIR)/*.cc $(PROTO_DIR)/test.pb.cc
-	$(CCX) $(CFLAGS) $^ -o $(BLD_DIR)/$@
+server: $(SRC_DIR)/RaftGlobals.cc $(SRC_DIR)/socket.cc $(SRC_DIR)/server.cc \
+		$(PROTO_DIR)/test.pb.cc
+	$(CCX) $(CFLAGS) $(LIBS) $^ -o $(BLD_DIR)/$@
 
 # client: $(SRC_DIR)/client.cc
 # 	$(CCX) $(CFLAGS) $< -o $(BLD_DIR)/$@
