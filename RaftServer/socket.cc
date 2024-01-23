@@ -4,14 +4,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/event.h>
-#include "RaftGlobals.hh"
+#include "SocketManager.hh"
 #include "socket.hh"
 
 namespace Raft {
 
-    Socket::Socket(int fd, Globals* globals)
+    Socket::Socket(int fd, SocketManager* socketManager)
         : fd(fd)
-        , globals(globals)
+        , socketManager(socketManager)
     { }
 
     Socket::~Socket()
@@ -23,8 +23,8 @@ namespace Raft {
         printf("[Server] socket %d deleted.", fd);
     }
 
-    ServerSocket::ServerSocket(int fd, Globals* globals)
-        : Socket(fd, globals)
+    ServerSocket::ServerSocket(int fd, SocketManager* socketManager)
+        : Socket(fd, socketManager)
     {
 
     }
@@ -61,8 +61,8 @@ namespace Raft {
         }
     }
 
-    ListenSocket::ListenSocket(int fd, Globals* globals)
-        : Socket(fd, globals)
+    ListenSocket::ListenSocket(int fd, SocketManager* socketManager)
+        : Socket(fd, socketManager)
     { }
 
     ListenSocket::~ListenSocket()
@@ -84,7 +84,7 @@ namespace Raft {
 
         printf("[Server] accepted new client on socket %d\n", socketFd);
 
-        ServerSocket * serverSocket = new ServerSocket(socketFd, globals);
-        globals->addkQueueSocket(serverSocket);
+        ServerSocket * serverSocket = new ServerSocket(socketFd, socketManager);
+        socketManager->addkQueueSocket(serverSocket);
     }
 }

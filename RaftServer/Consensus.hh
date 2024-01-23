@@ -11,8 +11,6 @@
 #include "RaftGlobals.hh"
 #include "LogStateMachine.hh"
 
-using namespace Common; // TODO: fix this idk
-
 namespace Raft {
 
     class Consensus {

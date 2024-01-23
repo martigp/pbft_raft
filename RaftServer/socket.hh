@@ -2,7 +2,7 @@
 #define RAFT_SOCKET_H
 
 #include <sys/event.h>
-#include "RaftGlobals.hh"
+#include "SocketManager.hh"
 
 namespace Raft {
 
@@ -12,14 +12,14 @@ namespace Raft {
  * socket.
  */
 
-class Globals;
+class SocketManager;
 
 class Socket {
     public:
         /**
          * @brief Construct a new Socket object
          */
-        Socket(int fd, Globals* globals);
+        Socket(int fd, SocketManager* socketManager);
 
         /* Destructor */
         virtual ~Socket() = 0;
@@ -41,10 +41,10 @@ class Socket {
         const int fd;
 
         /**
-         * @brief A pointer to the raft Globals used to perform actions
+         * @brief A pointer to the raft SocketManager used to perform actions
          * in response to events on a socket.
          */
-        Globals* globals;
+        SocketManager* socketManager;
 }; // class Socket
 
 /**
@@ -59,9 +59,9 @@ class ListenSocket : public Socket {
          * connection requests.
          * 
          * @param fd The file descriptor of the socket.
-         * @param globals The Raft Global State.
+         * @param socketManager The SocketManager State.
          */
-        ListenSocket(int fd, Globals* globals);
+        ListenSocket(int fd, SocketManager* socketManager);
 
         /* Destructor */
         ~ListenSocket();
@@ -89,9 +89,9 @@ class ServerSocket : public Socket {
          * descriptor.
          * 
          * @param fd The file descriptor of a socket connected to a client.
-         * @param globals The Raft Global State.
+         * @param socketManager The SocketManager State.
          */
-        ServerSocket(int fd, Globals* globals);
+        ServerSocket(int fd, SocketManager* socketManager);
 
         /* Destructor */
         ~ServerSocket();

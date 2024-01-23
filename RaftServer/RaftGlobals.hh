@@ -3,7 +3,9 @@
 
 #include <string>
 #include <memory>
-#include "socket.hh"
+#include "SocketManager.hh"
+#include "Consensus.hh"
+#include "LogStateMachine.hh"
 
 namespace Raft {
     class Globals {
@@ -21,6 +23,7 @@ namespace Raft {
              * file.
              * 
              * @param configPath The path of the configuration file. 
+             * TODO: decide on having config in constructor for everything or in the init of everything
              */
             void init(std::string configPath);
 
@@ -28,34 +31,6 @@ namespace Raft {
              * @brief Start the globals process
              */
             void start();
-
-            /**
-             * @brief Register a socket to be monitored by the kernel. Any 
-             * future calls to kevent will return is there were any events on 
-             * the socket.
-             * 
-            * @param socket Socket object to access when an event happens on
-             * the corresponding file descriptor.
-             * @return Whether the file descriptor was registered for
-             * monitoring.
-             */
-            bool addkQueueSocket(Socket* socket);
-
-            /**
-             * @brief 
-             * 
-             * @param socket Socket object to access when an event happens on
-             * the corresponding file descriptor.
-             * @return true 
-             * @return false 
-             */
-            bool removekQueueSocket(Socket* socket);
-        
-            /**
-             * @brief The file descriptor of the kqueue that alerts a RaftServer
-             * of events on any open sockets the kqueue monitors.
-             */
-            int kq;
         
         private:
 
@@ -71,6 +46,16 @@ namespace Raft {
             Common::ServerConfig config;
 
             /**
+             * @brief Incoming Manager.
+             */
+            std::shared_ptr<Raft::IncomingSocketManager> incomingSockets;
+
+            /**
+             * @brief Outgoing Manager.
+             */
+            std::shared_ptr<Raft::OutgoingSocketManager> outgoingSockets;
+
+            /**
              * @brief Raft Consensus Unit: Figure 2 from Paper.
              */
             std::shared_ptr<Raft::Consensus> raftConsensus;
@@ -79,8 +64,6 @@ namespace Raft {
              * @brief Log State Machine.
              */
             std::shared_ptr<Raft::LogStateMachine> stateMachine;
-
-
 
     }; // class Globals
 } // namespace Raft
