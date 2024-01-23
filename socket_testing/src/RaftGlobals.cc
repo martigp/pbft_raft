@@ -6,12 +6,14 @@
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include "RaftGlobals.hh"
-#include "socket.hh"
+#include "Socket.hh"
 
 namespace Raft {
     
     Globals::Globals( std::string configPath )
-        : config( configPath )
+        : config( configPath ),
+          clientSocketManager(),
+          serverSocketManager()
     {        
         kq = kqueue();
         if (kq == -1) {

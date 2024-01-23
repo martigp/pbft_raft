@@ -7,14 +7,17 @@
 #include "RaftGlobals.hh"
 
 namespace Raft {
-    // use name SocketManager instead of Globals as you did in your socket_testing
-    // we will have two of these 
+
+    // Forward declare the Globals.
+    class Globals;
+    class Socket;
+
     class SocketManager {
         public:
             /**
              * @brief Construct a new SocketManager that stores the "global socket kqueue" state
              */
-            explicit SocketManager( Globals& globals );
+            SocketManager( Globals& globals );
 
             /* Destructor */
             ~SocketManager();
@@ -66,7 +69,7 @@ namespace Raft {
             /**
              * @brief Construct a new SocketManager that stores the Global Raft State
              */
-            explicit ClientSocketManager( Raft::Globals& globals );
+            ClientSocketManager( Raft::Globals& globals );
 
             /* Destructor */
             ~ClientSocketManager();
@@ -88,7 +91,7 @@ namespace Raft {
             /**
              * @brief Construct a new OutgoingSocketManager that stores the Global Raft State
              */
-            explicit ServerSocketManager( Raft::Globals& globals );
+            ServerSocketManager( Raft::Globals& globals );
 
             /* Destructor */
             ~ServerSocketManager();

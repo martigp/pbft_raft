@@ -11,7 +11,7 @@
 #include <sys/time.h>
 #include <memory>
 #include "RaftGlobals.hh"
-#include "socket.hh"
+#include "Socket.hh"
 
 #define MAX_CONNECTIONS 1
 #define MAX_EVENTS 1

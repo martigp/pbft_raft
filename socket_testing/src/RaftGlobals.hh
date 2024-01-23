@@ -7,9 +7,15 @@
 #include <unordered_map>
 #include <netinet/in.h>
 #include "Common/ServerConfig.hh"
-#include "socket.hh"
+#include "SocketManager.hh"
+#include "Socket.hh"
 
 namespace Raft {
+
+    class ClientSocketManager;
+    class ServerSocketManager;
+    class Socket;
+
     class Globals {
         public:
             /**
@@ -36,19 +42,21 @@ namespace Raft {
             /**
              * @brief All configuration parameters to be used by a RaftServer
              */
-
             Common::ServerConfig config;
 
             /**
-             * @brief Port used by Raft
+             * @brief Service that handles any actions on sockets where the
+             * RaftServer is the client i.e. it initiated the connection.
              */
-            int raftPort;
+            std::shared_ptr<ClientSocketManager> clientSocketManager;
 
             /**
-             * @brief Address to listen for incoming connections
-             * 
+             * @brief Service that handles any actions on sockets where the
+             * RaftServer the server i.e. it did not initiate the connection.
              */
-            std::string listenAddr;
+            std::shared_ptr<ServerSocketManager> serverSocketManager;
+
+
 
             bool addkQueueSocket(Socket* socket);
 
