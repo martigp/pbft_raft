@@ -3,6 +3,11 @@
  * TODO: If we have time, can make a generic StateMachine class and
  * do a wrapper for the replicated log specifics, such that Globals and Consensus
  * can have standardized calls to whatever StateMachine is present
+ * 
+ * TODO: Do project 2! Right now, this only executes a shell command. There is none
+ * of the functionality required of the final replicated shell. Essentially only exists
+ * to demonstrate abstraction that State Machine will exist outside of Consensus.
+ * The method is called .proj1Execute() 
 */
 
 #ifndef RAFT_LOGSTATEMACHINE_H
@@ -10,6 +15,7 @@
 
 #include <string>
 #include <vector>
+#include "RaftGlobals.hh"
 
 namespace Raft {
 
@@ -25,28 +31,22 @@ namespace Raft {
             ~LogStateMachine();
 
             /**
-             * @brief Apply command at specific index
-             * TODO: what needs to be passed, does the state machine hold the indices?
-             * TODO: How does thread and returning an index look like
-             *      What if the state machine ran a thread waiting to be notified of new commits, 
-             *          thus this is always as up to date as possible (LogStateMachine.run())
-             *      Then what if whatever function handles a command from client can also spawn a 
-             *          thread that will wait until that index is applied (LogStateMachine.wait(7))
-             *      Need locks and condition variables within this module since it will get notified
-             *          by Consensus about new commits, needs to notify Consesus about application, then
-             *          either Consensus or someone peering into here will tell the thread dealing with 
-             *          RaftClient requests that it can return? I guess if multiple outstanding client 
-             *          requests can exist, then we can spawn a thread for each that has the fd of the client
-             *          and will wait until it's applied. thread can kill iteself after not being able to communicate
-             *          back to client if that happens
+             * @brief Project 1 Specific: Execute command and return response.
+             * For now, this will be called directly from the global handleClientRequest() method.
+             * Returns the result 
              */
-            apply(int logIdx, std::string command);
+            std::string proj1Execute(std::string command);
 
         private:
             /**
-             * Log of applied commands
+             * @brief Reference to server globals
             */
-            std::vector<std::string> commands;
+            Raft::Globals& globals;
+
+            /**
+             * @brief Pointer to consensus module used for checking state
+            */
+            std::shared_ptr<Raft::Consensus> consensus;
 
     }; // class LogStateMachine
 } // namespace Raft

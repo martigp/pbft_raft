@@ -8,6 +8,10 @@
 #define RAFT_CONSENSUS_H
 
 #include <string>
+#include "RaftGlobals.hh"
+#include "LogStateMachine.hh"
+
+using namespace Common; // TODO: fix this idk
 
 namespace Raft {
 
@@ -17,6 +21,20 @@ namespace Raft {
              * @brief Constructor with the globals and config
             */
             explicit Consensus( Raft::Globals& globals, ServerConfig config, std::shared_ptr<Raft::LogStateMachine> stateMachine);
+
+            /**
+             * Enum for: Follower, Candidate, Leader as specified in Figure 2
+            */
+            enum class ServerState {
+                FOLLOWER,
+                CANDIDATE,
+                LEADER
+            };
+
+            /**
+             * @brief State of this server
+            */
+            ServerState myState;
 
             /**
              * @brief Given an RPC request, process it
@@ -60,9 +78,19 @@ namespace Raft {
 
         private:
             /**
-             * Enum for: Follower, Candidate, Leader
+             * @brief Reference to server globals
             */
-            ServerState myState;
+            Raft::Globals& globals;
+
+            /**
+             * @brief Pointer to state machine module (currently unused)
+            */
+            std::shared_ptr<Raft::LogStateMachine> stateMachine;
+
+            /**
+             * @brief The ServerConfig object.
+             */
+            Common::ServerConfig config;
 
             /**
              * Private counter for number of votes received when running an election

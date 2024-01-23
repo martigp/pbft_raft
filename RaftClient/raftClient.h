@@ -13,7 +13,7 @@ class RaftClient {
     public:
         /**
          * @brief Method to send a command
-         * Attempts with open leader socket. If it fails, attempt to reopen.
+         * Attempts with open leader socket. If it fails, attempt to reopen(Add timeout on this).
          * If the previous leader cannot be contacted or responds that it is 
          * a follower, try with next server on the list. Loop through servers
          * until leader is found and send the 'Entry' RPC.

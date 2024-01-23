@@ -29,7 +29,12 @@ namespace Common {
             /**
              * @brief List of IDs
              */
-            std::vector<sockaddr_in> serverIds;
+            std::vector<int> serverIds;
+
+            /**
+             * @brief Map of ID to address, I think this is better
+             */
+            std::unordered_map<int, sockaddr_in> clusterMap;
 
     }; // class ServerConfig
 } // namespace Common
