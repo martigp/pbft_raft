@@ -1,7 +1,7 @@
 SRC_DIR = ./src
 BLD_DIR = ./build
 ODIR = $(BLD_DIR)/obj
-PROTO_DIR = $(SRC_DIR)/protobuf
+PROTO_DIR = $(SRC_DIR)/Protobuf
 
 CC = gcc
 CCX = g++
@@ -24,25 +24,13 @@ all: proto_middleman server client
 proto_middleman: $(PROTO_DIR)/*.proto
 	protoc -I $(PROTO_DIR) --cpp_out=$(PROTO_DIR) $^
 
-# server.o: $(SRC_DIR)/server.cc
-# 	$(CCX) $(CFLAGS) -c $^ -o $(ODIR)/$@
-
-server: $(SRC_DIR)/RaftGlobals.cc $(SRC_DIR)/Socket.cc $(SRC_DIR)/server.cc \
-		$(PROTO_DIR)/test.pb.cc $(SRC_DIR)/Common/*.cc \
-		$(SRC_DIR)/SocketManager.cc
-	$(CCX) $(CFLAGS) $(LIBS) $^ -o $(BLD_DIR)/$@
+server: $(SRC_DIR)/RaftServer/*.cc $(PROTO_DIR)/test.pb.cc \
+		$(SRC_DIR)/Common/*.cc
+	$(CCX) $(CFLAGS) $(LIBS) -I $(SRC_DIR) $^ -o $(BLD_DIR)/$@
 	export DYLD_LIBRARY_PATH=../install/runtime_libs/
 
-# client: $(SRC_DIR)/client.cc
-# 	$(CCX) $(CFLAGS) $< -o $(BLD_DIR)/$@
-
-client: proto_middleman $(SRC_DIR)/client.cc
-	$(CCX) $(CFLAGS) $(LIBS) $(SRC_DIR)/client.cc $(PROTO_DIR)/test.pb.cc \
-					-I ../install/include \
-					-o $(BLD_DIR)/$@
-
-# client: client.o
-# 	$(CCX) $(LIBS) -o $(BLD_DIR)/$@ $(ODIR)/$^
+client: $(PROTO_DIR)/test.pb.cc $(SRC_DIR)/RaftClient/client.cc
+	$(CCX) $(CFLAGS) $(LIBS) -I $(SRC_DIR) $^ -o $(BLD_DIR)/$@
 
 clean:
 	rm -rf $(BLD_DIR)/*

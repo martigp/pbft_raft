@@ -1,35 +1,31 @@
 #include <string>
 #include <sys/event.h>
 #include <arpa/inet.h>
-#include "SocketManager.hh"
-#include "Socket.hh"
+#include <unistd.h>
+#include "RaftServer/SocketManager.hh"
+#include "RaftServer/Socket.hh"
 
 namespace Raft {
-
-    int createkQueue()
-    {
-        int kqfd = kqueue();
-        if (kqfd == -1) {
+    
+    SocketManager::SocketManager( Globals& globals )
+        : globals(globals)
+    {   
+        kq = kqueue();
+        if (kq == -1) {
             perror("Failed to create kqueue");
             exit(EXIT_FAILURE);
         }
-        return kqfd;
-    }
-    
-    SocketManager::SocketManager( Globals& globals )
-        : kq(createkQueue()),
-          globals(globals)
-    {   
     }
 
     SocketManager::~SocketManager()
     {
+        if (close(kq) == -1) {
+            perror("Failed to kqueue");
+            exit(EXIT_FAILURE);
+        }
     }
 
-    void SocketManager::init() {
-    }
-
-    bool SocketManager::registerEv( Socket *socket ) {
+    bool SocketManager::registerSocket( Socket *socket ) {
 
         struct kevent newEv;
         EV_SET(&newEv, socket->fd, EVFILT_READ, EV_ADD, 0, 0, socket);
@@ -52,7 +48,7 @@ namespace Raft {
         EV_SET(&ev, socket->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
 
         if (kevent(kq, &ev, 1, NULL, 0, NULL) == -1) {
-            perror("Failure to register client socket");
+            perror("Failure to remove client socket");
             return false;
         }
 
@@ -69,6 +65,9 @@ namespace Raft {
     ClientSocketManager::~ClientSocketManager()
     {
     }
+
+    void ClientSocketManager::start()
+    {}
 
     ServerSocketManager::ServerSocketManager( Raft::Globals& globals )
         : SocketManager( globals )
@@ -121,7 +120,7 @@ namespace Raft {
         Raft::ListenSocket * listenSocket = 
                             new Raft::ListenSocket(listenSocketFd);
         
-        registerEv(listenSocket);
+        registerSocket(listenSocket);
     }
 
     ServerSocketManager::~ServerSocketManager()

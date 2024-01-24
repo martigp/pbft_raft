@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/event.h>
-#include "RaftGlobals.hh"
-#include "Socket.hh"
-#include "SocketManager.hh"
-#include "protobuf/test.pb.h"
+#include "RaftServer/RaftGlobals.hh"
+#include "RaftServer/Socket.hh"
+#include "RaftServer/SocketManager.hh"
+#include "Protobuf/test.pb.h"
 
 namespace Raft {
 
@@ -97,7 +97,7 @@ namespace Raft {
 
         printf("Successfully constructed server socket\n");
 
-        socketManager.registerEv(serverSocket);
+        socketManager.registerSocket(serverSocket);
 
         printf("Successfully set events on newEv\n");
     }

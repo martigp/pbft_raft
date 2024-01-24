@@ -12,7 +12,7 @@
 #include <thread>
 #include <vector>
 #include <mutex>
-#include "protobuf/test.pb.h"
+#include "Protobuf/test.pb.h"
 
 #define PORT 1234
 #define NUM_THREADS 1

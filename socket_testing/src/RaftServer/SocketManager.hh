@@ -3,8 +3,8 @@
 
 #include <string>
 #include <memory>
-#include "Socket.hh"
-#include "RaftGlobals.hh"
+#include "RaftServer/Socket.hh"
+#include "RaftServer/RaftGlobals.hh"
 
 #define MAX_CONNECTIONS 10
 #define MAX_EVENTS 1
@@ -15,6 +15,11 @@ namespace Raft {
     class Globals;
     class Socket;
 
+    /**
+     * @brief Responsible for registering sockets to the kernel for monitoring
+     * of events and reacting to kernel notifications of events on those
+     * sockets.
+     */
     class SocketManager {
         public:
             /**
@@ -24,35 +29,36 @@ namespace Raft {
             SocketManager( Globals& globals );
 
             /* Destructor */
-            ~SocketManager();
-
-            /**
-             * @brief Initialize a SocketManager Listen Socket with parameters 
-             * from our configuration file. 
-             */
-            void init();
+            virtual ~SocketManager();
 
             /**
              * @brief Register a socket to be monitored by the kernel. Any 
-             * future calls to kevent will return is there were any events on 
-             * the socket.
+             * future calls to kevent will alert user if there were any events
+             * on the socket.
              * 
             * @param socket Socket object to access when an event happens on
              * the corresponding file descriptor.
-             * @return Whether the file descriptor was registered for
+             * @return Whether the socket was successfullly registered for
              * monitoring.
              */
-            bool registerEv( Socket *socket );
+            bool registerSocket( Socket *socket );
 
             /**
              * @brief 
              * 
              * @param socket Socket object to access when an event happens on
              * the corresponding file descriptor.
-             * @return true 
-             * @return false 
+             * @return Whether the socket was successfully removed from sockets
+             * that are monitored by the kernel.
              */
             bool removeSocket( Socket* socket );
+
+            /**
+             * @brief Method overriden by subclass that begins listening for 
+             * kernel notifications about events on registered sockets and
+             * reacts accordingly.
+             */
+            virtual void start() = 0;
 
             /**
              * @brief The file descriptor of the kqueue that alerts a RaftServer
@@ -67,49 +73,52 @@ namespace Raft {
 
     }; // class SocketManager
 
+    /**
+     * @brief Responsible for Client Sockets. In the case of a RaftServer,
+     * Client Sockets correspond to connections the RaftServer initiated with
+     * other RaftServers in order to send RPC Requests to them.
+     * 
+     */
     class ClientSocketManager: public SocketManager {
         public:
             /**
-             * @brief Construct a new SocketManager that stores the Global Raft State
+             * @brief Constructor
+             * 
+             * @param globals Used to access global state
              */
             ClientSocketManager( Raft::Globals& globals );
 
             /* Destructor */
             ~ClientSocketManager();
 
-            /**
-             * @brief Initialize a SocketManager Listen Socket with parameters 
-             * from our configuration file. 
-             */
-            void init();
-
-            /**
-             * @brief Start the IncomingSocketManager process
-             */
+            /* Unimplemented */
             void start();
-    }; // class IncomingSocketManager
+    }; // class ClientSocketManager
+
 
     class ServerSocketManager: public SocketManager {
         public:
             /**
-             * @brief Construct a new OutgoingSocketManager that stores the Global Raft State
+             * @brief Constructor
+             * 
+             * @param globals Used to acces RaftServer global state
              */
             ServerSocketManager( Raft::Globals& globals );
 
-            /* Destructor */
+            /**
+             * @brief Destructor 
+             * 
+             * TODO: should remove all events and delete associated SocketPtr
+             */
             ~ServerSocketManager();
 
             /**
-             * @brief Initialize outgoing manager state 
-             */
-            void init();
-
-            /**
-             * @brief Start the OutgoingSocketManager process
+             * @brief Begin listening for kernel notifications about events
+             * on registered server sockets and react accordingly.
              */
             void start();
 
-    }; // class OutgoingSocketManager
+    }; // class ServerSocketManager
 
 } // namespace Raft
 

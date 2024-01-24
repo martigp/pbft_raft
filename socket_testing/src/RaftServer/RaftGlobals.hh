@@ -7,8 +7,8 @@
 #include <unordered_map>
 #include <netinet/in.h>
 #include "Common/ServerConfig.hh"
-#include "SocketManager.hh"
-#include "Socket.hh"
+#include "RaftServer/SocketManager.hh"
+#include "RaftServer/Socket.hh"
 
 namespace Raft {
 
@@ -19,7 +19,7 @@ namespace Raft {
     class Globals {
         public:
             /**
-             * @brief Construct a new Globals that stores the Global Raft State
+             * @brief Construct a new Globals that stores the Global Raft State.
             * 
              * @param configPath The path of the configuration file. 
              */
@@ -29,40 +29,26 @@ namespace Raft {
             ~Globals();
 
             /**
-             * @brief Initialize a Globals with parameters from a configuration
-             * file.
-             */
-            void init();
-
-            /**
              * @brief Start the globals process
              */
             void start();
 
             /**
-             * @brief All configuration parameters to be used by a RaftServer
+             * @brief Configuration data needed for a RaftServer
              */
             Common::ServerConfig config;
 
             /**
-             * @brief Service that handles any actions on sockets where the
-             * RaftServer is the client i.e. it initiated the connection.
+             * @brief Handles any actions on sockets where the RaftServer is 
+             * the client i.e. it initiated the connection.
              */
             std::shared_ptr<ClientSocketManager> clientSocketManager;
 
             /**
-             * @brief Service that handles any actions on sockets where the
-             * RaftServer the server i.e. it did not initiate the connection.
+             * @brief Handles any actions on sockets where the RaftServer is 
+             * the server i.e. it did not initiate the connection.
              */
             std::shared_ptr<ServerSocketManager> serverSocketManager;
-
-
-
-            // bool addkQueueSocket(Socket* socket);
-
-            // bool removekQueueSocket(Socket* socket);
-
-            // int kq;
 
         
         private:
