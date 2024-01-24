@@ -5,7 +5,8 @@
 
 namespace Raft {
     
-    Globals::Globals()
+    Globals::Globals() 
+        : threadpool ( {} )
     {        
         raftConsensus = new Raft::Consensus();
         serverSockets = new Raft::ServerSocketManager();
@@ -20,6 +21,7 @@ namespace Raft {
     void Globals::init(std::string configPath) {
         this->configPath = configPath;
         // this->ServerConfig = Common::ServerConfig(this->configPath);
+        threadpool.push_back(raftConsensus->startTimer();)
     }
 
     std::string Globals::processRPCReq(std::string data, int serverID) {
@@ -54,9 +56,11 @@ namespace Raft {
     }
 
     void Globals::processRPCResp(std::string data, int serverID) {
+        // TODO: compile protobuf and see what actually shows up
         RaftRPC rpc;
         rpc.ParseFromString(data);
-        switch(rpc.payload) {
+        PayloadCase type = rpc.payload_case()
+        switch(type) {
             case "logEntry":
                 break; // ERROR: should not get requests through ClientSocketManager
             case "appendEntriesRequest":
@@ -70,6 +74,11 @@ namespace Raft {
             default:
                 break; // maybe raise error here?
         }
+    }
+
+    void Globals::broadcastRPC(RaftRPC req) {
+        // TODO: implement this, but this same string goes to all servers
+        // TODO: will need a version that takes an array of strings and the servers that they go to
     }
 
 }

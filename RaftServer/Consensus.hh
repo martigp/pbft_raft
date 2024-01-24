@@ -8,6 +8,12 @@
 #define RAFT_CONSENSUS_H
 
 #include <string>
+#include <random>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <iostream>
+#include <thread>
 #include "RaftGlobals.hh"
 #include "LogStateMachine.hh"
 
@@ -25,6 +31,7 @@ namespace Raft {
              * 
              * @return Thread ID for tracking in Global
             */
+            Raft::NamedThread startTimer();
 
             /**
              * Enum for: Follower, Candidate, Leader as specified in Figure 2
@@ -69,15 +76,14 @@ namespace Raft {
             void processRequestVoteRPCResp(RaftRPC resp, int serverID); 
 
         private:
+            /*************************************
+             * References to global and other submodules
+            **************************************/
+
             /**
              * @brief Reference to server globals
             */
             Raft::Globals& globals;
-
-            /**
-             * @brief Pointer to state machine module (currently unused)
-            */
-            std::shared_ptr<Raft::LogStateMachine> stateMachine;
 
             /**
              * @brief The ServerConfig object.
@@ -85,66 +91,150 @@ namespace Raft {
             Common::ServerConfig config;
 
             /**
-             * Private counter for number of votes received when running an election
+             * @brief Pointer to state machine module (currently unused)
             */
-            int numVotesReceived;
+            std::shared_ptr<Raft::LogStateMachine> stateMachine;
 
-            /**
+            /*************************************
              * Below are the figure 2 persistent state variables needed
              * Must be updated in stable storage before responding to RPCs
-            */
+            **************************************/
 
             /**
-             * The latest term server has seen 
+             * @brief The latest term server has seen 
              * - initialized to 0 on first boot, increases monotonically
             */
             int currentTerm;
 
             /**
-             * candidateID that received vote in current term 
-             * - or null if none
+             * @brief candidateID that received vote in current term 
+             * - or -1 if none
             */
             int votedFor;
 
             /**
-             * Log entries, each entry contains command for state machine
+             * @brief Log entries, each entry contains command for state machine
              * and term when entry was received by leader (first index is 1)
             */
             std::vector<std::string> log;
 
 
-            /**
+            /*************************************
              * Below is the volatile state on all servers
-            */
+            **************************************/
 
             /**
-             * Index of highest log entry known to be committed
+             * @brief Index of highest log entry known to be committed
              * - initialized to 0, increases monotonically
             */
             int commitIndex;
 
             /**
-             * Index of highest log entry applied to state machine
+             * @brief Index of highest log entry applied to state machine
              * - initialized to 0, increases monotonically
             */
             int lastApplied;
 
 
-            /**
+            /*************************************
              * Below is the volatile state on all leaders
-            */
+            **************************************/
 
             /**
-             * For each server, index of the next log entry to send to that server
+             * @brief For each server, index of the next log entry to send to that server
              * - initialized to leader last log index +1
             */
             std::vector<int> nextIndex;
 
             /**
-             * Index of highest log entry known to be replicated on server
+             * @brief Index of highest log entry known to be replicated on server
              * - initialized to 0, increases monotonically
             */
-            std::vector<int> matchIndex[];
+            std::vector<int> matchIndex;
+
+            /*************************************
+             * Below are all internal methods, etc
+            **************************************/
+
+            /**
+             * @brief Current election timeout length (milliseconds) 
+             * Typically between 10-500ms
+             * TODO: wb heart beat sending interval (paper says 0.5ms to 20 ms)
+            */
+            uint64_t timerTimeout;
+
+            /**
+             * @brief Generate a new election interval, assign to timerTimeout
+            */
+            void generateRandomElectionTimeout();
+
+            /**
+             * @brief Timer Loop
+            */
+            void timerLoop();
+
+            /**
+             * @brief Decide action after timeout occurs
+            */
+            void timeoutHandler();
+
+            /**
+             * @brief Assign appendEntries Heartbeat time to timerTimeout
+            */
+            void setHeartbeatTimeout();
+
+            /**
+             * @brief Method to not have duplicated code to reset the timer thread
+            */
+            void resetTimer();
+
+            /**
+             * @brief Timer reset CV 
+             * Triggered by receiving AppendEntriesRPC(heartbeat) / ANY communication
+            */
+            std::condition_variable timerResetCV;
+
+            /**
+             * @brief Mutex access to bool heartbeatReceived
+            */
+            std::mutex resetTimerMutex;
+
+            /**
+             * @brief heartbeatReceived bool to determine if timer wakeup was spurious 
+            */
+            bool timerReset;
+
+            /**
+             * @brief Start a new Election:
+             *      - increment currentTerm
+             *      - vote for self
+             *      - reset election timer
+             *      - Send RequestVoteRPC to all servers
+            */
+            void startNewElection();
+
+            /**
+             * @brief Private counter for number of votes received when running an election
+            */
+            int numVotesReceived;
+
+            /**
+             * @brief After updating term, conversion to follow state(new election timeout and reset timer)
+            */
+            void convertToFollower();
+
+            /**
+             * @brief After winning election, convert to leader
+            */
+            void convertToLeader();
+
+            /**
+             * @brief As leader at heartbeat interval, send next AppendEntriesRPCs to the cluster
+             * For now, this sends same empty thing with a broadcast to everyone
+             * In Project 2, it will do log replication stuff
+            */
+            void sendAppendEntriesRPCs();
+            
     }; // class Consensus
 } // namespace Raft
 
