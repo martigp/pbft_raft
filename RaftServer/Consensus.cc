@@ -14,4 +14,20 @@ namespace Raft {
     {
     }
 
+    RaftRPC Consensus::receivedAppendEntriesRPC(RaftRPC req, int serverID); {
+
+    }
+
+    void Consensus::processAppendEntriesRPCResp(RaftRPC resp, int serverID) {
+
+    }
+
+    RaftRPC Consensus::receivedRequestVoteRPC(RaftRPC req, int serverID) {
+
+    }
+
+    void Consensus::processRequestVoteRPCResp(RaftRPC resp, int serverID) {
+
+    }
+
 }

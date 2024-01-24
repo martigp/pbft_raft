@@ -32,6 +32,28 @@ namespace Raft {
              * @brief Start the globals process
              */
             void start();
+
+            /**
+             * @brief Process an RPC from the ServerSocketManager
+             * Must be a request.
+             * 
+             * @param data String read from the socket fd.
+             * 
+             * @param serverID Unique RaftServer or RaftClient ID assocaied with the socket that was read from.
+             * 
+             * @returns Serialized string to write back to caller
+             */
+            std::string processRPCReq(std::string data, int serverID);
+
+            /**
+             * @brief Process an RPC from the ClientSocketManager
+             * Must be a response to a request.
+             * 
+             * @param data String read from the socket fd.
+             * 
+             * @param serverID Unique RaftServer or RaftClient ID assocaied with the socket that was read from.
+             */
+            void processRPCResp(std::string data, int serverID);
         
         private:
 
@@ -90,7 +112,8 @@ namespace Raft {
              * @brief State of this server
             */
             ThreadType myTYPE;
-    }
+    }; // class NamedThread
+
 } // namespace Raft
 
 #endif /* RAFT_GLOBALS_H */

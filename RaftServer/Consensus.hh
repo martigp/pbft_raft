@@ -41,55 +41,32 @@ namespace Raft {
             ServerState myState;
 
             /**
-             * @brief Given an RPC request, process it
-             * Note: This method will be exposed to the IncomingSocketManager either directly or via globals
-             * 
-             * @param rpcReqMessage from a specific server
-             * 
-             * @param serverId integer server ID from config file, or the ID assigned to the client by IncomingSocketManager
-             * 
-             * @return The response in RPC form
-            */
-            message processRPCRequests (message rpcReqMessage, int serverId);
-
-            /**
-             * @brief Given an RPC response, process it
-             * Note: This method will be exposed to the OutgoingSocketManager either directly or via globals
-             * TODO: Decide what to do if this is a vector, will that happen? dicey behavior
-             * 
-             * @param rpcRespMessage from a specific server
-             * 
-             * @param serverId integer server ID from config file
-            */
-            void processRPCResponses (message rpcRespMessage, int serverId);
-
-            /**
              * @brief Receiver Implementation of AppendEntriesRPC
              * Produces a response to send back
              * Follows bottom left box in Figure 2
             */
-            AppendEntriesResponse receivedAppendEntriesRPC(AppendEntriesRequest req); 
+            RaftRPC receivedAppendEntriesRPC(RaftRPC req, int serverID); 
 
             /**
              * @brief Sender Implementation of AppendEntriesRPC
              * Process the response received(term, success)
              * Follows bottom left box in Figure 2
             */
-            void resp2AppendEntriesRPC(AppendEntriesResponse resp);
+            void processAppendEntriesRPCResp(RaftRPC resp, int serverID);
 
             /**
              * @brief Receiver Implementation of RequestVoteRPC
              * Produces a response to send back
              * Follows upper right box in Figure 2
             */
-            RequestVoteResponse receivedRequestVoteRPC(RequestVoteRequest req); 
+            RaftRPC receivedRequestVoteRPC(RaftRPC req, int serverID); 
 
             /**
              * @brief Sender Implementation of RequestVoteRPC
              * Process the response received(term, voteGranted)
              * Follows upper right box in Figure 2
             */
-            void processRequestVoteRPC(RequestVoteResponse resp); 
+            void processRequestVoteRPCResp(RaftRPC resp, int serverID); 
 
         private:
             /**
