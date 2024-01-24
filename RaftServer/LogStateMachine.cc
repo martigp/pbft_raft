@@ -15,11 +15,12 @@ namespace Raft {
     {
     }
 
-    std::string proj1Execute(std::string command) {
+    std::string proj1Execute(RaftRPC rpc) {
         if (consensus->myState != Consensus::ServerState::LEADER) {
-            throw consensus->myState;
+            throw std::invalid_argument( "Cannot execute client command while not leader.");;
         } else {
             std::string ret;
+            std::string command = rpc.cmd();
             const char *c = command.c_str();
             FILE *pipe = popen(c, "r");
             if (pipe) { 

@@ -32,6 +32,35 @@ namespace Raft {
              * @brief Start the globals process
              */
             void start();
+
+            /**
+             * @brief Process an RPC from the ServerSocketManager
+             * Must be a request.
+             * 
+             * @param data String read from the socket fd.
+             * 
+             * @param serverID Unique RaftServer or RaftClient ID assocaied with the socket that was read from.
+             * 
+             * @returns Serialized string to write back to caller
+             */
+            std::string processRPCReq(std::string data, int serverID);
+
+            /**
+             * @brief Process an RPC from the ClientSocketManager
+             * Must be a response to a request.
+             * 
+             * @param data String read from the socket fd.
+             * 
+             * @param serverID Unique RaftServer or RaftClient ID assocaied with the socket that was read from.
+             */
+            void processRPCResp(std::string data, int serverID);
+
+            /**
+             * @brief Broadcast an RPC to all other servers
+             * 
+             * @param data Serialized RPC string
+             */
+            void broadcastRPC(std::string data);
         
         private:
 
@@ -47,14 +76,14 @@ namespace Raft {
             Common::ServerConfig config;
 
             /**
-             * @brief Incoming Manager.
+             * @brief Server Socket Manager.
              */
-            std::shared_ptr<Raft::IncomingSocketManager> incomingSockets;
+            std::shared_ptr<Raft::ServerSocketManager> serverSockets;
 
             /**
-             * @brief Outgoing Manager.
+             * @brief Client Socket Manager.
              */
-            std::shared_ptr<Raft::OutgoingSocketManager> outgoingSockets;
+            std::shared_ptr<Raft::ClientSocketManager> clientSockets;
 
             /**
              * @brief Raft Consensus Unit: Figure 2 from Paper.
@@ -65,6 +94,11 @@ namespace Raft {
              * @brief Log State Machine.
              */
             std::shared_ptr<Raft::LogStateMachine> stateMachine;
+
+            /**
+             * @brief Thread pool mockup for now.
+            */
+            std::vector<Raft::NamedThread> threadpool;
 
     }; // class Globals
 
@@ -89,8 +123,9 @@ namespace Raft {
             /**
              * @brief State of this server
             */
-            ThreadType myTYPE;
-    }
+            ThreadType myType;
+    }; // class NamedThread
+
 } // namespace Raft
 
 #endif /* RAFT_GLOBALS_H */
