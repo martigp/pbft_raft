@@ -58,11 +58,11 @@ namespace Raft {
 
 
 
-            bool addkQueueSocket(Socket* socket);
+            // bool addkQueueSocket(Socket* socket);
 
-            bool removekQueueSocket(Socket* socket);
+            // bool removekQueueSocket(Socket* socket);
 
-            int kq;
+            // int kq;
 
         
         private:

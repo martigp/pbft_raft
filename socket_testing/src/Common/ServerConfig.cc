@@ -73,6 +73,7 @@ namespace Common {
             std::cerr << "Server setting not found in cfg file," << std::endl;
             exit(EXIT_FAILURE);
         }
+
     }
 
     ServerConfig::~ServerConfig()

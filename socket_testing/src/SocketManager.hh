@@ -6,6 +6,9 @@
 #include "Socket.hh"
 #include "RaftGlobals.hh"
 
+#define MAX_CONNECTIONS 10
+#define MAX_EVENTS 1
+
 namespace Raft {
 
     // Forward declare the Globals.
@@ -15,7 +18,8 @@ namespace Raft {
     class SocketManager {
         public:
             /**
-             * @brief Construct a new SocketManager that stores the "global socket kqueue" state
+             * @brief Construct a new SocketManager that stores the "global 
+             * socket kqueue" state
              */
             SocketManager( Globals& globals );
 
@@ -38,7 +42,7 @@ namespace Raft {
              * @return Whether the file descriptor was registered for
              * monitoring.
              */
-            bool registerSocket( Socket* socket );
+            bool registerEv( Socket *socket );
 
             /**
              * @brief 
@@ -49,18 +53,17 @@ namespace Raft {
              * @return false 
              */
             bool removeSocket( Socket* socket );
-        
+
             /**
              * @brief The file descriptor of the kqueue that alerts a RaftServer
              * of events on any open sockets the kqueue monitors.
              */
             int kq;
         
-        private:
             /**
              * @brief Reference to server globals
-            */
-            Raft::Globals& globals;
+             */
+            [[maybe_unused]] Raft::Globals& globals;
 
     }; // class SocketManager
 

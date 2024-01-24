@@ -6,13 +6,13 @@
 #include <sys/event.h>
 #include "RaftGlobals.hh"
 #include "Socket.hh"
+#include "SocketManager.hh"
 #include "protobuf/test.pb.h"
 
 namespace Raft {
 
-    Socket::Socket(int fd, Globals* globals)
+    Socket::Socket( int fd )
         : fd(fd)
-        , globals(globals)
     { }
 
     Socket::~Socket()
@@ -24,8 +24,8 @@ namespace Raft {
         printf("[Server] socket %d deleted.", fd);
     }
 
-    ServerSocket::ServerSocket(int fd, Globals* globals)
-        : Socket(fd, globals)
+    ServerSocket::ServerSocket( int fd )
+        : Socket(fd)
     {
 
     }
@@ -33,7 +33,8 @@ namespace Raft {
     ServerSocket::~ServerSocket()
     { }
 
-    void ServerSocket::handleSocketEvent(struct kevent& ev) {
+    void ServerSocket::handleSocketEvent( struct kevent& ev,
+                                          SocketManager& socketManager ) {
         int evSocketFd = (int)ev.ident;
 
         if (ev.filter & EVFILT_READ && (int) ev.data > 0) {
@@ -68,14 +69,15 @@ namespace Raft {
         }
     }
 
-    ListenSocket::ListenSocket(int fd, Globals* globals)
-        : Socket(fd, globals)
+    ListenSocket::ListenSocket( int fd )
+        : Socket(fd)
     { }
 
     ListenSocket::~ListenSocket()
     { }
 
-    void ListenSocket::handleSocketEvent(struct kevent& ev) {
+    void ListenSocket::handleSocketEvent( struct kevent& ev,
+                                          SocketManager& socketManager) {
         // struct sockaddr clientAddr;
         // socklen_t addrLen;
         // TODO: Use these to determine what type of connection it is e.g.
@@ -91,7 +93,12 @@ namespace Raft {
 
         printf("[Server] accepted new client on socket %d\n", socketFd);
 
-        ServerSocket * serverSocket = new ServerSocket(socketFd, globals);
-        globals->addkQueueSocket(serverSocket);
+        ServerSocket * serverSocket = new ServerSocket(socketFd);
+
+        printf("Successfully constructed server socket\n");
+
+        socketManager.registerEv(serverSocket);
+
+        printf("Successfully set events on newEv\n");
     }
 }

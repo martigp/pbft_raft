@@ -13,8 +13,6 @@
 #include "RaftGlobals.hh"
 #include "Socket.hh"
 
-#define MAX_CONNECTIONS 1
-#define MAX_EVENTS 1
 #define CONFIG_PATH "src/server.cfg"
 
 using namespace Raft;
@@ -78,53 +76,55 @@ int createListenSocketFd(Raft::Globals& globals) {
 int main(int argc, char const* argv[])
 {   
     Raft::Globals globals(CONFIG_PATH);
-    int listenSocketFd;
     
     globals.init();
 
-    listenSocketFd = createListenSocketFd(globals);
-
-    Raft::ListenSocket * listenSocket = 
-                            new Raft::ListenSocket(listenSocketFd, &globals);
-
-    globals.addkQueueSocket(listenSocket);
+    globals.start();
 
 
-    printf("[Server] Set up kqueue with listening socket\n");
+    // listenSocketFd = createListenSocketFd(globals);
 
-    while (1) {
-        struct kevent evList[MAX_EVENTS];
-        printf("Starting new loop\n");
+    // Raft::ListenSocket * listenSocket = 
+    //                         new Raft::ListenSocket(listenSocketFd, &globals);
+
+    // globals.addkQueueSocket(listenSocket);
+
+
+    // printf("[Server] Set up kqueue with listening socket\n");
+
+    // while (1) {
+    //     struct kevent evList[MAX_EVENTS];
+    //     printf("Starting new loop\n");
         
-        /* Poll for any events oc*/
-        int numEvents = kevent(globals.kq, NULL, 0, evList, MAX_EVENTS, NULL);
+    //     /* Poll for any events oc*/
+    //     int numEvents = kevent(globals.kq, NULL, 0, evList, MAX_EVENTS, NULL);
 
-        if (numEvents == -1) {
-            perror("kevent failure");
-            exit(EXIT_FAILURE);
-        }
+    //     if (numEvents == -1) {
+    //         perror("kevent failure");
+    //         exit(EXIT_FAILURE);
+    //     }
 
-        else if (numEvents == 0) {
-            /* No sockets are ready to accepts*/
-            printf("[Server] Waiting...\n");
-            continue;
-        }
+    //     else if (numEvents == 0) {
+    //         /* No sockets are ready to accepts*/
+    //         printf("[Server] Waiting...\n");
+    //         continue;
+    //     }
 
-        printf("[Server] %d Kqueue events\n", numEvents);
+    //     printf("[Server] %d Kqueue events\n", numEvents);
 
-        for (int i = 0; i < numEvents; i++) {
+    //     for (int i = 0; i < numEvents; i++) {
 
-            struct kevent ev = evList[i];
-            printf("[Server] Event socket is %d\n", (int) ev.ident);
+    //         struct kevent ev = evList[i];
+    //         printf("[Server] Event socket is %d\n", (int) ev.ident);
 
-            Raft::Socket *evSocket = static_cast<Raft::Socket*>(ev.udata);
+    //         Raft::Socket *evSocket = static_cast<Raft::Socket*>(ev.udata);
 
-            if (ev.fflags & EV_EOF) {
-                globals.removekQueueSocket(evSocket);
-            }
-            else {
-                evSocket->handleSocketEvent(ev);
-            }
-        }
-    }
+    //         if (ev.fflags & EV_EOF) {
+    //             globals.removekQueueSocket(evSocket);
+    //         }
+    //         else {
+    //             evSocket->handleSocketEvent(ev);
+    //         }
+    //     }
+    // }
 }
