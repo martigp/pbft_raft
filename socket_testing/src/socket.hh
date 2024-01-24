@@ -79,6 +79,9 @@ class ListenSocket : public Socket {
 
 /**
  * @brief A socket that listens for incoming Raft RPC requests.
+ * ServerSockets are sockets for connections where the owner is server of the
+ * underlying connection. The corresponding Client can be a RaftClient or a
+ * RaftServer.
  * 
  */
 class ServerSocket : public Socket {

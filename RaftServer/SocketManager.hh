@@ -3,7 +3,7 @@
 
 #include <string>
 #include <memory>
-#include "socket.hh"
+#include "Socket.hh"
 #include "RaftGlobals.hh"
 
 namespace Raft {
@@ -14,7 +14,7 @@ namespace Raft {
             /**
              * @brief Construct a new SocketManager that stores the "global socket kqueue" state
              */
-            SocketManager( Globals& globals );
+            explicit SocketManager( Globals& globals );
 
             /* Destructor */
             ~SocketManager();
@@ -66,7 +66,7 @@ namespace Raft {
             /**
              * @brief Construct a new SocketManager that stores the Global Raft State
              */
-            ClientSocketManager( Raft::Globals& globals );
+            explicit ClientSocketManager( Raft::Globals& globals );
 
             /* Destructor */
             ~ClientSocketManager();
@@ -88,7 +88,7 @@ namespace Raft {
             /**
              * @brief Construct a new OutgoingSocketManager that stores the Global Raft State
              */
-            ServerSocketManager( Raft::Globals& globals );
+            explicit ServerSocketManager( Raft::Globals& globals );
 
             /* Destructor */
             ~ServerSocketManager();

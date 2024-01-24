@@ -1,7 +1,7 @@
 #include <string>
 #include <sys/event.h>
 #include "SocketManager.hh"
-#include "socket.hh"
+#include "Socket.hh"
 
 namespace Raft {
     

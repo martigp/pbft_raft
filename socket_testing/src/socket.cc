@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <sys/event.h>
 #include "RaftGlobals.hh"
-#include "socket.hh"
+#include "Socket.hh"
 #include "protobuf/test.pb.h"
 
 namespace Raft {

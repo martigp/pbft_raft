@@ -11,7 +11,7 @@
 #include <sys/time.h>
 #include <memory>
 #include "RaftGlobals.hh"
-#include "socket.hh"
+#include "Socket.hh"
 
 #define MAX_CONNECTIONS 1
 #define MAX_EVENTS 1
@@ -29,7 +29,7 @@ using namespace Raft;
 int createListenSocketFd(Raft::Globals& globals) {
 
     int socketFd;
-    struct sockaddr_in address;
+    struct sockaddr_in listenSockAddr;
     int opt = 1;
 
     // Creating socket file descriptor
@@ -45,18 +45,20 @@ int createListenSocketFd(Raft::Globals& globals) {
         perror("setsockopt");
         exit(EXIT_FAILURE);
     }
-    address.sin_family = AF_INET;
-    address.sin_port = htons(globals.raftPort);
 
-    if (inet_pton(AF_INET, globals.listenAddr.c_str(),
-                              &address.sin_addr) <= 0) {
+    // Construct listen sockadrr_in from configuration parameters
+    listenSockAddr.sin_family = AF_INET;
+    listenSockAddr.sin_port = htons(globals.config.raftPort);
+
+    if (inet_pton(AF_INET, globals.config.listenAddr.c_str(),
+                              &listenSockAddr.sin_addr) <= 0) {
         perror("Invalid server listen address");
         exit(EXIT_FAILURE);
     }
  
     // Forcefully attaching socket to the port RAFT_PORT
-    if (bind(socketFd, (struct sockaddr*)&address,
-             sizeof(address))
+    if (bind(socketFd, (struct sockaddr*)&listenSockAddr,
+             sizeof(listenSockAddr))
         < 0) {
         perror("bind");
         exit(EXIT_FAILURE);
@@ -67,19 +69,20 @@ int createListenSocketFd(Raft::Globals& globals) {
         exit(EXIT_FAILURE);
     }
 
+    printf("[Server] listening on %s:%u\n", globals.config.listenAddr.c_str(),
+                                          globals.config.raftPort);
+
     return socketFd;
 }
 
 int main(int argc, char const* argv[])
 {   
-    Raft::Globals globals;
+    Raft::Globals globals(CONFIG_PATH);
     int listenSocketFd;
     
-    globals.init(CONFIG_PATH);
+    globals.init();
 
     listenSocketFd = createListenSocketFd(globals);
-
-    printf("[Server] Listening on port %d\n", globals.raftPort);
 
     Raft::ListenSocket * listenSocket = 
                             new Raft::ListenSocket(listenSocketFd, &globals);

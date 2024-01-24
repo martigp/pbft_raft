@@ -6,15 +6,24 @@
 #include <libconfig.h++>
 #include <unordered_map>
 #include <netinet/in.h>
-#include "socket.hh"
+#include "Common/ServerConfig.hh"
+#include "SocketManager.hh"
+#include "Socket.hh"
 
 namespace Raft {
+
+    class ClientSocketManager;
+    class ServerSocketManager;
+    class Socket;
+
     class Globals {
         public:
             /**
              * @brief Construct a new Globals that stores the Global Raft State
+            * 
+             * @param configPath The path of the configuration file. 
              */
-            Globals();
+            Globals( std::string configPath );
 
             /* Destructor */
             ~Globals();
@@ -22,49 +31,39 @@ namespace Raft {
             /**
              * @brief Initialize a Globals with parameters from a configuration
              * file.
-             * 
-             * @param configPath The path of the configuration file. 
              */
-            void init(std::string configPath);
+            void init();
 
             /**
-             * @brief Register a socket to be monitored by the kernel. Any 
-             * future calls to kevent will return is there were any events on 
-             * the socket.
-             * 
-            * @param socket Socket object to access when an event happens on
-             * the corresponding file descriptor.
-             * @return Whether the file descriptor was registered for
-             * monitoring.
+             * @brief Start the globals process
              */
+            void start();
+
+            /**
+             * @brief All configuration parameters to be used by a RaftServer
+             */
+            Common::ServerConfig config;
+
+            /**
+             * @brief Service that handles any actions on sockets where the
+             * RaftServer is the client i.e. it initiated the connection.
+             */
+            std::shared_ptr<ClientSocketManager> clientSocketManager;
+
+            /**
+             * @brief Service that handles any actions on sockets where the
+             * RaftServer the server i.e. it did not initiate the connection.
+             */
+            std::shared_ptr<ServerSocketManager> serverSocketManager;
+
+
+
             bool addkQueueSocket(Socket* socket);
 
-            /**
-             * @brief Stop monitoring a socket.
-             * 
-             * @param socket Socket object to access when an event happens on
-             * the corresponding file descriptor.
-             * @return true 
-             * @return false 
-             */
             bool removekQueueSocket(Socket* socket);
-        
-            /**
-             * @brief The file descriptor of the kqueue that alerts a RaftServer
-             * of events on any open sockets the kqueue monitors.
-             */
+
             int kq;
 
-            /**
-             * @brief Port used by Raft
-             */
-            int raftPort;
-
-            /**
-             * @brief Address to listen for incoming connections
-             * 
-             */
-            std::string listenAddr;
         
         private:
 
