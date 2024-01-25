@@ -37,7 +37,7 @@ namespace Common {
 
             // Extract information about the servers in the Raft cluster
             for (int i = 0; i < numServers; i++) {
-                int serverId;
+                uint64_t serverId;
                 std::string serverIPAddr;
                 struct sockaddr_in serverSockAddr;
 

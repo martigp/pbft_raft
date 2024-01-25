@@ -30,7 +30,7 @@ namespace Common {
             /**
              * @brief Map of ID to address, I think this is better
              */
-            std::unordered_map<int, sockaddr_in> clusterMap;
+            std::unordered_map<uint64_t, sockaddr_in> clusterMap;
 
     }; // class ServerConfig
 } // namespace Common
