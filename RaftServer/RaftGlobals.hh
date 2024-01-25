@@ -7,6 +7,10 @@
 #include "SocketManager.hh"
 #include "Consensus.hh"
 #include "LogStateMachine.hh"
+#include "raftrpc.pb.h"
+#include "ServerConfig.hh"
+
+using namespace RaftCommon;
 
 namespace Raft {
     class Globals {
@@ -73,7 +77,7 @@ namespace Raft {
             /**
              * @brief The ServerConfig object after configPath is parsed.
              */
-            Common::ServerConfig config;
+            ServerConfig config;
 
             /**
              * @brief Server Socket Manager.

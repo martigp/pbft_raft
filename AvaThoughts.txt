@@ -32,4 +32,8 @@ index c11e392..6fe88f3 100644
 +
  
  Event handling:
+
+
+
+ ../../protobuf/protoc -I ./ --cpp_out=./ raftrpc.proto
  

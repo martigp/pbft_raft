@@ -1,3 +1,4 @@
 .vscode/
-protobuf
-libconfig
+protobuf/
+libconfig/
+install/

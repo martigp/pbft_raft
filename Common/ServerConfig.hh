@@ -9,7 +9,7 @@
 #include <string>
 #include <netinet/in.h>
 
-namespace Common {
+namespace RaftCommon {
     class ServerConfig {
         public:
             /**
@@ -20,7 +20,16 @@ namespace Common {
             /* Destructor */
             ~ServerConfig();
 
-        private:
+            /**
+             * @brief My serverID
+            */
+            int myServerID;
+
+            /**
+             * @brief My server address
+            */
+            sockaddr_in myServerAddress;
+
             /**
              * @brief Addresses of the servers
              */
@@ -36,7 +45,9 @@ namespace Common {
              */
             std::unordered_map<int, sockaddr_in> clusterMap;
 
+        private:
+
     }; // class ServerConfig
-} // namespace Common
+} // namespace RaftCommon
 
 #endif /* COMMON_SERVERCONFIG_H */

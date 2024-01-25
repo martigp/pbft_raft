@@ -25,31 +25,29 @@ namespace Raft {
     }
 
     std::string Globals::processRPCReq(std::string data, int serverID) {
+        // has_appendentriesresponse()
+        // set_has_appendentriesresponse()
         std::string ret;
         RaftRPC resp;
 
         RaftRPC rpc;
         rpc.ParseFromString(data);
-        switch(rpc.payload) {
-            case "logEntry":
-                resp.payload = "logEntryResp";
-                try {
-                    resp.ret = stateMachine->proj1Execute(rpc);
-                    resp.success = true;
-                } catch (const std::invalid_argument& e) {
-                    resp.ret = "";
-                    resp.success = false; 
-                }
-            case "appendEntriesRequest":
-                resp = raftConsensus.receivedRequestVoteRPC(rpc, serverID);
-            case "appendEntriesResponse":
-                break; // ERROR: should not get responses through ServerSocketManager
-            case "requestVoteRequest":
-                resp = raftConsensus.receivedRequestVoteRPC(rpc, serverID);
-            case "requestVoteResponse":
-                break; // ERROR: should not get responses through ServerSocketManager
-            default:
-                break; // maybe raise error here?
+        if (rpc.has_logentryrequest()) {
+            LogEntryResponse respPayload;
+            try {
+                respPayload.set_ret(stateMachine->proj1Execute(rpc));
+                respPayload.set_success(true);
+            } catch (const std::invalid_argument& e) {
+                respPayload.set_ret("");
+                respPayload.set_success(false); 
+            }
+            resp.set_allocated_logentryresponse(&respPayload);
+        } else if (rpc.has_appendentriesrequest()) {
+            resp = raftConsensus->receivedRequestVoteRPC(rpc, serverID);
+        } else if (rpc.has_requestvoterequest()) {
+            resp = raftConsensus->receivedRequestVoteRPC(rpc, serverID);
+        } else {
+            return ""; // ERROR: received a request that we don't know how to handle, what do we shoot back?
         }
         resp.SerializeToString(&ret);
         return ret;
@@ -59,20 +57,12 @@ namespace Raft {
         // TODO: compile protobuf and see what actually shows up
         RaftRPC rpc;
         rpc.ParseFromString(data);
-        PayloadCase type = rpc.payload_case()
-        switch(type) {
-            case "logEntry":
-                break; // ERROR: should not get requests through ClientSocketManager
-            case "appendEntriesRequest":
-                break; // ERROR: should not get requests through ClientSocketManager
-            case "appendEntriesResponse":
-                processAppendEntriesRPCResp(rpc, serverID); 
-            case "requestVoteRequest":
-                break; // ERROR: should not get requests through ClientSocketManager
-            case "requestVoteResponse":
-                processRequestVoteRPCResp(rpc, serverID); 
-            default:
-                break; // maybe raise error here?
+        if (rpc.has_appendentriesresponse()) {
+            raftConsensus->processAppendEntriesRPCResp(rpc, serverID); 
+        } else if (rpc.has_requestvoteresponse()) {
+            raftConsensus->processRequestVoteRPCResp(rpc, serverID); 
+        } else {
+            return; // Is this an error? should only get responses to requests through ClientSocket Manager
         }
     }
 

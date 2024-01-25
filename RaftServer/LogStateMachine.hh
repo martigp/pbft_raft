@@ -35,7 +35,7 @@ namespace Raft {
              * For now, this will be called directly from the global handleClientRequest() method.
              * Returns the result 
              */
-            std::string proj1Execute(std::string command);
+            std::string proj1Execute(RaftRPC rpc);
 
         private:
             /**
