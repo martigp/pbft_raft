@@ -20,8 +20,13 @@ namespace Raft {
 
     void Globals::init(std::string configPath) {
         this->configPath = configPath;
-        // this->ServerConfig = Common::ServerConfig(this->configPath);
-        threadpool.push_back(raftConsensus->startTimer();)
+        this->config = Common::ServerConfig(this->configPath);
+    }
+
+    void Globals::start() {
+        threadMap[NamedThread::ThreadType::TIMER] = raftConsensus->startTimer();
+        threadMap[NamedThread::ThreadType::SERVERLISTENING] = serverSockets->start();
+        threadMap[NamedThread::ThreadType::CLIENTLISTENING] = clientSockets->start();
     }
 
     std::string Globals::processRPCReq(std::string data, int serverID) {

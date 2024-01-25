@@ -3,7 +3,7 @@
 
 #include <string>
 #include <memory>
-#include <thread>
+#include <jthread>
 #include "SocketManager.hh"
 #include "Consensus.hh"
 #include "LogStateMachine.hh"
@@ -100,9 +100,9 @@ namespace Raft {
             std::shared_ptr<Raft::LogStateMachine> stateMachine;
 
             /**
-             * @brief Thread pool mockup for now.
+             * @brief Track persistent threads spun up on start().
             */
-            std::vector<Raft::NamedThread> threadpool;
+            std::map<NamedThread::ThreadType, NamedThread> threadMap;
 
     }; // class Globals
 
@@ -111,7 +111,7 @@ namespace Raft {
             /**
              * @brief Thread object.
              */ 
-            std::thread thread;
+            std::jthread thread;
 
             /**
              * Enum for: TimerThread, IncomingListeningThread, OutgoingReqThread(many)
@@ -119,9 +119,9 @@ namespace Raft {
             */
             enum class ThreadType {
                 TIMER,
-                INCOMINGLISTENING,
-                OUTGOINGLISTENING,
-                OUTGOINGREQUEST
+                SERVERLISTENING,
+                CLIENTLISTENING,
+                CLIENTINITIATED
             };
 
             /**

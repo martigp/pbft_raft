@@ -11,11 +11,14 @@
 #include <random>
 #include <atomic>
 #include <chrono>
+#include <mutex>
 #include <condition_variable>
 #include <iostream>
 #include <thread>
 #include "RaftGlobals.hh"
 #include "LogStateMachine.hh"
+
+using namespace RaftCommon;
 
 namespace Raft {
 
@@ -99,6 +102,11 @@ namespace Raft {
              * Below are the figure 2 persistent state variables needed
              * Must be updated in stable storage before responding to RPCs
             **************************************/
+            /**
+             * @brief The latest term server has seen 
+             * - initialized to 0 on first boot, increases monotonically
+            */
+            std::mutex persistentStateMutex;
 
             /**
              * @brief The latest term server has seen 
@@ -234,7 +242,7 @@ namespace Raft {
              * In Project 2, it will do log replication stuff
             */
             void sendAppendEntriesRPCs();
-            
+
     }; // class Consensus
 } // namespace Raft
 

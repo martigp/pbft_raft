@@ -9,7 +9,7 @@
 #include <string>
 #include <netinet/in.h>
 
-namespace RaftCommon {
+namespace Common {
     class ServerConfig {
         public:
             /**
@@ -48,6 +48,6 @@ namespace RaftCommon {
         private:
 
     }; // class ServerConfig
-} // namespace RaftCommon
+} // namespace Common
 
 #endif /* COMMON_SERVERCONFIG_H */

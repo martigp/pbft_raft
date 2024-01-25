@@ -4,6 +4,8 @@
  * Below is mockup/pseudocode of what needs to be passed in/started up
  * 
 */
+#include "RaftGlobals.hh"
+
 using namespace Raft;
 
 int main() {

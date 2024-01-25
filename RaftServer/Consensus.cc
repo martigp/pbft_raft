@@ -1,4 +1,3 @@
-#include <string>
 #include "Consensus.hh"
 
 namespace Raft {
@@ -75,6 +74,7 @@ namespace Raft {
     }
 
     void Consensus::startNewElection() {
+        std::unique_lock<mutex> lock(persistentStateMutex);
         currentTerm += 1;
         votedFor = config.myServerID;
         // TODO: WRITE TO DISK
@@ -82,10 +82,12 @@ namespace Raft {
         resetTimer();
 
         RaftRPC req;
-        req.set_term(currentTerm);
-        req.set_candidateId(config.myServerID);
-        req.set_lastLogIndex(0);
-        req.set_lastLogTerm(0);
+        RequestVoteRequest payload;
+        payload.set_term(currentTerm);
+        payload.set_candidateId(config.myServerID);
+        payload.set_lastLogIndex(0);
+        payload.set_lastLogTerm(0);
+        req.set_allocated_requestvoterequest(&payload);
         std::string reqString;
         req.SerializeToString(&reqString);
         globals.broadcastRPC(reqString);
@@ -102,30 +104,40 @@ namespace Raft {
         setHeartbeatTimeout();
         resetTimer(); // so not interrupted again 
 
-        // format initial empty AppendEntriesRPC
+        // format initial empty AppendEntriesRPC heartbeat
         RaftRPC req;
-        req.set_term(currentTerm);
-        req.set_leaderId(config.myServerID);
-        req.set_prevLogIndex(0); // will change for proj 2
-        req.set_prevLogTerm(0); // will change for proj 2
-        req.set_entries({});
-        req.set_leaderCommit(0); // will change for proj 2
-        globals.broadcastRPC(req);
+        AppendEntriesRequest payload;
+        payload.set_term(currentTerm);
+        payload.set_leaderId(config.myServerID);
+        payload.set_prevLogIndex(0); // will change for proj 2
+        payload.set_prevLogTerm(0); // will change for proj 2
+        payload.set_entries({});
+        payload.set_leaderCommit(0); // will change for proj 2
+        req.set_allocated_appendentriesrequest(&payload);
+        std::string reqString;
+        req.SerializeToString(&reqString);
+        globals.broadcastRPC(reqString);
     }
 
     void Consensus::sendAppendEntriesRPCs() {
-        // format initial empty AppendEntriesRPC
+        // format AppendEntriesRPCs for each RaftServer
+        // right now always empty heartbeats
         RaftRPC req;
-        req.set_term(currentTerm);
-        req.set_leaderId(config.myServerID);
-        req.set_prevLogIndex(0); // will change for proj 2
-        req.set_prevLogTerm(0); // will change for proj 2
-        req.set_entries({});
-        req.set_leaderCommit(0); // will change for proj 2
-        globals.broadcastRPC(req);
+        AppendEntriesRequest payload;
+        payload.set_term(currentTerm);
+        payload.set_leaderId(config.myServerID);
+        payload.set_prevLogIndex(0); // will change for proj 2
+        payload.set_prevLogTerm(0); // will change for proj 2
+        payload.set_entries({});
+        payload.set_leaderCommit(0); // will change for proj 2
+        req.set_allocated_appendentriesrequest(&payload);
+        std::string reqString;
+        req.SerializeToString(&reqString);
+        globals.broadcastRPC(reqString);
     }
 
     RaftRPC Consensus::receivedAppendEntriesRPC(RaftRPC req, int serverID); {
+        std::unique_lock<mutex> lock(persistentStateMutex);
         if (req.term() > currentTerm) {
             currentTerm = resp.term();
             votedFor = -1; // no vote casted in new term
@@ -155,11 +167,11 @@ namespace Raft {
     }
 
     void Consensus::processAppendEntriesRPCResp(RaftRPC resp, int serverID) {
+        std::unique_lock<mutex> lock(persistentStateMutex);
         if (resp.term() > currentTerm) {
             currentTerm = resp.term();
             votedFor = -1; // no vote casted in new term
             convertToFollower();
-            return;
         }
         /* Do we do anything here for project 1? */
     }
