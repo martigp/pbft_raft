@@ -53,6 +53,7 @@ class Socket {
          * @brief The socket file descriptor.
          */
         const int fd;
+
 }; // class Socket
 
 /**
@@ -67,8 +68,9 @@ class ListenSocket : public Socket {
          * connection requests.
          * 
          * @param fd The file descriptor of the socket.
+         * @param firstRaftClientId Initial value of nextRaftClientId.
          */
-        ListenSocket( int fd );
+        ListenSocket( int fd, uint64_t firstRaftClientId );
 
         /* Destructor */
         ~ListenSocket();
@@ -86,6 +88,13 @@ class ListenSocket : public Socket {
          */
         void handleSocketEvent( struct kevent& ev,
                                 SocketManager& socketManager );
+    
+    private:
+        /**
+         * @brief The Id to be assigned to the next RaftClient that connects
+         * to this RaftServer.
+         */
+        uint64_t nextRaftClientId;
 }; // class ListenSocket
 
 /**

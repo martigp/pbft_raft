@@ -25,18 +25,25 @@ namespace Raft {
         }
     }
 
-    bool SocketManager::registerSocket( Socket *socket ) {
+    bool SocketManager::registerSocket( uint64_t id, Socket *socket ) {
 
         struct kevent newEv;
-        EV_SET(&newEv, socket->fd, EVFILT_READ, EV_ADD, 0, 0, socket);
 
-        printf("About to register new event on kq %d\n", kq);
+        if (sockets.find(id) != sockets.end()) {
+            printf("Socket with id %llu exists already\n", id);
+            return false;
+        }
+
+        EV_SET(&newEv, socket->fd, EVFILT_READ, EV_ADD, 0, 0, socket);
 
         if (kevent(kq, &newEv, 1, NULL, 0, NULL) == -1) {
             perror("Failure to register client socket");
             return false;
         }
-        printf("Registered new event\n");
+
+        sockets[id] = socket;
+
+        printf("Registered new socket listener for socket id %llu\n", id);
         return true;
     }
 
@@ -72,6 +79,12 @@ namespace Raft {
     ServerSocketManager::ServerSocketManager( Raft::Globals& globals )
         : SocketManager( globals )
     {
+        /* TODO: Iterate through the globals.config.clusterMap and
+        and create storage entries for each of them. Most likely will have
+        to be an unordered_map<uint64_t, ServerSocket *> because will need
+        to have these initialized when we receive an incoming connection and
+        determined it is a ServerSocket we can then add them? */
+
         int listenSocketFd;
         struct sockaddr_in listenSockAddr;
         int opt = 1;
@@ -117,14 +130,25 @@ namespace Raft {
                                 globals.config.raftPort);
         
 
+        uint64_t largestServerId = 0;
+        for(auto& it : globals.config.clusterMap) {
+            if (it.first > largestServerId) {
+                largestServerId = it.first;
+            }
+        }
         Raft::ListenSocket * listenSocket = 
-                            new Raft::ListenSocket(listenSocketFd);
+                            new Raft::ListenSocket(listenSocketFd,
+                                                   largestServerId + 1);
         
-        registerSocket(listenSocket);
+        registerSocket(LISTEN_SOCKET_ID, listenSocket);
     }
 
     ServerSocketManager::~ServerSocketManager()
     {
+        for (std::pair<uint64_t, Socket *> socket: sockets) {
+            removeSocket(socket.second);
+            delete socket.second;
+        }
     }
 
     void ServerSocketManager::start()
@@ -157,6 +181,7 @@ namespace Raft {
 
                 if (ev.fflags & EV_EOF) {
                     removeSocket(evSocket);
+                    delete evSocket;
                 }
                 else {
                     evSocket->handleSocketEvent(ev, *this);

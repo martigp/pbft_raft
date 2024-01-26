@@ -8,6 +8,7 @@
 
 #define MAX_CONNECTIONS 10
 #define MAX_EVENTS 1
+#define LISTEN_SOCKET_ID 0
 
 namespace Raft {
 
@@ -36,12 +37,13 @@ namespace Raft {
              * future calls to kevent will alert user if there were any events
              * on the socket.
              * 
-            * @param socket Socket object to access when an event happens on
+             * @param id The id of the associated connection.
+             * @param socket Socket object to access when an event happens on
              * the corresponding file descriptor.
              * @return Whether the socket was successfullly registered for
              * monitoring.
              */
-            bool registerSocket( Socket *socket );
+            bool registerSocket( uint64_t id, Socket *socket );
 
             /**
              * @brief 
@@ -67,9 +69,18 @@ namespace Raft {
             int kq;
         
             /**
-             * @brief Reference to server globals
+             * @brief Reference to server globals. Used to handle RPC requests.
              */
             [[maybe_unused]] Raft::Globals& globals;
+            
+            /**
+             * @brief Keeps track of who sockets belong to. For RaftServers's
+             * the id is the unique serverId, for RaftClients, the unique ID
+             * is a monotonically increasing id that starts with the largest
+             * serverId + 1. 
+             * 
+             */
+            std::unordered_map<uint64_t, Socket *> sockets;
 
     }; // class SocketManager
 

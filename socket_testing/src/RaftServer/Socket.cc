@@ -44,17 +44,18 @@ namespace Raft {
 
             memset(buf, 0, sizeof(buf));
 
-            bytesRead = recv(evSocketFd, buf, sizeof(buf), 0);
+            printf("[Server] Bytes Received: %ld", ev.data);
+
+            bytesRead = recv(evSocketFd, buf, sizeof(Test::TestMessage), 0);
 
             Test::TestMessage receivedProtoMsg;
+            receivedProtoMsg.ParseFromArray(buf, sizeof(Test::TestMessage));
 
-            receivedProtoMsg.ParseFromArray(buf, sizeof(buf));
-
-            printf("[Server] Bytes Received %zu\n"
+            printf("[Server] Bytes Read %zu\n"
                     "[Server] Client with id %llu sent message: %s\n",
-                                    bytesRead,
-                                    receivedProtoMsg.sender(),
-                                    receivedProtoMsg.msg().c_str());
+                                bytesRead,
+                                receivedProtoMsg.sender(),
+                                receivedProtoMsg.msg().c_str());
             
             memset(response, 0, sizeof(response));
             strncpy(response, "Received your message", sizeof(response));
@@ -69,8 +70,9 @@ namespace Raft {
         }
     }
 
-    ListenSocket::ListenSocket( int fd )
-        : Socket(fd)
+    ListenSocket::ListenSocket( int fd, uint64_t firstRaftClientId )
+        : Socket(fd),
+          nextRaftClientId(firstRaftClientId)
     { }
 
     ListenSocket::~ListenSocket()
@@ -78,14 +80,16 @@ namespace Raft {
 
     void ListenSocket::handleSocketEvent( struct kevent& ev,
                                           SocketManager& socketManager) {
-        // struct sockaddr clientAddr;
-        // socklen_t addrLen;
+        
+        struct sockaddr_in clientAddr;
+        socklen_t clientAddrLen;
         // TODO: Use these to determine what type of connection it is e.g.
         // RaftServer v.s. RaftClient by cross referencing addresses with
         // config addresses of RaftServers
         // Currently assumes only RaftServers
 
-        int socketFd = accept(int (ev.ident), NULL, NULL);
+        int socketFd = accept(int(ev.ident), (struct sockaddr *) &clientAddr,
+                              &clientAddrLen);
         if (socketFd < 0) {
             perror("accept");
             exit(EXIT_FAILURE);
@@ -93,12 +97,32 @@ namespace Raft {
 
         printf("[Server] accepted new client on socket %d\n", socketFd);
 
+        uint64_t clientId;
+
+        // Check if incoming connection is from a RaftClient or RaftServer
+        for (auto& it : socketManager.globals.config.clusterMap) {
+            if (ntohl(it.second.sin_addr.s_addr) == 
+                ntohl(clientAddr.sin_addr.s_addr)) {
+                    // TODO: mark socket RaftServer/RaftClient upon receipt
+                    // This is going to help for when processing an RPC?
+                    // Might just be an enum in the ServerSocket object?
+                    printf("Accepted connection request from RaftServer with"
+                           "id %llu\n", it.first);
+                    clientId = it.first;
+            }
+            else
+            {
+                clientId = nextRaftClientId;
+                nextRaftClientId++;
+                printf("Accepted connection request from RaftClient with id"
+                       "%llu\n", clientId);
+            }
+        };
+
         ServerSocket * serverSocket = new ServerSocket(socketFd);
 
         printf("Successfully constructed server socket\n");
 
-        socketManager.registerSocket(serverSocket);
-
-        printf("Successfully set events on newEv\n");
+        socketManager.registerSocket(clientId, serverSocket);
     }
 }
