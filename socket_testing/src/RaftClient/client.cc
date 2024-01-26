@@ -27,15 +27,14 @@ restart:
 	struct sockaddr_in serv_addr;
 	Test::TestMessage protoMsg;
 
-	char hello[sizeof(Test::TestMessage)];
+	char hello[sizeof(Test::TestMessage) * 2];
 	protoMsg.set_msg("Protobuf Message");
-	protoMsg.set_sender((uint64_t) tid);
+	protoMsg.set_sender(77);
 
-	protoMsg.SerializeToArray(hello, sizeof(hello));
+	protoMsg.SerializeToArray(hello, sizeof(Test::TestMessage));
+	protoMsg.SerializeToArray(hello + sizeof(Test::TestMessage),
+							  sizeof(Test::TestMessage));
 
-	// Raft::AppendEntries::Request deserializedAppendEntriesMsg;
-	// deserializedAppendEntriesMsg.ParseFromArray(hello, sizeof(hello));
-	// printf("Deserialized msg has leader commit of %llu\n", deserializedAppendEntriesMsg.leadercommit());
 
 	char buffer[1024] = { 0 };
 	if ((clientFd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -67,10 +66,10 @@ restart:
 	}
 	printf("[Client %d] Connected to server\n", tid);
 
-	while (send(clientFd, hello, strlen(hello), 0) < 1)
+	while (send(clientFd, hello, sizeof(hello), 0) < 1)
 		sleep(2);
-	
 	printf("[Client %d] Sent msg %s to server\n", tid, hello);
+	
 	while (true) {
 		readBytes = recv(clientFd, buffer, 1024 - 1, 0);
 		if (readBytes > 0 ) {
