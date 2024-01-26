@@ -31,6 +31,37 @@ namespace Raft {
         return timerThread;
     }
 
+    void Consensus::processRPCResp(RaftRPC resp, int serverID) {
+        if (resp.has_appendentriesresponse()) {
+            raftConsensus->processAppendEntriesRPCResp(resp, serverID); 
+        } else if (resp.has_requestvoteresponse()) {
+            raftConsensus->processRequestVoteRPCResp(resp, serverID); 
+        } else {
+            return; // Is this an error? should only get responses to requests through ClientSocket Manager
+        }
+    }
+
+    RaftRPC Consensus::processRPCReq(RaftRPC req, int serverID) {
+        RaftRPC resp;
+        if (rpc.has_logentryrequest()) {
+            LogEntryResponse respPayload;
+            try {
+                respPayload.set_ret(stateMachine->proj1Execute(rpc));
+                respPayload.set_success(true);
+            } catch (const std::invalid_argument& e) {
+                respPayload.set_ret("");
+                respPayload.set_success(false); 
+            }
+            resp.set_allocated_logentryresponse(&respPayload);
+        } else if (rpc.has_appendentriesrequest()) {
+            resp = raftConsensus->receivedAppendEntriesRPC(req, serverID);
+        } else if (rpc.has_requestvoterequest()) {
+            resp = raftConsensus->receivedRequestVoteRPC(req, serverID);
+        } else {
+            return ""; // ERROR: received a request that we don't know how to handle, what do we shoot back?
+        }
+    }
+
     void Consensus::timerLoop() {
         while (1) {
             std::unique_lock<std::mutex> lock(resetTimerMutex);
@@ -86,7 +117,7 @@ namespace Raft {
         RaftRPC req;
         RequestVoteRequest payload;
         payload.set_term(currentTerm);
-        payload.set_candidateId(config.myServerID);
+        payload.set_candidateid(config.myServerID);
         payload.set_lastLogIndex(0);
         payload.set_lastLogTerm(0);
         req.set_allocated_requestvoterequest(&payload);
@@ -138,26 +169,29 @@ namespace Raft {
         globals.broadcastRPC(reqString);
     }
 
-    RaftRPC Consensus::receivedAppendEntriesRPC(RaftRPC req, int serverID); {
+    RaftRPC Consensus::receivedAppendEntriesRPC(RaftRPC req, int serverID) {
         RaftRPC resp;
         AppendEntriesResponse payload; 
         std::unique_lock<mutex> lock(persistentStateMutex);
+
         if (req.term() > currentTerm) {
             currentTerm = resp.term();
             votedFor = -1; // no vote casted in new term
             convertToFollower(); // TODO: Do you still try to respond to the AppendEntries in entirety right on conversion to follower?
             payload.set_term(currentTerm);
             payload.set_success(false);
+            resp.set_allocated_appendentriesresponse(&payload);
+            return resp;
         }
 
-        if (myState == ServerState::Candidate && req.term() == currentTerm) {
+        if (myState == ServerState::CANDIDATE && req.term() == currentTerm) {
             convertToFollower(); // TODO: Do you still try to respond to the AppendEntries in entirety right on conversion to follower?
         }
 
         resp.set_term(currentTerm);
         
         if (req.term() < currentTerm) {
-            resp.set_success(false);
+            resp.set_success(false); // TODO: is false a rejection?
             return resp;
         } else {
             // At this point, we must be talking to the currentLeader, resetTimer as specified in Rules for Followe
@@ -181,31 +215,36 @@ namespace Raft {
     }
 
     RaftRPC Consensus::receivedRequestVoteRPC(RaftRPC req, int serverID) {
+        std::unique_lock<mutex> lock(persistentStateMutex);
+        RaftRPC resp;
+        RequestVoteResponse payload;
         if (req.term() > currentTerm) {
             currentTerm = resp.term();
             votedFor = -1; // no vote casted in new term
-            convertToFollower();
-            return;
+            convertToFollower(); 
+            return; // TODO: do I return a value?
         }
 
-        RaftRPC resp;
-        resp.set_term(currentTerm);
+        payload.set_term(currentTerm);
         if (req.term() < currentTerm) {
-            resp.set_voteGranted(false);
+            payload.set_votegranted(false);
+            resp.set_allocated_requestvoteresponse(&payload);
             return resp;
         }
 
-        if (votedFor == -1 || votedFor == req.candidateID()) {
-            votedFor = req.candidateID();
-            resp.set_voteGranted(true);
+        if (votedFor == -1 || votedFor == req.candidateid()) {
+            votedFor = req.candidateid();
+            resp.set_votegranted(true);
             resetTimer();
         } else {
-            resp.set_voteGranted(false);
+            resp.set_votegranted(false);
         }
+        resp.set_allocated_requestvoteresponse(&payload);
         return resp;
     }
 
     void Consensus::processRequestVoteRPCResp(RaftRPC resp, int serverID) {
+        std::unique_lock<mutex> lock(persistentStateMutex);
         if (resp.term() > currentTerm) {
             currentTerm = resp.term();
             votedFor = -1; // no vote casted in new term

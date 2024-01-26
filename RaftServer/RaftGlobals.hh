@@ -41,23 +41,23 @@ namespace Raft {
              * @brief Process an RPC from the ServerSocketManager
              * Must be a request.
              * 
-             * @param data String read from the socket fd.
+             * @param data RaftRPC protobuf read from socket fd
              * 
              * @param serverID Unique RaftServer or RaftClient ID assocaied with the socket that was read from.
              * 
-             * @returns Serialized string to write back to caller
+             * @returns RaftRPC protobuf to write back to socket fd
              */
-            std::string processRPCReq(std::string data, int serverID);
+            RaftRPC processRPCReq(RaftRPC req, int serverID)
 
             /**
              * @brief Process an RPC from the ClientSocketManager
              * Must be a response to a request.
              * 
-             * @param data String read from the socket fd.
+             * @param data RaftRPC protobuf read from socket fd
              * 
              * @param serverID Unique RaftServer or RaftClient ID assocaied with the socket that was read from.
              */
-            void processRPCResp(std::string data, int serverID);
+            void processRPCResp(RaftRPC resp, int serverID);
 
             /**
              * @brief Broadcast an RPC to all other servers

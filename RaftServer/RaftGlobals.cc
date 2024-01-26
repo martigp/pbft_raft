@@ -29,46 +29,13 @@ namespace Raft {
         threadMap[NamedThread::ThreadType::CLIENTLISTENING] = clientSockets->start();
     }
 
-    std::string Globals::processRPCReq(std::string data, int serverID) {
-        // has_appendentriesresponse()
-        // set_has_appendentriesresponse()
-        std::string ret;
-        RaftRPC resp;
-
-        RaftRPC rpc;
-        rpc.ParseFromString(data);
-        if (rpc.has_logentryrequest()) {
-            LogEntryResponse respPayload;
-            try {
-                respPayload.set_ret(stateMachine->proj1Execute(rpc));
-                respPayload.set_success(true);
-            } catch (const std::invalid_argument& e) {
-                respPayload.set_ret("");
-                respPayload.set_success(false); 
-            }
-            resp.set_allocated_logentryresponse(&respPayload);
-        } else if (rpc.has_appendentriesrequest()) {
-            resp = raftConsensus->receivedRequestVoteRPC(rpc, serverID);
-        } else if (rpc.has_requestvoterequest()) {
-            resp = raftConsensus->receivedRequestVoteRPC(rpc, serverID);
-        } else {
-            return ""; // ERROR: received a request that we don't know how to handle, what do we shoot back?
-        }
-        resp.SerializeToString(&ret);
+    RaftRPC Globals::processRPCReq(RaftRPC req, int serverID) {
+        RaftRPC ret = raftConsensus->processRPCReq(req, serverID);
         return ret;
     }
 
-    void Globals::processRPCResp(std::string data, int serverID) {
-        // TODO: compile protobuf and see what actually shows up
-        RaftRPC rpc;
-        rpc.ParseFromString(data);
-        if (rpc.has_appendentriesresponse()) {
-            raftConsensus->processAppendEntriesRPCResp(rpc, serverID); 
-        } else if (rpc.has_requestvoteresponse()) {
-            raftConsensus->processRequestVoteRPCResp(rpc, serverID); 
-        } else {
-            return; // Is this an error? should only get responses to requests through ClientSocket Manager
-        }
+    void Globals::processRPCResp(RaftRPC resp, int serverID) {
+        raftConsensus->processRPCResp(resp, serverID);
     }
 
     void Globals::broadcastRPC(RaftRPC req) {
