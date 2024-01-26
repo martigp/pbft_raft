@@ -22,6 +22,8 @@ using namespace RaftCommon;
 
 namespace Raft {
 
+    class Globals;
+
     class Consensus {
         public:
             /**

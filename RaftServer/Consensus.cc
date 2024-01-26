@@ -63,6 +63,7 @@ namespace Raft {
     }
 
     void Consensus::generateRandomElectionTimeout() {
+        std::unique_lock<std::mutex> lock(resetTimerMutex);
         std::random_device seed;
         std::mt19937 gen{seed()}; 
         std::uniform_int_distribution<> dist{5000, 10000};
@@ -70,6 +71,7 @@ namespace Raft {
     }
 
     void Consensus::setHeartbeatTimeout() {
+        std::unique_lock<std::mutex> lock(resetTimerMutex);
         timerTimeout = 1000; // TODO: is this right?
     }
 
@@ -137,19 +139,21 @@ namespace Raft {
     }
 
     RaftRPC Consensus::receivedAppendEntriesRPC(RaftRPC req, int serverID); {
+        RaftRPC resp;
+        AppendEntriesResponse payload; 
         std::unique_lock<mutex> lock(persistentStateMutex);
         if (req.term() > currentTerm) {
             currentTerm = resp.term();
             votedFor = -1; // no vote casted in new term
             convertToFollower(); // TODO: Do you still try to respond to the AppendEntries in entirety right on conversion to follower?
-            // return;
+            payload.set_term(currentTerm);
+            payload.set_success(false);
         }
 
         if (myState == ServerState::Candidate && req.term() == currentTerm) {
             convertToFollower(); // TODO: Do you still try to respond to the AppendEntries in entirety right on conversion to follower?
         }
 
-        RaftRPC resp;
         resp.set_term(currentTerm);
         
         if (req.term() < currentTerm) {
