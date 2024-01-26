@@ -10,6 +10,8 @@
 #include "RaftServer/SocketManager.hh"
 #include "RaftServer/Socket.hh"
 
+#define FIRST_USER_EVENT_ID INT_MAX + 1
+
 namespace Raft {
 
     class ClientSocketManager;
@@ -50,6 +52,16 @@ namespace Raft {
              */
             std::shared_ptr<ServerSocketManager> serverSocketManager;
 
+            /**
+             * @brief Generates user event id to be used for user triggered
+             * events a socket manager kqueue. Starts as FIRST_USER_EVENT_ID
+             * and value returned will monotomically increase. When this is
+             * called nextUserEventId is incremented.
+             * 
+             * @return Unique User Event Id 
+             */
+            uint32_t genUserEventId();
+
         
         private:
 
@@ -57,6 +69,8 @@ namespace Raft {
              * @brief Map of ID to address, I think this is better
              */
             std::unordered_map<int, sockaddr_in> clusterMap;
+
+            std::atomic<uint32_t> nextUserEventId;
 
     }; // class Globals
 } // namespace Raft

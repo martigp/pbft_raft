@@ -13,7 +13,8 @@ namespace Raft {
     Globals::Globals( std::string configPath )
         : config( configPath ),
           clientSocketManager(),
-          serverSocketManager()
+          serverSocketManager(),
+          nextUserEventId (FIRST_USER_EVENT_ID)
     {       
         clientSocketManager.reset(new ClientSocketManager(*this));
         serverSocketManager.reset(new ServerSocketManager(*this)); 
@@ -29,5 +30,9 @@ namespace Raft {
 
         /* Start listening. */
         serverSocketManager->start();
+    }
+
+    uint32_t Globals::genUserEventId() {
+        return nextUserEventId++;
     }
 }
