@@ -11,13 +11,18 @@
 #include <random>
 #include <atomic>
 #include <chrono>
+#include <mutex>
 #include <condition_variable>
 #include <iostream>
 #include <thread>
 #include "RaftGlobals.hh"
 #include "LogStateMachine.hh"
 
+using namespace RaftCommon;
+
 namespace Raft {
+
+    class Globals;
 
     class Consensus {
         public:
@@ -48,32 +53,24 @@ namespace Raft {
             ServerState myState;
 
             /**
-             * @brief Receiver Implementation of AppendEntriesRPC
-             * Produces a response to send back
-             * Follows bottom left box in Figure 2
+             * @brief Process an RPC Response received on our Client Socket Manager
+             * 
+             * @param resp RaftRPC response
+             * 
+             * @param serverID unique ID of server that RPC came from
             */
-            RaftRPC receivedAppendEntriesRPC(RaftRPC req, int serverID); 
+            void processRPCResp(RaftRPC resp, int serverID);
 
             /**
-             * @brief Sender Implementation of AppendEntriesRPC
-             * Process the response received(term, success)
-             * Follows bottom left box in Figure 2
+             * @brief Process an RPC Request received on our Server Socket Manager
+             * 
+             * @param resp RaftRPC response
+             * 
+             * @param serverID unique ID of server that RPC came from
+             * 
+             * @returns the RaftRPC message to send back
             */
-            void processAppendEntriesRPCResp(RaftRPC resp, int serverID);
-
-            /**
-             * @brief Receiver Implementation of RequestVoteRPC
-             * Produces a response to send back
-             * Follows upper right box in Figure 2
-            */
-            RaftRPC receivedRequestVoteRPC(RaftRPC req, int serverID); 
-
-            /**
-             * @brief Sender Implementation of RequestVoteRPC
-             * Process the response received(term, voteGranted)
-             * Follows upper right box in Figure 2
-            */
-            void processRequestVoteRPCResp(RaftRPC resp, int serverID); 
+            RaftRPC processRPCReq(RaftRPC req, int serverID); 
 
         private:
             /*************************************
@@ -99,6 +96,11 @@ namespace Raft {
              * Below are the figure 2 persistent state variables needed
              * Must be updated in stable storage before responding to RPCs
             **************************************/
+            /**
+             * @brief The latest term server has seen 
+             * - initialized to 0 on first boot, increases monotonically
+            */
+            std::mutex persistentStateMutex;
 
             /**
              * @brief The latest term server has seen 
@@ -155,6 +157,34 @@ namespace Raft {
             /*************************************
              * Below are all internal methods, etc
             **************************************/
+
+            /**
+             * @brief Receiver Implementation of AppendEntriesRPC
+             * Produces a response to send back
+             * Follows bottom left box in Figure 2
+            */
+            RaftRPC receivedAppendEntriesRPC(RaftRPC req, int serverID); 
+
+            /**
+             * @brief Sender Implementation of AppendEntriesRPC
+             * Process the response received(term, success)
+             * Follows bottom left box in Figure 2
+            */
+            void processAppendEntriesRPCResp(RaftRPC resp, int serverID);
+
+            /**
+             * @brief Receiver Implementation of RequestVoteRPC
+             * Produces a response to send back
+             * Follows upper right box in Figure 2
+            */
+            RaftRPC receivedRequestVoteRPC(RaftRPC req, int serverID); 
+
+            /**
+             * @brief Sender Implementation of RequestVoteRPC
+             * Process the response received(term, voteGranted)
+             * Follows upper right box in Figure 2
+            */
+            void processRequestVoteRPCResp(RaftRPC resp, int serverID);
 
             /**
              * @brief Current election timeout length (milliseconds) 
@@ -234,7 +264,7 @@ namespace Raft {
              * In Project 2, it will do log replication stuff
             */
             void sendAppendEntriesRPCs();
-            
+
     }; // class Consensus
 } // namespace Raft
 

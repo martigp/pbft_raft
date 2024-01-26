@@ -20,7 +20,21 @@ namespace Common {
             /* Destructor */
             ~ServerConfig();
 
-        private:
+            /**
+             * @brief My serverID
+            */
+            int myServerID;
+
+            /**
+             * @brief My server address
+            */
+            sockaddr_in myServerAddress;
+
+            /**
+             * @brief Number of servers in cluster
+             */
+            int numServers;
+
             /**
              * @brief Addresses of the servers
              */
@@ -35,6 +49,8 @@ namespace Common {
              * @brief Map of ID to address, I think this is better
              */
             std::unordered_map<int, sockaddr_in> clusterMap;
+
+        private:
 
     }; // class ServerConfig
 } // namespace Common

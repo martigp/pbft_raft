@@ -3,10 +3,15 @@
 
 #include <string>
 #include <memory>
-#include <thread>
+#include <jthread>
 #include "SocketManager.hh"
 #include "Consensus.hh"
 #include "LogStateMachine.hh"
+#include "raftrpc.pb.h"
+#include "ServerConfig.hh"
+
+using namespace Common;
+using namespace RaftCommon;
 
 namespace Raft {
     class Globals {
@@ -37,23 +42,23 @@ namespace Raft {
              * @brief Process an RPC from the ServerSocketManager
              * Must be a request.
              * 
-             * @param data String read from the socket fd.
+             * @param data RaftRPC protobuf read from socket fd
              * 
              * @param serverID Unique RaftServer or RaftClient ID assocaied with the socket that was read from.
              * 
-             * @returns Serialized string to write back to caller
+             * @returns RaftRPC protobuf to write back to socket fd
              */
-            std::string processRPCReq(std::string data, int serverID);
+            RaftRPC processRPCReq(RaftRPC req, int serverID)
 
             /**
              * @brief Process an RPC from the ClientSocketManager
              * Must be a response to a request.
              * 
-             * @param data String read from the socket fd.
+             * @param data RaftRPC protobuf read from socket fd
              * 
              * @param serverID Unique RaftServer or RaftClient ID assocaied with the socket that was read from.
              */
-            void processRPCResp(std::string data, int serverID);
+            void processRPCResp(RaftRPC resp, int serverID);
 
             /**
              * @brief Broadcast an RPC to all other servers
@@ -96,9 +101,14 @@ namespace Raft {
             std::shared_ptr<Raft::LogStateMachine> stateMachine;
 
             /**
-             * @brief Thread pool mockup for now.
+             * @brief Track persistent threads spun up on start().
             */
-            std::vector<Raft::NamedThread> threadpool;
+            std::map<NamedThread::ThreadType, NamedThread> threadMap;
+
+            /**
+             * @brief Threads for each outbound client connection that may need to be stopped.
+            */
+            std::map<int, NamedThread> serverThreadMap;
 
     }; // class Globals
 
@@ -107,7 +117,7 @@ namespace Raft {
             /**
              * @brief Thread object.
              */ 
-            std::thread thread;
+            std::jthread thread;
 
             /**
              * Enum for: TimerThread, IncomingListeningThread, OutgoingReqThread(many)
@@ -115,9 +125,9 @@ namespace Raft {
             */
             enum class ThreadType {
                 TIMER,
-                INCOMINGLISTENING,
-                OUTGOINGLISTENING,
-                OUTGOINGREQUEST
+                SERVERLISTENING,
+                CLIENTLISTENING,
+                CLIENTINITIATED
             };
 
             /**

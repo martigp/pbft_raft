@@ -6,7 +6,6 @@
 namespace Raft {
     
     Globals::Globals() 
-        : threadpool ( {} )
     {        
         raftConsensus = new Raft::Consensus();
         serverSockets = new Raft::ServerSocketManager();
@@ -20,65 +19,30 @@ namespace Raft {
 
     void Globals::init(std::string configPath) {
         this->configPath = configPath;
-        // this->ServerConfig = Common::ServerConfig(this->configPath);
-        threadpool.push_back(raftConsensus->startTimer();)
+        this->config = Common::ServerConfig(this->configPath);
     }
 
-    std::string Globals::processRPCReq(std::string data, int serverID) {
-        std::string ret;
-        RaftRPC resp;
+    void Globals::start() {
+        threadMap[NamedThread::ThreadType::TIMER] = raftConsensus->startTimer();
+        threadMap[NamedThread::ThreadType::SERVERLISTENING] = serverSockets->start();
+        threadMap[NamedThread::ThreadType::CLIENTLISTENING] = clientSockets->start();
+    }
 
-        RaftRPC rpc;
-        rpc.ParseFromString(data);
-        switch(rpc.payload) {
-            case "logEntry":
-                resp.payload = "logEntryResp";
-                try {
-                    resp.ret = stateMachine->proj1Execute(rpc);
-                    resp.success = true;
-                } catch (const std::invalid_argument& e) {
-                    resp.ret = "";
-                    resp.success = false; 
-                }
-            case "appendEntriesRequest":
-                resp = raftConsensus.receivedRequestVoteRPC(rpc, serverID);
-            case "appendEntriesResponse":
-                break; // ERROR: should not get responses through ServerSocketManager
-            case "requestVoteRequest":
-                resp = raftConsensus.receivedRequestVoteRPC(rpc, serverID);
-            case "requestVoteResponse":
-                break; // ERROR: should not get responses through ServerSocketManager
-            default:
-                break; // maybe raise error here?
-        }
-        resp.SerializeToString(&ret);
+    RaftRPC Globals::processRPCReq(RaftRPC req, int serverID) {
+        RaftRPC ret = raftConsensus->processRPCReq(req, serverID);
         return ret;
     }
 
-    void Globals::processRPCResp(std::string data, int serverID) {
-        // TODO: compile protobuf and see what actually shows up
-        RaftRPC rpc;
-        rpc.ParseFromString(data);
-        PayloadCase type = rpc.payload_case()
-        switch(type) {
-            case "logEntry":
-                break; // ERROR: should not get requests through ClientSocketManager
-            case "appendEntriesRequest":
-                break; // ERROR: should not get requests through ClientSocketManager
-            case "appendEntriesResponse":
-                processAppendEntriesRPCResp(rpc, serverID); 
-            case "requestVoteRequest":
-                break; // ERROR: should not get requests through ClientSocketManager
-            case "requestVoteResponse":
-                processRequestVoteRPCResp(rpc, serverID); 
-            default:
-                break; // maybe raise error here?
-        }
+    void Globals::processRPCResp(RaftRPC resp, int serverID) {
+        raftConsensus->processRPCResp(resp, serverID);
     }
 
     void Globals::broadcastRPC(RaftRPC req) {
         // TODO: implement this, but this same string goes to all servers
         // TODO: will need a version that takes an array of strings and the servers that they go to
+        for (int i = 0; i < config.numServers - 1; i++) {
+            serverThreadMap[config.serverIds[i]] = clientSockets->sendRaftServerRPC(req);
+        }
     }
 
 }
