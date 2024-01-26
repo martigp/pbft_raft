@@ -31,6 +31,11 @@ namespace Common {
             sockaddr_in myServerAddress;
 
             /**
+             * @brief Number of servers in cluster
+             */
+            int numServers;
+
+            /**
              * @brief Addresses of the servers
              */
             std::vector<sockaddr_in> addresses;

@@ -44,7 +44,7 @@ namespace Raft {
     RaftRPC Consensus::processRPCReq(RaftRPC req, int serverID) {
         RaftRPC resp;
         if (rpc.has_logentryrequest()) {
-            LogEntryResponse respPayload;
+            LogEntryResponse respPayload; // TODO: this is ok for now, but in the future needs to spawn thread and return
             try {
                 respPayload.set_ret(stateMachine->proj1Execute(rpc));
                 respPayload.set_success(true);

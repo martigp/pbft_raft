@@ -6,7 +6,6 @@
 namespace Raft {
     
     Globals::Globals() 
-        : threadpool ( {} )
     {        
         raftConsensus = new Raft::Consensus();
         serverSockets = new Raft::ServerSocketManager();
@@ -41,6 +40,9 @@ namespace Raft {
     void Globals::broadcastRPC(RaftRPC req) {
         // TODO: implement this, but this same string goes to all servers
         // TODO: will need a version that takes an array of strings and the servers that they go to
+        for (int i = 0; i < config.numServers - 1; i++) {
+            serverThreadMap[config.serverIds[i]] = clientSockets->sendRaftServerRPC(req);
+        }
     }
 
 }

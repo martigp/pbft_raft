@@ -10,6 +10,7 @@
 #include "raftrpc.pb.h"
 #include "ServerConfig.hh"
 
+using namespace Common;
 using namespace RaftCommon;
 
 namespace Raft {
@@ -77,7 +78,7 @@ namespace Raft {
             /**
              * @brief The ServerConfig object after configPath is parsed.
              */
-            ServerConfig config;
+            Common::ServerConfig config;
 
             /**
              * @brief Server Socket Manager.
@@ -103,6 +104,11 @@ namespace Raft {
              * @brief Track persistent threads spun up on start().
             */
             std::map<NamedThread::ThreadType, NamedThread> threadMap;
+
+            /**
+             * @brief Threads for each outbound client connection that may need to be stopped.
+            */
+            std::map<int, NamedThread> serverThreadMap;
 
     }; // class Globals
 
