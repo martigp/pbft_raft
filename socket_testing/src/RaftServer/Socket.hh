@@ -1,8 +1,10 @@
 #ifndef RAFT_SOCKET_H
 #define RAFT_SOCKET_H
 
+#include <queue>
 #include <sys/event.h>
 #include "RaftServer/RaftGlobals.hh"
+#include "Protobuf/test.pb.h"
 
 namespace Raft {
 
@@ -22,15 +24,17 @@ class SocketManager;
  * the event.
  */
 class Socket {
+    
+    friend SocketManager;
+
     public:
         /**
          * @brief Construct a new Socket object. Once constructed it is
          * registered with the corresponding socket file descriptor to the
-         * kernel.
+         * kernel to respond to events on the socket.
          * 
-         * @param fd socket's file descriptor
          */
-        Socket( int fd );
+        Socket( int fd, uint32_t userEventId );
 
         /* Destructor */
         virtual ~Socket() = 0;
@@ -48,11 +52,52 @@ class Socket {
          */
         virtual void handleSocketEvent( struct kevent& ev,
                                         SocketManager& socketManager ) = 0;
-
+        
+        void sendRPC( Test::TestMessage msg);
+    
+    protected:
         /**
          * @brief The socket file descriptor.
          */
         const int fd;
+
+        /**
+         * @brief Unique user event id used by Raft to signal to kernel that
+         * a user triggered an event on the socket.
+         * 
+         */
+        const uint32_t userEventId;
+
+        /**
+         * @brief Wrapper that stores the bytes read from socket buffer and
+         * the number of bytes read from socket buffer.
+         * 
+         */
+        class ReadBytes {
+            public:
+                ReadBytes(size_t numBytes);
+
+                ~ReadBytes();
+
+                /**
+                 * @brief Number of bytes read in from socket buffer.
+                 * 
+                 */
+                size_t numBytes;
+                /**
+                 * @brief Bytes Read in from socket buffer.
+                 */
+                char *bufferedBytes;
+        };
+
+        ReadBytes readBytes;
+
+        /**
+         * @brief Queue of RPCs to send to peer. This queue is checked when
+         * Raft triggers a user event on the socket.
+         */
+        std::queue<Test::TestMessage> sendRPCQueue;
+
 
 }; // class Socket
 
@@ -64,13 +109,10 @@ class Socket {
 class ListenSocket : public Socket {
     public:
         /**
-         * @brief Construct a new Listen Socket object that listens for incoming
-         * connection requests.
-         * 
-         * @param fd The file descriptor of the socket.
-         * @param firstRaftClientId Initial value of nextRaftClientId.
+         * @brief Construct a new Listen Socket object that listens for and
+         * handles incoming connection requests.
          */
-        ListenSocket( int fd, uint64_t firstRaftClientId );
+        ListenSocket( int fd, uint32_t userEventId, uint64_t firstRaftClientId );
 
         /* Destructor */
         ~ListenSocket();
@@ -107,11 +149,9 @@ class ServerSocket : public Socket {
     public:
         /**
          * @brief Construct a new Server Socket object that handles requests
-         * from a socket connected to a client.
-         * 
-         * @param fd The file descriptor of the socket connected to a client.
+         * from a socket connected to a client and sends responses.
          */
-        ServerSocket( int fd );
+        ServerSocket( int fd , uint32_t userEventId );
 
         /* Destructor */
         ~ServerSocket();

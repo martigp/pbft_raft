@@ -4,11 +4,13 @@
 #include <unistd.h>
 #include "RaftServer/SocketManager.hh"
 #include "RaftServer/Socket.hh"
+#include "Protobuf/test.pb.h"
 
 namespace Raft {
     
     SocketManager::SocketManager( Globals& globals )
-        : globals(globals)
+        : globals(globals),
+          sockets()
     {   
         kq = kqueue();
         if (kq == -1) {
@@ -25,29 +27,35 @@ namespace Raft {
         }
     }
 
-    bool SocketManager::registerSocket( uint64_t id, Socket *socket ) {
+    bool SocketManager::monitorSocket( uint64_t id, Socket *socket ) {
 
         struct kevent newEv;
 
-        if (sockets.find(id) != sockets.end()) {
-            printf("Socket with id %llu exists already\n", id);
-            return false;
-        }
-
-        EV_SET(&newEv, socket->fd, EVFILT_READ, EV_ADD, 0, 0, socket);
+        bzero(&newEv, sizeof(newEv));
+        EV_SET(&newEv, socket->fd,
+               EVFILT_READ, EV_ADD, 0, 0, socket);
 
         if (kevent(kq, &newEv, 1, NULL, 0, NULL) == -1) {
-            perror("Failure to register client socket");
+            perror("[SocketManager] Failure to register reading events on client socket\n");
             return false;
         }
 
-        sockets[id] = socket;
+        bzero(&newEv, sizeof(newEv));
+        EV_SET(&newEv, socket->userEventId, 
+               EVFILT_USER, EV_ADD | EV_CLEAR | EV_ENABLE, 0, 0, socket);
 
-        printf("Registered new socket listener for socket id %llu\n", id);
+        if (kevent(kq, &newEv, 1, NULL, 0, NULL) == -1) {
+            perror("[SocketManager] Failure to register reading events on client socket\n");
+            return false;
+        }
+
+        sockets.push_back(socket);
+
+        printf("[SocketManager] Registered new socket listener for socket id %llu\n", id);
         return true;
     }
 
-    bool SocketManager::removeSocket( Socket* socket ) {
+    bool SocketManager::stopSocketMonitor( Socket* socket ) {
         struct kevent ev;
 
         /* Set flags for an event to stop the kernel from listening for
@@ -55,13 +63,50 @@ namespace Raft {
         EV_SET(&ev, socket->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
 
         if (kevent(kq, &ev, 1, NULL, 0, NULL) == -1) {
-            perror("Failure to remove client socket");
+            perror("[SocketManager] Failure to remove socket fd from kqueue");
             return false;
         }
 
+        EV_SET(&ev, socket->userEventId, EVFILT_USER, EV_DELETE, 0, 0, NULL);
+
+        if (kevent(kq, &ev, 1, NULL, 0, NULL) == -1) {
+            perror("[SocketManager] Failure to remove socket user event");
+            return false;
+        }
+
+        /* Calls socket destructor which closes the socketFd.
+           Last call to close will remove from kqueue so we may only have
+           to call delete socket! */
+        printf("[SocketManager] About to delete socket pointer with read fd %d\n", socket->fd);
         delete socket;
 
         return true;
+    }
+
+    void SocketManager::sendRPC( Socket * socket, Test::TestMessage msg ) {
+
+        bool socketExists = false;
+        for (Socket *candidate : sockets) {
+            if (candidate == socket) {
+                socketExists = true;
+            }
+        }
+
+        if (!socketExists) {
+            printf("Unable to find corresponding Socket to queue RPC\n");
+            return;
+        }
+
+        socket->sendRPC(msg);
+
+        struct kevent newEv;
+        EV_SET(&newEv, socket->userEventId, EVFILT_USER, 0, 
+               NOTE_TRIGGER, 0, socket);
+
+        if (kevent(kq, &newEv, 1, NULL, 0, NULL) == -1) {
+            printf("Failed trigger user with event");
+        }
+
     }
 
     ClientSocketManager::ClientSocketManager( Raft::Globals& globals )
@@ -125,7 +170,7 @@ namespace Raft {
             exit(EXIT_FAILURE);
         }
 
-        printf("[Server] listening on %s:%u\n", 
+        printf("[SocketManager] listening on %s:%u\n", 
                                 globals.config.listenAddr.c_str(),
                                 globals.config.raftPort);
         
@@ -136,23 +181,26 @@ namespace Raft {
                 largestServerId = it.first;
             }
         }
+
         Raft::ListenSocket * listenSocket = 
-                            new Raft::ListenSocket(listenSocketFd,
-                                                   largestServerId + 1);
+                new Raft::ListenSocket(listenSocketFd, globals.genUserEventId(),
+                                       largestServerId + 1);
         
-        registerSocket(LISTEN_SOCKET_ID, listenSocket);
+        monitorSocket(LISTEN_SOCKET_ID, listenSocket);
     }
 
     ServerSocketManager::~ServerSocketManager()
     {
-        for (std::pair<uint64_t, Socket *> socket: sockets) {
-            removeSocket(socket.second);
-            delete socket.second;
+        while(!sockets.empty()) {
+            Socket *socket = sockets.front();
+            sockets.pop_front();
+            stopSocketMonitor(socket);
         }
     }
 
     void ServerSocketManager::start()
-    {
+    {   
+        int numLoops = 0;
         while (true) {
             struct kevent evList[MAX_EVENTS];
 
@@ -166,27 +214,35 @@ namespace Raft {
 
             else if (numEvents == 0) {
                 /* No sockets are ready to accepts*/
-                printf("[Server] Waiting...\n");
+                printf("[SocketManager] Waiting...\n");
                 continue;
             }
 
-            printf("[Server] %d Kqueue events\n", numEvents);
+            printf("[SocketManager] Received %d socket events\n", numEvents);
 
             for (int i = 0; i < numEvents; i++) {
 
                 struct kevent ev = evList[i];
-                printf("[Server] Event socket is %d\n", (int) ev.ident);
+                printf("[SocketManager] Event on socket %lu, iteration %d \n", ev.ident, numLoops++);
+
+                if (numLoops > 5) {
+                    goto exit;
+                }
 
                 Raft::Socket *evSocket = static_cast<Raft::Socket*>(ev.udata);
 
                 if (ev.fflags & EV_EOF) {
-                    removeSocket(evSocket);
-                    delete evSocket;
+                    stopSocketMonitor(evSocket);
+                } else if (ev.fflags & EV_ERROR) {
+                    perror("kevent error");
+                    exit(EXIT_FAILURE);
                 }
                 else {
                     evSocket->handleSocketEvent(ev, *this);
                 }
             }
         }
+        exit:
+            printf("[SocketManager] exited event loop");
     }
 }

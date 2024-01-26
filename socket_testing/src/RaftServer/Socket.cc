@@ -10,10 +10,27 @@
 #include "Protobuf/test.pb.h"
 
 namespace Raft {
+    
+    Socket::ReadBytes::ReadBytes(size_t numBytes)
+        : numBytes (0)
+    {
+        bufferedBytes = new char[numBytes];
+    }
 
-    Socket::Socket( int fd )
-        : fd(fd)
-    { }
+    Socket::ReadBytes::~ReadBytes() {
+        delete bufferedBytes;
+    }
+
+
+    Socket::Socket( int fd, uint32_t userEventId )
+        : fd(fd),
+          userEventId (userEventId),
+          readBytes(sizeof(Test::TestMessage)),
+          sendRPCQueue()
+    { 
+        printf("[Socket] Constructed new socket with fd %d, userEventId %u\n", 
+                                                              fd, userEventId);
+    }
 
     Socket::~Socket()
     {
@@ -21,11 +38,16 @@ namespace Raft {
             perror("Failed to close socket");
             exit(EXIT_FAILURE);
         }
-        printf("[Server] socket %d deleted.", fd);
+
+        printf("[Socket] Socket object with fd %d deleted.", fd);
     }
 
-    ServerSocket::ServerSocket( int fd )
-        : Socket(fd)
+    void Socket::sendRPC(Test::TestMessage msg) {
+        sendRPCQueue.push(msg);
+    }
+
+    ServerSocket::ServerSocket( int fd, uint32_t userEventId )
+        : Socket(fd, userEventId)
     {
 
     }
@@ -35,34 +57,60 @@ namespace Raft {
 
     void ServerSocket::handleSocketEvent( struct kevent& ev,
                                           SocketManager& socketManager ) {
-        int evSocketFd = (int)ev.ident;
 
-        if (ev.filter & EVFILT_READ && (int) ev.data > 0) {
+        printf("[ServerSocket] Handling event id %lu\n", ev.ident);
+        // Check if user triggered event on the write socket
+        if (ev.filter & EVFILT_READ && (int) ev.ident == fd) {
+            printf("[Socket] Entering READ event handling\n");
             ssize_t bytesRead;
-            char buf[sizeof(Test::TestMessage)];
-            char response[256];
+            char *readBuf;
 
-            memset(buf, 0, sizeof(buf));
-
-            printf("[Server] Bytes Received: %ld", ev.data);
-
-            bytesRead = recv(evSocketFd, buf, sizeof(Test::TestMessage), 0);
-
-            Test::TestMessage receivedProtoMsg;
-            receivedProtoMsg.ParseFromArray(buf, sizeof(Test::TestMessage));
-
-            printf("[Server] Bytes Read %zu\n"
-                    "[Server] Client with id %llu sent message: %s\n",
-                                bytesRead,
-                                receivedProtoMsg.sender(),
-                                receivedProtoMsg.msg().c_str());
+            size_t bytesAvailable = 
+                    sizeof(readBytes.bufferedBytes) - readBytes.numBytes;
             
-            memset(response, 0, sizeof(response));
-            strncpy(response, "Received your message", sizeof(response));
+            readBuf = readBytes.bufferedBytes + readBytes.numBytes;
 
-            if (send(evSocketFd, response, sizeof(response), 0) == -1) {
-                perror("Failure to send to client");
-                exit(EXIT_FAILURE);
+            printf("[Socket] Bytes Received: %ld\n", ev.data);
+
+            bytesRead = recv(fd, readBuf, bytesAvailable, 0);
+            printf("[Socket] Bytes Read %zu\n", bytesRead);
+
+            readBytes.numBytes += bytesRead;
+
+
+            if (readBytes.numBytes == sizeof(Test::TestMessage))
+            {
+                Test::TestMessage receivedProtoMsg;
+                receivedProtoMsg.ParseFromArray(readBytes.bufferedBytes,
+                                                sizeof(Test::TestMessage));
+
+                printf("[Socket] Client with id %llu sent message: %s\n",
+                            receivedProtoMsg.sender(),
+                            receivedProtoMsg.msg().c_str());
+
+                socketManager.sendRPC(this, receivedProtoMsg);
+                bzero(readBytes.bufferedBytes, sizeof(Test::TestMessage));
+                readBytes.numBytes = 0;
+            }
+        }
+        else if (ev.filter & EVFILT_USER) {
+            printf("[Socket] Entering user event handling\n");            
+            char response[sizeof(Test::TestMessage)];
+
+            while(!sendRPCQueue.empty()) {
+                bzero(response, sizeof(response));
+
+                Test::TestMessage protoMsg = sendRPCQueue.front();
+                sendRPCQueue.pop();
+
+
+	            protoMsg.SerializeToArray(response, sizeof(response));
+
+                if (send(fd, response, sizeof(response), 0) == -1) {
+                    perror("Failure to send to client");
+                    exit(EXIT_FAILURE);
+                }
+                printf("[Server Socket] Should sent response\n");
             }
         }
         else {
@@ -70,8 +118,9 @@ namespace Raft {
         }
     }
 
-    ListenSocket::ListenSocket( int fd, uint64_t firstRaftClientId )
-        : Socket(fd),
+    ListenSocket::ListenSocket( int fd, uint32_t userEventId,
+                                uint64_t firstRaftClientId )
+        : Socket(fd, userEventId),
           nextRaftClientId(firstRaftClientId)
     { }
 
@@ -106,7 +155,7 @@ namespace Raft {
                     // TODO: mark socket RaftServer/RaftClient upon receipt
                     // This is going to help for when processing an RPC?
                     // Might just be an enum in the ServerSocket object?
-                    printf("Accepted connection request from RaftServer with"
+                    printf("[ListenSocket] Accepted connection request from RaftServer with"
                            "id %llu\n", it.first);
                     clientId = it.first;
             }
@@ -114,15 +163,15 @@ namespace Raft {
             {
                 clientId = nextRaftClientId;
                 nextRaftClientId++;
-                printf("Accepted connection request from RaftClient with id"
-                       "%llu\n", clientId);
+                printf("[ListenSocket] connection request from RaftClient with id"
+                       " %llu\n", clientId);
             }
         };
 
-        ServerSocket * serverSocket = new ServerSocket(socketFd);
+        ServerSocket * serverSocket = 
+                new ServerSocket(socketFd,
+                                 socketManager.globals.genUserEventId());
 
-        printf("Successfully constructed server socket\n");
-
-        socketManager.registerSocket(clientId, serverSocket);
+        socketManager.monitorSocket(clientId, serverSocket);
     }
 }

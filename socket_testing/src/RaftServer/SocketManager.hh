@@ -3,6 +3,8 @@
 
 #include <string>
 #include <memory>
+#include <deque>
+#include <sys/event.h>
 #include "RaftServer/Socket.hh"
 #include "RaftServer/RaftGlobals.hh"
 
@@ -43,7 +45,7 @@ namespace Raft {
              * @return Whether the socket was successfullly registered for
              * monitoring.
              */
-            bool registerSocket( uint64_t id, Socket *socket );
+            bool monitorSocket( uint64_t id, Socket *socket );
 
             /**
              * @brief 
@@ -53,7 +55,13 @@ namespace Raft {
              * @return Whether the socket was successfully removed from sockets
              * that are monitored by the kernel.
              */
-            bool removeSocket( Socket* socket );
+            bool stopSocketMonitor( Socket* socket );
+
+            /**
+             * @brief Adds a socket to 
+             * 
+             */
+            void sendRPC(Socket* socket, Test::TestMessage msg);
 
             /**
              * @brief Method overriden by subclass that begins listening for 
@@ -74,13 +82,12 @@ namespace Raft {
             [[maybe_unused]] Raft::Globals& globals;
             
             /**
-             * @brief Keeps track of who sockets belong to. For RaftServers's
-             * the id is the unique serverId, for RaftClients, the unique ID
-             * is a monotonically increasing id that starts with the largest
-             * serverId + 1. 
+             * @brief Keeps track sockets so can be deleted and removed from
+             * kq during destruction. Alternatively could just be FDs because
+             * we just need to close them, but then removal is hard?
              * 
              */
-            std::unordered_map<uint64_t, Socket *> sockets;
+            std::deque<Socket *> sockets;
 
     }; // class SocketManager
 
