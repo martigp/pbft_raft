@@ -51,6 +51,39 @@ message decodeRequestRecv(char * buf, size_t bytesRead);
  * @return array of valid, formatted RPC reponses
  */
 
+#include "Protobuf/RaftRPC.pb.h"
 
-std::vector<message> decodeResponseRecv(char * buf, size_t bytesRead);
+/**
+ * @brief Translates RPCs into Arrays and vice versa. Need to parse
+ * an RPC header before you can parse the payload as the header encodes
+ * the size of the payload and what type of RPC it is.
+ */
+class RPCTranslator {
+    /**
+     * @brief Serialize an RPC into bytes.
+     * 
+     * @param rpc RPC to serialize 
+     * @param buflen Size of serialized RPC
+     * @return The serialized RPC as an array
+     */
+    char * serializeRPCWithHeader(const google::protobuf::Message& rpc,
+                                  size_t *buflen);
+
+    /**
+     * @param buf Array that contain RPC header
+     * @param buflen Size of the provided array
+     * @return Raft::RPC::Header The parsed RPC header
+     */
+    Raft::RPC::Header parseRPCHeader(char *buf, size_t *buflen);
+
+    /**
+     * @brief Parse an array into an RPC.
+     * 
+     * @param rpc Returned parsed RPC
+     * @param buf Bytes to convert to RPC
+     * @param len Number of bytes
+     * @return Whether succesffully parsed buffer into an RPC
+     */
+    bool parseRPCMsg(google::protobuf::Message& rpc, char *buf, size_t len);
+};
 
