@@ -1,58 +1,11 @@
+#ifndef COMMON_RPC_TRANSLATOR_H
+#define COMMON_RPC_TRANSLATOR_H
+
 #include <string>
 #include <vector>
-// include protobuf methods for decode
-
-/**
- * These two methods serve to decode the incoming data
- * read off of a file descriptor. These methods abstract 
- * away the complications involved with receiving requests,
- * namely multiple requests and incomplete/incorrectly formatted.
-*/
-
-/**
- * @brief This method is used to transform a char buffer
- * into an RPC request packet. Since each RaftServer
- * has a server type socket for listening/receiving requests, 
- * this method will be invoked and can decode knowing it will 
- * only be receiving RPCs of the request format.
- * 
- * TODO: converse and make sure that this will only ever be one request
- * I believe a server can receive multiple requests, but they will be on different ports,
- * so different events in queue, so processed and read separately
- * See raftSever.h. Because if the state machine had to process a bunch of requests how would just
- * a true/false success readinging back to other server be able to decode that. 
- * TODO: think about super delayed responses(how to know which request it's from)
- * TODO: will you have multiple outstanding requests from the same server and how to respond separately(ties into above)
- * 
- * @param buf The char buffer returned from recv on the 
- * server socket.
- * 
- * @param bytesRead The length of bytes read from the recv 
- * method on the server socket
- * 
- * @return array of valid, formatted RPC requests
- */
-message decodeRequestRecv(char * buf, size_t bytesRead);
-
-/**
- * @brief This method is used to transform a char buffer
- * into separate RPC response packets. Since each RaftServer
- * and RaftClient has a client type socket for sending requests, 
- * this method will be invoked and can decode knowing it will 
- * only be receiving RPCs of the response format, in response to 
- * requests it has initiated.
- * 
- * @param buf The char buffer returned from recv on the 
- * client socket.
- * 
- * @param bytesRead The length of bytes read from the recv 
- * method on the client socket
- * 
- * @return array of valid, formatted RPC reponses
- */
-
 #include "Protobuf/RaftRPC.pb.h"
 
+namespace Raft {
 /**
  * @brief Translates RPCs into Arrays and vice versa. Need to parse
  * an RPC header before you can parse the payload as the header encodes
@@ -66,15 +19,16 @@ class RPCTranslator {
      * @param buflen Size of serialized RPC
      * @return The serialized RPC as an array
      */
-    char * serializeRPCWithHeader(const google::protobuf::Message& rpc,
-                                  size_t *buflen);
+    char *serializeRPCWithHeader(const Raft::RPC& rpc,
+                                 Raft::RPC_Header::MessageType opCode,
+                                 size_t *buflen);
 
     /**
      * @param buf Array that contain RPC header
      * @param buflen Size of the provided array
      * @return Raft::RPC::Header The parsed RPC header
      */
-    Raft::RPC::Header parseRPCHeader(char *buf, size_t *buflen);
+    Raft::RPC::Header parseRPCHeader(const char *buf, size_t buflen);
 
     /**
      * @brief Parse an array into an RPC.
@@ -84,6 +38,8 @@ class RPCTranslator {
      * @param len Number of bytes
      * @return Whether succesffully parsed buffer into an RPC
      */
-    bool parseRPCMsg(google::protobuf::Message& rpc, char *buf, size_t len);
-};
+    bool parseRPCMsg(Raft::RPC& rpc, char *buf, size_t len);
+}; // class RPCTranslator
+} // namespace Common
 
+#endif /* COMMON_RPC_TRANSLATOR_H */
