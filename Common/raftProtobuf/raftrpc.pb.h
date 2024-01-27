@@ -1138,6 +1138,7 @@ class AppendEntriesResponse final : public ::google::protobuf::Message
   // accessors -------------------------------------------------------
   enum : int {
     kTermFieldNumber = 1,
+    kRequestIDFieldNumber = 3,
     kSuccessFieldNumber = 2,
   };
   // uint64 term = 1;
@@ -1148,6 +1149,16 @@ class AppendEntriesResponse final : public ::google::protobuf::Message
   private:
   ::uint64_t _internal_term() const;
   void _internal_set_term(::uint64_t value);
+
+  public:
+  // uint64 requestID = 3;
+  void clear_requestid() ;
+  ::uint64_t requestid() const;
+  void set_requestid(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_requestid() const;
+  void _internal_set_requestid(::uint64_t value);
 
   public:
   // bool success = 2;
@@ -1165,7 +1176,7 @@ class AppendEntriesResponse final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      1, 2, 0,
+      2, 3, 0,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -1182,6 +1193,7 @@ class AppendEntriesResponse final : public ::google::protobuf::Message
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::uint64_t term_;
+    ::uint64_t requestid_;
     bool success_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -1322,6 +1334,7 @@ class AppendEntriesRequest final : public ::google::protobuf::Message
     kPrevLogIndexFieldNumber = 3,
     kPrevLogTermFieldNumber = 4,
     kLeaderCommitFieldNumber = 6,
+    kRequestIDFieldNumber = 7,
   };
   // repeated .RaftCommon.LogEntry entries = 5;
   int entries_size() const;
@@ -1390,12 +1403,22 @@ class AppendEntriesRequest final : public ::google::protobuf::Message
   void _internal_set_leadercommit(::uint64_t value);
 
   public:
+  // uint64 requestID = 7;
+  void clear_requestid() ;
+  ::uint64_t requestid() const;
+  void set_requestid(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_requestid() const;
+  void _internal_set_requestid(::uint64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:RaftCommon.AppendEntriesRequest)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 6, 1,
+      3, 7, 1,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -1417,6 +1440,7 @@ class AppendEntriesRequest final : public ::google::protobuf::Message
     ::uint64_t prevlogindex_;
     ::uint64_t prevlogterm_;
     ::uint64_t leadercommit_;
+    ::uint64_t requestid_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -2110,6 +2134,28 @@ inline void AppendEntriesRequest::_internal_set_leadercommit(::uint64_t value) {
   _impl_.leadercommit_ = value;
 }
 
+// uint64 requestID = 7;
+inline void AppendEntriesRequest::clear_requestid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requestid_ = ::uint64_t{0u};
+}
+inline ::uint64_t AppendEntriesRequest::requestid() const {
+  // @@protoc_insertion_point(field_get:RaftCommon.AppendEntriesRequest.requestID)
+  return _internal_requestid();
+}
+inline void AppendEntriesRequest::set_requestid(::uint64_t value) {
+  _internal_set_requestid(value);
+  // @@protoc_insertion_point(field_set:RaftCommon.AppendEntriesRequest.requestID)
+}
+inline ::uint64_t AppendEntriesRequest::_internal_requestid() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.requestid_;
+}
+inline void AppendEntriesRequest::_internal_set_requestid(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requestid_ = value;
+}
+
 // -------------------------------------------------------------------
 
 // AppendEntriesResponse
@@ -2156,6 +2202,28 @@ inline bool AppendEntriesResponse::_internal_success() const {
 inline void AppendEntriesResponse::_internal_set_success(bool value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.success_ = value;
+}
+
+// uint64 requestID = 3;
+inline void AppendEntriesResponse::clear_requestid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requestid_ = ::uint64_t{0u};
+}
+inline ::uint64_t AppendEntriesResponse::requestid() const {
+  // @@protoc_insertion_point(field_get:RaftCommon.AppendEntriesResponse.requestID)
+  return _internal_requestid();
+}
+inline void AppendEntriesResponse::set_requestid(::uint64_t value) {
+  _internal_set_requestid(value);
+  // @@protoc_insertion_point(field_set:RaftCommon.AppendEntriesResponse.requestID)
+}
+inline ::uint64_t AppendEntriesResponse::_internal_requestid() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.requestid_;
+}
+inline void AppendEntriesResponse::_internal_set_requestid(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requestid_ = value;
 }
 
 // -------------------------------------------------------------------

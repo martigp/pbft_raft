@@ -51,6 +51,9 @@ message AppendEntriesRequest {
 
     /* Leader's commitIndex. */
     uint64 leaderCommit = 6;
+
+    /* Request ID for implementing RPC pairing behavior. */
+    uint64 requestID = 7;
 }
 
 /* AppendEntriesResponse RPC */
@@ -61,6 +64,9 @@ message AppendEntriesResponse {
         /* true if follower contained entry matching prevLogIndex and 
            prevLogTerm. */
         bool success = 2;
+
+        /* Request ID for implementing RPC pairing behavior. */
+        uint64 requestID = 3;
 }
 
 

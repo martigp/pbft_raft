@@ -1,12 +1,20 @@
-#include <string>
 #include <sys/event.h>
 #include "RaftGlobals.hh"
 #include "Socket.hh"
 
 namespace Raft {
     
-    Globals::Globals() 
-    {        
+    Globals::Globals(std::string configPath) 
+        : timerThread()
+        , serverListeningThread()
+        , clientListeningThread()
+        , stateMachineUpdaterThread()
+    {     
+        configPath = configPath;
+        config = Common::ServerConfig(configPath); 
+
+        raftServerThreads = std::<NamedThread>(config.numServers - 1);
+
         raftConsensus = new Raft::Consensus();
         serverSockets = new Raft::ServerSocketManager();
         clientSockets = new Raft::ClientSocketManager();
@@ -17,15 +25,12 @@ namespace Raft {
     {
     }
 
-    void Globals::init(std::string configPath) {
-        this->configPath = configPath;
-        this->config = Common::ServerConfig(this->configPath);
-    }
-
     void Globals::start() {
-        threadMap[NamedThread::ThreadType::TIMER] = raftConsensus->startTimer();
-        threadMap[NamedThread::ThreadType::SERVERLISTENING] = serverSockets->start();
-        threadMap[NamedThread::ThreadType::CLIENTLISTENING] = clientSockets->start();
+        raftConsensus->startTimer(timerThread);
+        stateMachine->startUpdater(stateMachineUpdaterThread);
+        
+        serverSockets->start(serverListeningThread);
+        clientSockets->start(clientListeningThread);
     }
 
     RaftRPC Globals::processRPCReq(RaftRPC req, int serverID) {

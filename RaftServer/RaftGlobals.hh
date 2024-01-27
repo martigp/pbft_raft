@@ -3,7 +3,8 @@
 
 #include <string>
 #include <memory>
-#include <jthread>
+#include <thread>
+#include <atomic>
 #include "SocketManager.hh"
 #include "Consensus.hh"
 #include "LogStateMachine.hh"
@@ -18,20 +19,16 @@ namespace Raft {
         public:
             /**
              * @brief Construct a new Globals that stores the Global Raft State
+             * Initialize a Globals with parameters from a configuration file.
+             * 
+             * @param configPath The path of the configuration file.
+             * NOTE: I need the config because the RaftServer threads need to be initialized
+             * as there is no copy constructor for threads
              */
-            Globals();
+            Globals(std::string configPath);
 
             /* Destructor */
             ~Globals();
-
-            /**
-             * @brief Initialize a Globals with parameters from a configuration
-             * file.
-             * 
-             * @param configPath The path of the configuration file. 
-             * TODO: decide on having config in constructor for everything or in the init of everything
-             */
-            void init(std::string configPath);
 
             /**
              * @brief Start the globals process
@@ -48,7 +45,7 @@ namespace Raft {
              * 
              * @returns RaftRPC protobuf to write back to socket fd
              */
-            RaftRPC processRPCReq(RaftRPC req, int serverID)
+            RaftRPC processRPCReq(RaftRPC req, int serverID);
 
             /**
              * @brief Process an RPC from the ClientSocketManager
@@ -103,12 +100,16 @@ namespace Raft {
             /**
              * @brief Track persistent threads spun up on start().
             */
-            std::map<NamedThread::ThreadType, NamedThread> threadMap;
+            NamedThread timerThread;
+            NamedThread serverListeningThread;
+            NamedThread clientListeningThread;
+            NamedThread stateMachineUpdaterThread;
 
             /**
-             * @brief Threads for each outbound client connection that may need to be stopped.
+             * @brief One thread for each outbound RaftServer client connection 
+             * that may need to be stopped if a new request must be sent
             */
-            std::map<int, NamedThread> serverThreadMap;
+            std::vector<NamedThread> raftServerThreads;
 
     }; // class Globals
 
@@ -117,7 +118,7 @@ namespace Raft {
             /**
              * @brief Thread object.
              */ 
-            std::jthread thread;
+            std::thread thread;
 
             /**
              * Enum for: TimerThread, IncomingListeningThread, OutgoingReqThread(many)
@@ -127,6 +128,7 @@ namespace Raft {
                 TIMER,
                 SERVERLISTENING,
                 CLIENTLISTENING,
+                STATEMACHINEUPDATER,
                 CLIENTINITIATED
             };
 
@@ -134,6 +136,16 @@ namespace Raft {
              * @brief State of this server
             */
             ThreadType myType;
+
+            /**
+             * @brief Request stop.
+             */ 
+            std::atomic<bool> stop_requested = false;
+
+            /**
+             * @brief Request stop.
+             */ 
+            std::atomic<bool> closed = false;
     }; // class NamedThread
 
 } // namespace Raft

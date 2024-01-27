@@ -133,6 +133,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 inline constexpr AppendEntriesResponse::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : term_{::uint64_t{0u}},
+        requestid_{::uint64_t{0u}},
         success_{false},
         _cached_size_{0} {}
 
@@ -158,6 +159,7 @@ inline constexpr AppendEntriesRequest::Impl_::Impl_(
         prevlogindex_{::uint64_t{0u}},
         prevlogterm_{::uint64_t{0u}},
         leadercommit_{::uint64_t{0u}},
+        requestid_{::uint64_t{0u}},
         _cached_size_{0} {}
 
 template <typename>
@@ -245,6 +247,7 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::RaftCommon::AppendEntriesRequest, _impl_.prevlogterm_),
         PROTOBUF_FIELD_OFFSET(::RaftCommon::AppendEntriesRequest, _impl_.entries_),
         PROTOBUF_FIELD_OFFSET(::RaftCommon::AppendEntriesRequest, _impl_.leadercommit_),
+        PROTOBUF_FIELD_OFFSET(::RaftCommon::AppendEntriesRequest, _impl_.requestid_),
         ~0u,  // no _has_bits_
         PROTOBUF_FIELD_OFFSET(::RaftCommon::AppendEntriesResponse, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -255,6 +258,7 @@ const ::uint32_t
         ~0u,  // no sizeof(Split)
         PROTOBUF_FIELD_OFFSET(::RaftCommon::AppendEntriesResponse, _impl_.term_),
         PROTOBUF_FIELD_OFFSET(::RaftCommon::AppendEntriesResponse, _impl_.success_),
+        PROTOBUF_FIELD_OFFSET(::RaftCommon::AppendEntriesResponse, _impl_.requestid_),
         ~0u,  // no _has_bits_
         PROTOBUF_FIELD_OFFSET(::RaftCommon::RequestVoteRequest, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -300,10 +304,10 @@ static const ::_pbi::MigrationSchema
         {9, -1, -1, sizeof(::RaftCommon::LogEntryResponse)},
         {19, -1, -1, sizeof(::RaftCommon::LogEntry)},
         {29, -1, -1, sizeof(::RaftCommon::AppendEntriesRequest)},
-        {43, -1, -1, sizeof(::RaftCommon::AppendEntriesResponse)},
-        {53, -1, -1, sizeof(::RaftCommon::RequestVoteRequest)},
-        {65, -1, -1, sizeof(::RaftCommon::RequestVoteResponse)},
-        {75, -1, -1, sizeof(::RaftCommon::RaftRPC)},
+        {44, -1, -1, sizeof(::RaftCommon::AppendEntriesResponse)},
+        {55, -1, -1, sizeof(::RaftCommon::RequestVoteRequest)},
+        {67, -1, -1, sizeof(::RaftCommon::RequestVoteResponse)},
+        {77, -1, -1, sizeof(::RaftCommon::RaftRPC)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::RaftCommon::_LogEntryRequest_default_instance_._instance,
@@ -320,33 +324,34 @@ const char descriptor_table_protodef_raftrpc_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "\n\rraftrpc.proto\022\nRaftCommon\"\036\n\017LogEntryR"
     "equest\022\013\n\003cmd\030\001 \001(\014\"0\n\020LogEntryResponse\022"
     "\017\n\007success\030\001 \001(\010\022\013\n\003ret\030\002 \001(\014\"%\n\010LogEntr"
-    "y\022\013\n\003cmd\030\001 \001(\014\022\014\n\004term\030\002 \001(\004\"\236\001\n\024AppendE"
+    "y\022\013\n\003cmd\030\001 \001(\014\022\014\n\004term\030\002 \001(\004\"\261\001\n\024AppendE"
     "ntriesRequest\022\014\n\004term\030\001 \001(\004\022\020\n\010leaderId\030"
     "\002 \001(\004\022\024\n\014prevLogIndex\030\003 \001(\004\022\023\n\013prevLogTe"
     "rm\030\004 \001(\004\022%\n\007entries\030\005 \003(\0132\024.RaftCommon.L"
-    "ogEntry\022\024\n\014leaderCommit\030\006 \001(\004\"6\n\025AppendE"
-    "ntriesResponse\022\014\n\004term\030\001 \001(\004\022\017\n\007success\030"
-    "\002 \001(\010\"b\n\022RequestVoteRequest\022\014\n\004term\030\001 \001("
-    "\004\022\023\n\013candidateId\030\002 \001(\004\022\024\n\014lastLogIndex\030\003"
-    " \001(\004\022\023\n\013lastLogTerm\030\004 \001(\004\"8\n\023RequestVote"
-    "Response\022\014\n\004term\030\001 \001(\004\022\023\n\013voteGranted\030\002 "
-    "\001(\010\"\212\003\n\007RaftRPC\0226\n\017logEntryRequest\030\001 \001(\013"
-    "2\033.RaftCommon.LogEntryRequestH\000\0228\n\020logEn"
-    "tryResponse\030\002 \001(\0132\034.RaftCommon.LogEntryR"
-    "esponseH\000\022@\n\024appendEntriesRequest\030\003 \001(\0132"
-    " .RaftCommon.AppendEntriesRequestH\000\022B\n\025a"
-    "ppendEntriesResponse\030\004 \001(\0132!.RaftCommon."
-    "AppendEntriesResponseH\000\022<\n\022requestVoteRe"
-    "quest\030\005 \001(\0132\036.RaftCommon.RequestVoteRequ"
-    "estH\000\022>\n\023requestVoteResponse\030\006 \001(\0132\037.Raf"
-    "tCommon.RequestVoteResponseH\000B\t\n\007payload"
-    "b\006proto3"
+    "ogEntry\022\024\n\014leaderCommit\030\006 \001(\004\022\021\n\trequest"
+    "ID\030\007 \001(\004\"I\n\025AppendEntriesResponse\022\014\n\004ter"
+    "m\030\001 \001(\004\022\017\n\007success\030\002 \001(\010\022\021\n\trequestID\030\003 "
+    "\001(\004\"b\n\022RequestVoteRequest\022\014\n\004term\030\001 \001(\004\022"
+    "\023\n\013candidateId\030\002 \001(\004\022\024\n\014lastLogIndex\030\003 \001"
+    "(\004\022\023\n\013lastLogTerm\030\004 \001(\004\"8\n\023RequestVoteRe"
+    "sponse\022\014\n\004term\030\001 \001(\004\022\023\n\013voteGranted\030\002 \001("
+    "\010\"\212\003\n\007RaftRPC\0226\n\017logEntryRequest\030\001 \001(\0132\033"
+    ".RaftCommon.LogEntryRequestH\000\0228\n\020logEntr"
+    "yResponse\030\002 \001(\0132\034.RaftCommon.LogEntryRes"
+    "ponseH\000\022@\n\024appendEntriesRequest\030\003 \001(\0132 ."
+    "RaftCommon.AppendEntriesRequestH\000\022B\n\025app"
+    "endEntriesResponse\030\004 \001(\0132!.RaftCommon.Ap"
+    "pendEntriesResponseH\000\022<\n\022requestVoteRequ"
+    "est\030\005 \001(\0132\036.RaftCommon.RequestVoteReques"
+    "tH\000\022>\n\023requestVoteResponse\030\006 \001(\0132\037.RaftC"
+    "ommon.RequestVoteResponseH\000B\t\n\007payloadb\006"
+    "proto3"
 };
 static ::absl::once_flag descriptor_table_raftrpc_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_raftrpc_2eproto = {
     false,
     false,
-    928,
+    966,
     descriptor_table_protodef_raftrpc_2eproto,
     "raftrpc.proto",
     &descriptor_table_raftrpc_2eproto_once,
@@ -1033,9 +1038,9 @@ AppendEntriesRequest::AppendEntriesRequest(
                offsetof(Impl_, term_),
            reinterpret_cast<const char *>(&from._impl_) +
                offsetof(Impl_, term_),
-           offsetof(Impl_, leadercommit_) -
+           offsetof(Impl_, requestid_) -
                offsetof(Impl_, term_) +
-               sizeof(Impl_::leadercommit_));
+               sizeof(Impl_::requestid_));
 
   // @@protoc_insertion_point(copy_constructor:RaftCommon.AppendEntriesRequest)
 }
@@ -1050,9 +1055,9 @@ inline void AppendEntriesRequest::SharedCtor(::_pb::Arena* arena) {
   ::memset(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, term_),
            0,
-           offsetof(Impl_, leadercommit_) -
+           offsetof(Impl_, requestid_) -
                offsetof(Impl_, term_) +
-               sizeof(Impl_::leadercommit_));
+               sizeof(Impl_::requestid_));
 }
 AppendEntriesRequest::~AppendEntriesRequest() {
   // @@protoc_insertion_point(destructor:RaftCommon.AppendEntriesRequest)
@@ -1087,8 +1092,8 @@ PROTOBUF_NOINLINE void AppendEntriesRequest::Clear() {
 
   _impl_.entries_.Clear();
   ::memset(&_impl_.term_, 0, static_cast<::size_t>(
-      reinterpret_cast<char*>(&_impl_.leadercommit_) -
-      reinterpret_cast<char*>(&_impl_.term_)) + sizeof(_impl_.leadercommit_));
+      reinterpret_cast<char*>(&_impl_.requestid_) -
+      reinterpret_cast<char*>(&_impl_.term_)) + sizeof(_impl_.requestid_));
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
 
@@ -1100,15 +1105,15 @@ const char* AppendEntriesRequest::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<3, 6, 1, 0, 2> AppendEntriesRequest::_table_ = {
+const ::_pbi::TcParseTable<3, 7, 1, 0, 2> AppendEntriesRequest::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    6, 56,  // max_field_number, fast_idx_mask
+    7, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967232,  // skipmap
+    4294967168,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    6,  // num_field_entries
+    7,  // num_field_entries
     1,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_AppendEntriesRequest_default_instance_._instance,
@@ -1136,7 +1141,9 @@ const ::_pbi::TcParseTable<3, 6, 1, 0, 2> AppendEntriesRequest::_table_ = {
     // uint64 leaderCommit = 6;
     {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(AppendEntriesRequest, _impl_.leadercommit_), 63>(),
      {48, 63, 0, PROTOBUF_FIELD_OFFSET(AppendEntriesRequest, _impl_.leadercommit_)}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // uint64 requestID = 7;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(AppendEntriesRequest, _impl_.requestid_), 63>(),
+     {56, 63, 0, PROTOBUF_FIELD_OFFSET(AppendEntriesRequest, _impl_.requestid_)}},
   }}, {{
     65535, 65535
   }}, {{
@@ -1157,6 +1164,9 @@ const ::_pbi::TcParseTable<3, 6, 1, 0, 2> AppendEntriesRequest::_table_ = {
     (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
     // uint64 leaderCommit = 6;
     {PROTOBUF_FIELD_OFFSET(AppendEntriesRequest, _impl_.leadercommit_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // uint64 requestID = 7;
+    {PROTOBUF_FIELD_OFFSET(AppendEntriesRequest, _impl_.requestid_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
   }}, {{
     {::_pbi::TcParser::GetTable<::RaftCommon::LogEntry>()},
@@ -1217,6 +1227,13 @@ const ::_pbi::TcParseTable<3, 6, 1, 0, 2> AppendEntriesRequest::_table_ = {
         6, this->_internal_leadercommit(), target);
   }
 
+  // uint64 requestID = 7;
+  if (this->_internal_requestid() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        7, this->_internal_requestid(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -1269,6 +1286,12 @@ const ::_pbi::TcParseTable<3, 6, 1, 0, 2> AppendEntriesRequest::_table_ = {
         this->_internal_leadercommit());
   }
 
+  // uint64 requestID = 7;
+  if (this->_internal_requestid() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_requestid());
+  }
+
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -1298,6 +1321,9 @@ void AppendEntriesRequest::MergeImpl(::google::protobuf::MessageLite& to_msg, co
   if (from._internal_leadercommit() != 0) {
     _this->_impl_.leadercommit_ = from._impl_.leadercommit_;
   }
+  if (from._internal_requestid() != 0) {
+    _this->_impl_.requestid_ = from._impl_.requestid_;
+  }
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
 }
 
@@ -1317,8 +1343,8 @@ void AppendEntriesRequest::InternalSwap(AppendEntriesRequest* PROTOBUF_RESTRICT 
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   _impl_.entries_.InternalSwap(&other->_impl_.entries_);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(AppendEntriesRequest, _impl_.leadercommit_)
-      + sizeof(AppendEntriesRequest::_impl_.leadercommit_)
+      PROTOBUF_FIELD_OFFSET(AppendEntriesRequest, _impl_.requestid_)
+      + sizeof(AppendEntriesRequest::_impl_.requestid_)
       - PROTOBUF_FIELD_OFFSET(AppendEntriesRequest, _impl_.term_)>(
           reinterpret_cast<char*>(&_impl_.term_),
           reinterpret_cast<char*>(&other->_impl_.term_));
@@ -1404,15 +1430,15 @@ const char* AppendEntriesResponse::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<1, 2, 0, 0, 2> AppendEntriesResponse::_table_ = {
+const ::_pbi::TcParseTable<2, 3, 0, 0, 2> AppendEntriesResponse::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    2, 8,  // max_field_number, fast_idx_mask
+    3, 24,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967292,  // skipmap
+    4294967288,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    2,  // num_field_entries
+    3,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_AppendEntriesResponse_default_instance_._instance,
@@ -1421,12 +1447,16 @@ const ::_pbi::TcParseTable<1, 2, 0, 0, 2> AppendEntriesResponse::_table_ = {
     ::_pbi::TcParser::GetTable<::RaftCommon::AppendEntriesResponse>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // bool success = 2;
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(AppendEntriesResponse, _impl_.success_), 63>(),
-     {16, 63, 0, PROTOBUF_FIELD_OFFSET(AppendEntriesResponse, _impl_.success_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // uint64 term = 1;
     {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(AppendEntriesResponse, _impl_.term_), 63>(),
      {8, 63, 0, PROTOBUF_FIELD_OFFSET(AppendEntriesResponse, _impl_.term_)}},
+    // bool success = 2;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(AppendEntriesResponse, _impl_.success_), 63>(),
+     {16, 63, 0, PROTOBUF_FIELD_OFFSET(AppendEntriesResponse, _impl_.success_)}},
+    // uint64 requestID = 3;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(AppendEntriesResponse, _impl_.requestid_), 63>(),
+     {24, 63, 0, PROTOBUF_FIELD_OFFSET(AppendEntriesResponse, _impl_.requestid_)}},
   }}, {{
     65535, 65535
   }}, {{
@@ -1436,6 +1466,9 @@ const ::_pbi::TcParseTable<1, 2, 0, 0, 2> AppendEntriesResponse::_table_ = {
     // bool success = 2;
     {PROTOBUF_FIELD_OFFSET(AppendEntriesResponse, _impl_.success_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // uint64 requestID = 3;
+    {PROTOBUF_FIELD_OFFSET(AppendEntriesResponse, _impl_.requestid_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
   }},
   // no aux_entries
   {{
@@ -1463,6 +1496,13 @@ const ::_pbi::TcParseTable<1, 2, 0, 0, 2> AppendEntriesResponse::_table_ = {
         2, this->_internal_success(), target);
   }
 
+  // uint64 requestID = 3;
+  if (this->_internal_requestid() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        3, this->_internal_requestid(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -1486,6 +1526,12 @@ const ::_pbi::TcParseTable<1, 2, 0, 0, 2> AppendEntriesResponse::_table_ = {
         this->_internal_term());
   }
 
+  // uint64 requestID = 3;
+  if (this->_internal_requestid() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_requestid());
+  }
+
   // bool success = 2;
   if (this->_internal_success() != 0) {
     total_size += 2;
@@ -1505,6 +1551,9 @@ void AppendEntriesResponse::MergeImpl(::google::protobuf::MessageLite& to_msg, c
 
   if (from._internal_term() != 0) {
     _this->_impl_.term_ = from._impl_.term_;
+  }
+  if (from._internal_requestid() != 0) {
+    _this->_impl_.requestid_ = from._impl_.requestid_;
   }
   if (from._internal_success() != 0) {
     _this->_impl_.success_ = from._impl_.success_;
