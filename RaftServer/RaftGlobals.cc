@@ -13,12 +13,12 @@ namespace Raft {
         configPath = configPath;
         config = Common::ServerConfig(configPath); 
 
-        raftServerThreads = std::<NamedThread>(config.numServers - 1);
+        raftServerThreads = std::vector<NamedThread>(config.numServers - 1);
 
-        raftConsensus = new Raft::Consensus();
-        serverSockets = new Raft::ServerSocketManager();
-        clientSockets = new Raft::ClientSocketManager();
-        stateMachine = new Raft::LogStateMachine();         
+        raftConsensus.reset(new Consensus(*this));
+        serverSockets.reset(new ServerSocketManager(*this));
+        clientSockets.reset(new ClientSocketManager(*this));
+        stateMachine.reset(new LogStateMachine(*this));        
     }
 
     Globals::~Globals()
@@ -28,7 +28,7 @@ namespace Raft {
     void Globals::start() {
         raftConsensus->startTimer(timerThread);
         stateMachine->startUpdater(stateMachineUpdaterThread);
-        
+
         serverSockets->start(serverListeningThread);
         clientSockets->start(clientListeningThread);
     }
