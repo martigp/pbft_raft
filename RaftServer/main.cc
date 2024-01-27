@@ -12,8 +12,7 @@ int main() {
     // Step 1: Make whatever temp dirs we expect to be storing persistent state in, check for config(OR we do this in globals init)
 
     // Step 2: Create globals object
-    Raft::Globals globals;
-    globals.init(./config_file_path);
+    Raft::Globals globals('./config_file_path');
 
     // Step 3: Use the Start() provided to us by globals
     globals.start();

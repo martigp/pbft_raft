@@ -15,6 +15,7 @@
 #include <condition_variable>
 #include <iostream>
 #include <thread>
+#include <unordered_set>
 #include "RaftGlobals.hh"
 #include "LogStateMachine.hh"
 
@@ -36,7 +37,7 @@ namespace Raft {
              * 
              * @return Thread ID for tracking in Global
             */
-            Raft::NamedThread startTimer();
+            void startTimer(NamedThread& timerThread);
 
             /**
              * Enum for: Follower, Candidate, Leader as specified in Figure 2
@@ -247,6 +248,12 @@ namespace Raft {
              * @brief Private counter for number of votes received when running an election
             */
             int numVotesReceived;
+
+            /**
+             * @brief Set for which servers have voted for you in current election
+             * Avoids double counting votes from same server
+            */
+            std::unordered_set<int> myVotes;
 
             /**
              * @brief After updating term, conversion to follow state(new election timeout and reset timer)
