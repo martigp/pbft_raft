@@ -3,7 +3,7 @@
 
 namespace Raft {
     
-    ThreadPool::WorkerInfo::WorkerInfo() 
+    ThreadPool::Worker::Worker() 
     : workToBeDone(1)
     {
     }
@@ -55,11 +55,11 @@ namespace Raft {
         shutdown = true;
         scheduleDispatch.release();
         availableWorkers.release();
-        for(WorkerInfo& worker: workers) {
+        for(Worker& worker: workers) {
             worker.workToBeDone.release();
         }
         dispatchThread.join();
-        for(WorkerInfo& worker: workers) {       
+        for(Worker& worker: workers) {       
             worker.thread.join();
         }
     }
@@ -73,7 +73,7 @@ namespace Raft {
             if (!jobs.empty()) {
                 //jobQueueLock.unlock();
             //} else {
-                for (WorkerInfo &worker: workers) {
+                for (Worker &worker: workers) {
                     if(worker.free) {
                         worker.free = false;
                         worker.job = jobs.front();
@@ -90,7 +90,7 @@ namespace Raft {
 
     void ThreadPool::worker(size_t workerID) {
         while(true) {
-            WorkerInfo& worker = workers[workerID];
+            Worker& worker = workers[workerID];
             worker.workToBeDone.acquire();
 
             if (shutdown)

@@ -24,13 +24,13 @@ class ThreadPool {
     public:
 
         /**
-         * Constructs a ThreadPool configured to spawn up to the specified
-         * number of threads.
+         * @brief Constructs a ThreadPool configured to spawn up to the 
+         * specified number of worker threads.
          */
         ThreadPool(size_t numThreads);
 
         /**
-         * Destroys the ThreadPool class
+         * @brief Destructor
          */
         ~ThreadPool();
 
@@ -50,31 +50,32 @@ class ThreadPool {
 
     private:
 
-        class WorkerInfo {
+        /**
+         * @brief Control information for a dispatcher thread to coordinate
+         * worker threads.
+         */
+        class Worker {
             public:
                 /**
                  * @brief Constructs a new worker with its counting semaphore
                  * set to 0 so that it waits for work to be assigned.
-                 * 
                  */
-                WorkerInfo();
+                Worker();
 
                 /**
                  * @brief Semaphore used by dispatch thread to signal the thread
                  * has work to do. Once signaled, the thread exexutes its job.
-                 * 
                  */
                 std::counting_semaphore<1> workToBeDone;
 
                 /**
-                 * @brief The thread that will execute the worker's job
-                 * 
+                 * @brief The thread that will execute the worker's job.
                  */
                 std::thread thread;
 
                 /**
-                 * @brief Function to be exexuted by thread.
-                 * 
+                 * @brief Job to be done by a worker thread, called in the
+                 * worker thread function.
                  */
                 std::function<void(void)> job;
 
@@ -89,40 +90,34 @@ class ThreadPool {
 
         /**
          * @brief Thread responsible for assigning jobs to worker threads.
-         * 
          */
         std::thread dispatchThread;
 
         /**
-         * @brief Threads performing jobs assigned by the dispatcher thread
-         * 
+         * @brief Threads performing jobs assigned by the dispatcher thread.
          */
-        std::vector<WorkerInfo> workers;
+        std::vector<Worker> workers;
 
         /**
          * @brief A synchronized counter to measure the number of workers that
          * are available. Signaled when worker completes its job. Decremented
          * when worker assigned work.
-         * 
          */
         std::counting_semaphore<1> availableWorkers;
 
         /**
          * @brief Synchronization to allow dispatch thread to start running
          * once all workers have been initialized.
-         * 
          */
         std::counting_semaphore<1> scheduleDispatch;
 
         /**
          * @brief Synchronization for the queue of jobs to be done.
-         * 
          */
         std::mutex jobQueueLock;
 
         /**
          * @brief Queue of jobs to be done by the threadpool
-         * 
          */
         std::queue<std::function<void(void)>> jobs;
 
@@ -137,27 +132,26 @@ class ThreadPool {
         /**
          * @brief Condition Variable used to check whether any threads are
          * free to do work.
-         * 
          */
         std::condition_variable_any numThreadsFreeCv;
 
         /**
          * @brief Flag set to shut down the threadpool.
-         * 
          */
         bool shutdown;
   
 
         /**
-         * @brief
-         *
+         * @brief The function executed by the dispatch thread to give work
+         * to worker threads.
          */
         
         void dispatcher();
 
         /**
-         * @brief
-         *
+         * @brief Function executed by a worker thread that waits for and then
+         * executes a job. Note this is different from the job it has been
+         * given.
          */
         
         void worker(size_t workerID);
