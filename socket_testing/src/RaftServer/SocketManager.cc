@@ -2,9 +2,12 @@
 #include <sys/event.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <thread>
+#include <memory>
 #include "RaftServer/SocketManager.hh"
 #include "RaftServer/Socket.hh"
-#include "Protobuf/test.pb.h"
+#include "Common/RPC.hh"
+#include "google/protobuf/message.h"
 
 namespace Raft {
     
@@ -21,15 +24,27 @@ namespace Raft {
 
     SocketManager::~SocketManager()
     {
+        // Clean up all sockets managed by SocketManager
+        for (auto& it : sockets) {
+            stopSocketMonitor(it.second);
+        }
+
         if (close(kq) == -1) {
             perror("Failed to kqueue");
             exit(EXIT_FAILURE);
         }
     }
 
-    bool SocketManager::monitorSocket( uint64_t id, Socket *socket ) {
+    bool SocketManager::monitorSocket( uint64_t peerId, Socket *socket ) {
 
         struct kevent newEv;
+
+        if (sockets.find(peerId) != sockets.end()) {
+            printf("[SocketManager] Socket with peerid %llu already exists\n", peerId);
+            return false;
+        }
+
+        sockets[peerId] = socket;
 
         bzero(&newEv, sizeof(newEv));
         EV_SET(&newEv, socket->fd,
@@ -46,12 +61,11 @@ namespace Raft {
 
         if (kevent(kq, &newEv, 1, NULL, 0, NULL) == -1) {
             perror("[SocketManager] Failure to register reading events on client socket\n");
+            // Probably have to remove the other event if this doesn't work!
             return false;
         }
 
-        sockets.push_back(socket);
-
-        printf("[SocketManager] Registered new socket listener for socket id %llu\n", id);
+        printf("[SocketManager] Registered new socket listener for socket id %llu\n", peerId);
         return true;
     }
 
@@ -83,21 +97,27 @@ namespace Raft {
         return true;
     }
 
-    void SocketManager::sendRPC( Socket * socket, Test::TestMessage msg ) {
+    void SocketManager::sendRPC( uint64_t peerId, 
+                                 google::protobuf::Message& rpc,
+                                 Raft::RPCType rpcType) {
 
-        bool socketExists = false;
-        for (Socket *candidate : sockets) {
-            if (candidate == socket) {
-                socketExists = true;
-            }
-        }
-
-        if (!socketExists) {
+        auto socketsEntry = sockets.find(peerId);
+        if (socketsEntry == sockets.end()) {
             printf("Unable to find corresponding Socket to queue RPC\n");
             return;
         }
 
-        socket->sendRPC(msg);
+        Socket *socket = socketsEntry->second;
+
+        Raft::RPCHeader rpcHeader(rpcType, rpc.ByteSizeLong());
+
+        Raft::RPCPacket rpcPacket(rpcHeader, rpc);
+
+        std::string payload;
+
+        // Lock Acquire
+        socket->sendRPCQueue.push(rpcPacket);
+        // Lock Release
 
         struct kevent newEv;
         EV_SET(&newEv, socket->userEventId, EVFILT_USER, 0, 
@@ -191,11 +211,6 @@ namespace Raft {
 
     ServerSocketManager::~ServerSocketManager()
     {
-        while(!sockets.empty()) {
-            Socket *socket = sockets.front();
-            sockets.pop_front();
-            stopSocketMonitor(socket);
-        }
     }
 
     void ServerSocketManager::start()
@@ -238,7 +253,10 @@ namespace Raft {
                     exit(EXIT_FAILURE);
                 }
                 else {
-                    evSocket->handleSocketEvent(ev, *this);
+                    bool success= evSocket->handleSocketEvent(ev, *this);
+                    if (!success && ev.ident != LISTEN_SOCKET_ID) {
+                        stopSocketMonitor(evSocket);
+                    }
                 }
             }
         }

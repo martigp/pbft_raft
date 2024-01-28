@@ -3,10 +3,12 @@
 
 #include <string>
 #include <memory>
-#include <deque>
+#include <unordered_map>
 #include <sys/event.h>
 #include "RaftServer/Socket.hh"
 #include "RaftServer/RaftGlobals.hh"
+#include "Protobuf/RaftRPC.pb.h"
+#include "Common/RPC.hh"
 
 #define MAX_CONNECTIONS 10
 #define MAX_EVENTS 1
@@ -39,13 +41,15 @@ namespace Raft {
              * future calls to kevent will alert user if there were any events
              * on the socket.
              * 
-             * @param id The id of the associated connection.
+             * @param id The id of the associated connection. For RaftServers
+             * this is the serverId from config. For RaftClients this is a
+             * monotonically increasing Id.
              * @param socket Socket object to access when an event happens on
              * the corresponding file descriptor.
              * @return Whether the socket was successfullly registered for
              * monitoring.
              */
-            bool monitorSocket( uint64_t id, Socket *socket );
+            bool monitorSocket( uint64_t peerId, Socket *socket );
 
             /**
              * @brief 
@@ -61,7 +65,8 @@ namespace Raft {
              * @brief Adds a socket to 
              * 
              */
-            void sendRPC(Socket* socket, Test::TestMessage msg);
+            void sendRPC(uint64_t peerId, google::protobuf::Message& msg,
+                         Raft::RPCType rpcType);
 
             /**
              * @brief Method overriden by subclass that begins listening for 
@@ -87,7 +92,7 @@ namespace Raft {
              * we just need to close them, but then removal is hard?
              * 
              */
-            std::deque<Socket *> sockets;
+            std::unordered_map<uint64_t, Socket *> sockets;
 
     }; // class SocketManager
 

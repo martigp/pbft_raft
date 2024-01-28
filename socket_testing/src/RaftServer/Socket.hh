@@ -4,7 +4,8 @@
 #include <queue>
 #include <sys/event.h>
 #include "RaftServer/RaftGlobals.hh"
-#include "Protobuf/test.pb.h"
+#include "Protobuf/RaftRPC.pb.h"
+#include "Common/RPC.hh"
 
 namespace Raft {
 
@@ -50,11 +51,9 @@ class Socket {
          * @param socketManager Used to perform any actions in response to the
          * event ev.
          */
-        virtual void handleSocketEvent( struct kevent& ev,
+        virtual bool handleSocketEvent( struct kevent& ev,
                                         SocketManager& socketManager ) = 0;
-        
-        void sendRPC( Test::TestMessage msg);
-    
+            
     protected:
         /**
          * @brief The socket file descriptor.
@@ -75,7 +74,13 @@ class Socket {
          */
         class ReadBytes {
             public:
-                ReadBytes(size_t numBytes);
+                /**
+                 * @brief Constructor
+                 * 
+                 * @param initialBufferSize Initial size of buffer. This is
+                 * set to the size of a header.
+                 */
+                ReadBytes(size_t initialBufferSize);
 
                 ~ReadBytes();
 
@@ -83,11 +88,24 @@ class Socket {
                  * @brief Number of bytes read in from socket buffer.
                  * 
                  */
-                size_t numBytes;
+                size_t numBytesRead;
                 /**
-                 * @brief Bytes Read in from socket buffer.
+                 * @brief Bytes buffered from reading from socket. Will contain
+                 * exclusively RPC header bytes or RPC message bytes.
                  */
                 char *bufferedBytes;
+
+                /**
+                 * @brief The size of the bufferedBytes Buffer.
+                 * 
+                 */
+                size_t bufLen;
+
+                /**
+                 * @brief Header parsed from incoming bytes. Every RPC is 
+                 * prepended by a header.
+                 */
+                Raft::RPCType rpcType;
         };
 
         ReadBytes readBytes;
@@ -96,7 +114,7 @@ class Socket {
          * @brief Queue of RPCs to send to peer. This queue is checked when
          * Raft triggers a user event on the socket.
          */
-        std::queue<Test::TestMessage> sendRPCQueue;
+        std::queue< Raft::RPCPacket> sendRPCQueue;
 
 
 }; // class Socket
@@ -128,7 +146,7 @@ class ListenSocket : public Socket {
          * @param socketManager Used to register the newly created server socket
          * to the kernel for monitoring.
          */
-        void handleSocketEvent( struct kevent& ev,
+        bool handleSocketEvent( struct kevent& ev,
                                 SocketManager& socketManager );
     
     private:
@@ -147,11 +165,18 @@ class ListenSocket : public Socket {
  */
 class ServerSocket : public Socket {
     public:
+
+        enum PeerType {
+            RAFT_CLIENT,
+            RAFT_SERVER
+        };
+
         /**
          * @brief Construct a new Server Socket object that handles requests
          * from a socket connected to a client and sends responses.
          */
-        ServerSocket( int fd , uint32_t userEventId );
+        ServerSocket( int fd , uint32_t userEventId, uint64_t peerId, 
+                      PeerType peerType );
 
         /* Destructor */
         ~ServerSocket();
@@ -166,9 +191,24 @@ class ServerSocket : public Socket {
          * data to be read from the socket's read buffer.
          * @param socketManager Currently unused, will be for responding to
          * the request.
+         * @return There was an error handling the event. Since this is a
+         * serverSocket we simply disconnect when this happens
          */
-        void handleSocketEvent( struct kevent& ev,
+        bool handleSocketEvent( struct kevent& ev,
                                 SocketManager& socketManager );
+        
+    private:
+        /**
+         * @brief Unique identifier for a peer in its socketManager. Used to
+         * tag RPCs when passed to other modules RPCResponses can be directed
+         * to the correct socket.
+         */
+        [[maybe_unused]]uint64_t peerId;
+        /**
+         * @brief Whether the peer is a RaftClient or a RaftServer. Used to
+         * determine which Consensus Module API to call to handle an RPC.
+         */
+        [[maybe_unused]] PeerType peerType;
 }; // class ServerSocket
 
 } // namespace Raft

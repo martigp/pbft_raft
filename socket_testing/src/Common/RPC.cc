@@ -1,13 +1,7 @@
-#include "Common/RPCNetwork.hh"
+#include "Common/RPC.hh"
 #include <sstream>
 
 namespace Raft {
-
-    std::stringstream& operator<<(std::stringstream &ss, RPCHeader header) {
-        ss << header.rpcType << header.payloadLength;
-        return ss;
-    }
-
     RPCHeader::RPCHeader(RPCType rpcType, size_t payloadLength)
         : rpcType(rpcType),
           payloadLength(payloadLength)
@@ -22,14 +16,12 @@ namespace Raft {
     {
     }
 
-    std::string RPCHeader::toString() {
-        std::stringstream ss;
-        std::string rpcHeaderString;
+    void RPCHeader::SerializeToArray(char *buf, size_t buflen) {
 
-        ss << *this;
-        ss >> rpcHeaderString;
-
-        return rpcHeaderString;
+        assert(buflen == RPC_HEADER_SIZE);
+        
+        memcpy(buf, &rpcType, sizeof(Raft::RPCType));
+        memcpy(buf + sizeof(Raft::RPCType), (&payloadLength), sizeof(uint64_t));
     }
 
     RPCPacket::RPCPacket(const RPCHeader& header, const google::protobuf::Message& rpc) 

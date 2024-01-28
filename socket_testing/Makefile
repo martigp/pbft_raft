@@ -24,12 +24,13 @@ all: proto_middleman server client
 proto_middleman: $(PROTO_DIR)/*.proto
 	protoc -I $(PROTO_DIR) --cpp_out=$(PROTO_DIR) $^
 
-server: $(SRC_DIR)/RaftServer/*.cc $(PROTO_DIR)/test.pb.cc \
+server: $(SRC_DIR)/RaftServer/*.cc $(PROTO_DIR)/RaftRPC.pb.cc \
 		$(SRC_DIR)/Common/*.cc
 	$(CCX) $(CFLAGS) $(LIBS) -I $(SRC_DIR) $^ -o $(BLD_DIR)/$@
 	export DYLD_LIBRARY_PATH=../install/runtime_libs/
 
-client: $(PROTO_DIR)/test.pb.cc $(SRC_DIR)/RaftClient/client.cc
+client: $(PROTO_DIR)/RaftRPC.pb.cc $(SRC_DIR)/RaftClient/client.cc \
+		$(SRC_DIR)/Common/*.cc
 	$(CCX) $(CFLAGS) $(LIBS) -I $(SRC_DIR) $^ -o $(BLD_DIR)/$@
 
 clean:

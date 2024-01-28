@@ -28,7 +28,6 @@
 #include "google/protobuf/message.h"
 #include "google/protobuf/repeated_field.h"  // IWYU pragma: export
 #include "google/protobuf/extension_set.h"  // IWYU pragma: export
-#include "google/protobuf/generated_enum_reflection.h"
 #include "google/protobuf/unknown_field_set.h"
 // @@protoc_insertion_point(includes)
 
@@ -67,9 +66,6 @@ extern RPC_AppendEntries_Request_EntryDefaultTypeInternal _RPC_AppendEntries_Req
 class RPC_AppendEntries_Response;
 struct RPC_AppendEntries_ResponseDefaultTypeInternal;
 extern RPC_AppendEntries_ResponseDefaultTypeInternal _RPC_AppendEntries_Response_default_instance_;
-class RPC_Header;
-struct RPC_HeaderDefaultTypeInternal;
-extern RPC_HeaderDefaultTypeInternal _RPC_Header_default_instance_;
 class RPC_RequestVote;
 struct RPC_RequestVoteDefaultTypeInternal;
 extern RPC_RequestVoteDefaultTypeInternal _RPC_RequestVote_default_instance_;
@@ -95,40 +91,6 @@ namespace protobuf {
 }  // namespace google
 
 namespace Raft {
-enum RPC_Header_MessageType : int {
-  RPC_Header_MessageType_AppendEntries = 0,
-  RPC_Header_MessageType_RequestVotes = 1,
-  RPC_Header_MessageType_StateMachineCmd = 2,
-  RPC_Header_MessageType_RPC_Header_MessageType_INT_MIN_SENTINEL_DO_NOT_USE_ =
-      std::numeric_limits<::int32_t>::min(),
-  RPC_Header_MessageType_RPC_Header_MessageType_INT_MAX_SENTINEL_DO_NOT_USE_ =
-      std::numeric_limits<::int32_t>::max(),
-};
-
-bool RPC_Header_MessageType_IsValid(int value);
-extern const uint32_t RPC_Header_MessageType_internal_data_[];
-constexpr RPC_Header_MessageType RPC_Header_MessageType_MessageType_MIN = static_cast<RPC_Header_MessageType>(0);
-constexpr RPC_Header_MessageType RPC_Header_MessageType_MessageType_MAX = static_cast<RPC_Header_MessageType>(2);
-constexpr int RPC_Header_MessageType_MessageType_ARRAYSIZE = 2 + 1;
-const ::google::protobuf::EnumDescriptor*
-RPC_Header_MessageType_descriptor();
-template <typename T>
-const std::string& RPC_Header_MessageType_Name(T value) {
-  static_assert(std::is_same<T, RPC_Header_MessageType>::value ||
-                    std::is_integral<T>::value,
-                "Incorrect type passed to MessageType_Name().");
-  return RPC_Header_MessageType_Name(static_cast<RPC_Header_MessageType>(value));
-}
-template <>
-inline const std::string& RPC_Header_MessageType_Name(RPC_Header_MessageType value) {
-  return ::google::protobuf::internal::NameOfDenseEnum<RPC_Header_MessageType_descriptor,
-                                                 0, 2>(
-      static_cast<int>(value));
-}
-inline bool RPC_Header_MessageType_Parse(absl::string_view name, RPC_Header_MessageType* value) {
-  return ::google::protobuf::internal::ParseNamedEnum<RPC_Header_MessageType>(
-      RPC_Header_MessageType_descriptor(), name, value);
-}
 
 // ===================================================================
 
@@ -190,7 +152,7 @@ class RPC_StateMachineCmd_Response final : public ::google::protobuf::Message
     return reinterpret_cast<const RPC_StateMachineCmd_Response*>(
         &_RPC_StateMachineCmd_Response_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 9;
+  static constexpr int kIndexInFileMessages = 8;
   friend void swap(RPC_StateMachineCmd_Response& a, RPC_StateMachineCmd_Response& b) { a.Swap(&b); }
   inline void Swap(RPC_StateMachineCmd_Response* other) {
     if (other == this) return;
@@ -387,7 +349,7 @@ class RPC_StateMachineCmd_Request final : public ::google::protobuf::Message
     return reinterpret_cast<const RPC_StateMachineCmd_Request*>(
         &_RPC_StateMachineCmd_Request_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 8;
+  static constexpr int kIndexInFileMessages = 7;
   friend void swap(RPC_StateMachineCmd_Request& a, RPC_StateMachineCmd_Request& b) { a.Swap(&b); }
   inline void Swap(RPC_StateMachineCmd_Request* other) {
     if (other == this) return;
@@ -559,7 +521,7 @@ class RPC_StateMachineCmd final : public ::google::protobuf::internal::ZeroField
     return reinterpret_cast<const RPC_StateMachineCmd*>(
         &_RPC_StateMachineCmd_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 10;
+  static constexpr int kIndexInFileMessages = 9;
   friend void swap(RPC_StateMachineCmd& a, RPC_StateMachineCmd& b) { a.Swap(&b); }
   inline void Swap(RPC_StateMachineCmd* other) {
     if (other == this) return;
@@ -690,7 +652,7 @@ class RPC_RequestVote_Response final : public ::google::protobuf::Message
     return reinterpret_cast<const RPC_RequestVote_Response*>(
         &_RPC_RequestVote_Response_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 6;
+  static constexpr int kIndexInFileMessages = 5;
   friend void swap(RPC_RequestVote_Response& a, RPC_RequestVote_Response& b) { a.Swap(&b); }
   inline void Swap(RPC_RequestVote_Response* other) {
     if (other == this) return;
@@ -869,7 +831,7 @@ class RPC_RequestVote_Request final : public ::google::protobuf::Message
     return reinterpret_cast<const RPC_RequestVote_Request*>(
         &_RPC_RequestVote_Request_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 5;
+  static constexpr int kIndexInFileMessages = 4;
   friend void swap(RPC_RequestVote_Request& a, RPC_RequestVote_Request& b) { a.Swap(&b); }
   inline void Swap(RPC_RequestVote_Request* other) {
     if (other == this) return;
@@ -1071,7 +1033,7 @@ class RPC_RequestVote final : public ::google::protobuf::internal::ZeroFieldsBas
     return reinterpret_cast<const RPC_RequestVote*>(
         &_RPC_RequestVote_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 7;
+  static constexpr int kIndexInFileMessages = 6;
   friend void swap(RPC_RequestVote& a, RPC_RequestVote& b) { a.Swap(&b); }
   inline void Swap(RPC_RequestVote* other) {
     if (other == this) return;
@@ -1147,205 +1109,6 @@ class RPC_RequestVote final : public ::google::protobuf::internal::ZeroFieldsBas
 };
 // -------------------------------------------------------------------
 
-class RPC_Header final : public ::google::protobuf::Message
-/* @@protoc_insertion_point(class_definition:Raft.RPC.Header) */ {
- public:
-  inline RPC_Header() : RPC_Header(nullptr) {}
-  ~RPC_Header() override;
-  template <typename = void>
-  explicit PROTOBUF_CONSTEXPR RPC_Header(
-      ::google::protobuf::internal::ConstantInitialized);
-
-  inline RPC_Header(const RPC_Header& from) : RPC_Header(nullptr, from) {}
-  inline RPC_Header(RPC_Header&& from) noexcept
-      : RPC_Header(nullptr, std::move(from)) {}
-  inline RPC_Header& operator=(const RPC_Header& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  inline RPC_Header& operator=(RPC_Header&& from) noexcept {
-    if (this == &from) return *this;
-    if (GetArena() == from.GetArena()
-#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
-        && GetArena() != nullptr
-#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
-    ) {
-      InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-
-  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
-      ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
-  }
-  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
-      ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
-  }
-
-  static const ::google::protobuf::Descriptor* descriptor() {
-    return GetDescriptor();
-  }
-  static const ::google::protobuf::Descriptor* GetDescriptor() {
-    return default_instance().GetMetadata().descriptor;
-  }
-  static const ::google::protobuf::Reflection* GetReflection() {
-    return default_instance().GetMetadata().reflection;
-  }
-  static const RPC_Header& default_instance() {
-    return *internal_default_instance();
-  }
-  static inline const RPC_Header* internal_default_instance() {
-    return reinterpret_cast<const RPC_Header*>(
-        &_RPC_Header_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages = 0;
-  friend void swap(RPC_Header& a, RPC_Header& b) { a.Swap(&b); }
-  inline void Swap(RPC_Header* other) {
-    if (other == this) return;
-#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
-    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
-#else   // PROTOBUF_FORCE_COPY_IN_SWAP
-    if (GetArena() == other->GetArena()) {
-#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
-      InternalSwap(other);
-    } else {
-      ::google::protobuf::internal::GenericSwap(this, other);
-    }
-  }
-  void UnsafeArenaSwap(RPC_Header* other) {
-    if (other == this) return;
-    ABSL_DCHECK(GetArena() == other->GetArena());
-    InternalSwap(other);
-  }
-
-  // implements Message ----------------------------------------------
-
-  RPC_Header* New(::google::protobuf::Arena* arena = nullptr) const final {
-    return ::google::protobuf::Message::DefaultConstruct<RPC_Header>(arena);
-  }
-  using ::google::protobuf::Message::CopyFrom;
-  void CopyFrom(const RPC_Header& from);
-  using ::google::protobuf::Message::MergeFrom;
-  void MergeFrom(const RPC_Header& from) { RPC_Header::MergeImpl(*this, from); }
-
-  private:
-  static void MergeImpl(
-      ::google::protobuf::MessageLite& to_msg,
-      const ::google::protobuf::MessageLite& from_msg);
-
-  public:
-  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
-  bool IsInitialized() const final;
-
-  ::size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
-  ::uint8_t* _InternalSerialize(
-      ::uint8_t* target,
-      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
-  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
-
-  private:
-  void SharedCtor(::google::protobuf::Arena* arena);
-  void SharedDtor();
-  void InternalSwap(RPC_Header* other);
- private:
-  friend class ::google::protobuf::internal::AnyMetadata;
-  static ::absl::string_view FullMessageName() { return "Raft.RPC.Header"; }
-
- protected:
-  explicit RPC_Header(::google::protobuf::Arena* arena);
-  RPC_Header(::google::protobuf::Arena* arena, const RPC_Header& from);
-  RPC_Header(::google::protobuf::Arena* arena, RPC_Header&& from) noexcept
-      : RPC_Header(arena) {
-    *this = ::std::move(from);
-  }
-  const ::google::protobuf::MessageLite::ClassData* GetClassData()
-      const final;
-
- public:
-  ::google::protobuf::Metadata GetMetadata() const final;
-  // nested types ----------------------------------------------------
-  using MessageType = RPC_Header_MessageType;
-  static constexpr MessageType AppendEntries = RPC_Header_MessageType_AppendEntries;
-  static constexpr MessageType RequestVotes = RPC_Header_MessageType_RequestVotes;
-  static constexpr MessageType StateMachineCmd = RPC_Header_MessageType_StateMachineCmd;
-  static inline bool MessageType_IsValid(int value) {
-    return RPC_Header_MessageType_IsValid(value);
-  }
-  static constexpr MessageType MessageType_MIN = RPC_Header_MessageType_MessageType_MIN;
-  static constexpr MessageType MessageType_MAX = RPC_Header_MessageType_MessageType_MAX;
-  static constexpr int MessageType_ARRAYSIZE = RPC_Header_MessageType_MessageType_ARRAYSIZE;
-  static inline const ::google::protobuf::EnumDescriptor* MessageType_descriptor() {
-    return RPC_Header_MessageType_descriptor();
-  }
-  template <typename T>
-  static inline const std::string& MessageType_Name(T value) {
-    return RPC_Header_MessageType_Name(value);
-  }
-  static inline bool MessageType_Parse(absl::string_view name, MessageType* value) {
-    return RPC_Header_MessageType_Parse(name, value);
-  }
-
-  // accessors -------------------------------------------------------
-  enum : int {
-    kPayloadLengthFieldNumber = 2,
-    kOpCodeFieldNumber = 1,
-  };
-  // uint64 payloadLength = 2;
-  void clear_payloadlength() ;
-  ::uint64_t payloadlength() const;
-  void set_payloadlength(::uint64_t value);
-
-  private:
-  ::uint64_t _internal_payloadlength() const;
-  void _internal_set_payloadlength(::uint64_t value);
-
-  public:
-  // .Raft.RPC.Header.MessageType opCode = 1;
-  void clear_opcode() ;
-  ::Raft::RPC_Header_MessageType opcode() const;
-  void set_opcode(::Raft::RPC_Header_MessageType value);
-
-  private:
-  ::Raft::RPC_Header_MessageType _internal_opcode() const;
-  void _internal_set_opcode(::Raft::RPC_Header_MessageType value);
-
-  public:
-  // @@protoc_insertion_point(class_scope:Raft.RPC.Header)
- private:
-  class _Internal;
-  friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<
-      1, 2, 0,
-      0, 2>
-      _table_;
-  friend class ::google::protobuf::MessageLite;
-  friend class ::google::protobuf::Arena;
-  template <typename T>
-  friend class ::google::protobuf::Arena::InternalHelper;
-  using InternalArenaConstructable_ = void;
-  using DestructorSkippable_ = void;
-  struct Impl_ {
-    inline explicit constexpr Impl_(
-        ::google::protobuf::internal::ConstantInitialized) noexcept;
-    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
-                          ::google::protobuf::Arena* arena);
-    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
-                          ::google::protobuf::Arena* arena, const Impl_& from);
-    ::uint64_t payloadlength_;
-    int opcode_;
-    mutable ::google::protobuf::internal::CachedSize _cached_size_;
-    PROTOBUF_TSAN_DECLARE_MEMBER
-  };
-  union { Impl_ _impl_; };
-  friend struct ::TableStruct_RaftRPC_2eproto;
-};
-// -------------------------------------------------------------------
-
 class RPC_AppendEntries_Response final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:Raft.RPC.AppendEntries.Response) */ {
  public:
@@ -1401,7 +1164,7 @@ class RPC_AppendEntries_Response final : public ::google::protobuf::Message
     return reinterpret_cast<const RPC_AppendEntries_Response*>(
         &_RPC_AppendEntries_Response_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 3;
+  static constexpr int kIndexInFileMessages = 2;
   friend void swap(RPC_AppendEntries_Response& a, RPC_AppendEntries_Response& b) { a.Swap(&b); }
   inline void Swap(RPC_AppendEntries_Response* other) {
     if (other == this) return;
@@ -1580,7 +1343,7 @@ class RPC_AppendEntries_Request_Entry final : public ::google::protobuf::Message
     return reinterpret_cast<const RPC_AppendEntries_Request_Entry*>(
         &_RPC_AppendEntries_Request_Entry_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 1;
+  static constexpr int kIndexInFileMessages = 0;
   friend void swap(RPC_AppendEntries_Request_Entry& a, RPC_AppendEntries_Request_Entry& b) { a.Swap(&b); }
   inline void Swap(RPC_AppendEntries_Request_Entry* other) {
     if (other == this) return;
@@ -1752,7 +1515,7 @@ class RPC_AppendEntries final : public ::google::protobuf::internal::ZeroFieldsB
     return reinterpret_cast<const RPC_AppendEntries*>(
         &_RPC_AppendEntries_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 4;
+  static constexpr int kIndexInFileMessages = 3;
   friend void swap(RPC_AppendEntries& a, RPC_AppendEntries& b) { a.Swap(&b); }
   inline void Swap(RPC_AppendEntries* other) {
     if (other == this) return;
@@ -1882,7 +1645,7 @@ class RPC final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const RPC*>(
         &_RPC_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 11;
+  static constexpr int kIndexInFileMessages = 10;
   friend void swap(RPC& a, RPC& b) { a.Swap(&b); }
   inline void Swap(RPC* other) {
     if (other == this) return;
@@ -1932,7 +1695,6 @@ class RPC final : public ::google::protobuf::internal::ZeroFieldsBase
  public:
   ::google::protobuf::Metadata GetMetadata() const final;
   // nested types ----------------------------------------------------
-  using Header = RPC_Header;
   using AppendEntries = RPC_AppendEntries;
   using RequestVote = RPC_RequestVote;
   using StateMachineCmd = RPC_StateMachineCmd;
@@ -2015,7 +1777,7 @@ class RPC_AppendEntries_Request final : public ::google::protobuf::Message
     return reinterpret_cast<const RPC_AppendEntries_Request*>(
         &_RPC_AppendEntries_Request_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 2;
+  static constexpr int kIndexInFileMessages = 1;
   friend void swap(RPC_AppendEntries_Request& a, RPC_AppendEntries_Request& b) { a.Swap(&b); }
   inline void Swap(RPC_AppendEntries_Request* other) {
     if (other == this) return;
@@ -2206,54 +1968,6 @@ class RPC_AppendEntries_Request final : public ::google::protobuf::Message
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif  // __GNUC__
-// -------------------------------------------------------------------
-
-// RPC_Header
-
-// .Raft.RPC.Header.MessageType opCode = 1;
-inline void RPC_Header::clear_opcode() {
-  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
-  _impl_.opcode_ = 0;
-}
-inline ::Raft::RPC_Header_MessageType RPC_Header::opcode() const {
-  // @@protoc_insertion_point(field_get:Raft.RPC.Header.opCode)
-  return _internal_opcode();
-}
-inline void RPC_Header::set_opcode(::Raft::RPC_Header_MessageType value) {
-  _internal_set_opcode(value);
-  // @@protoc_insertion_point(field_set:Raft.RPC.Header.opCode)
-}
-inline ::Raft::RPC_Header_MessageType RPC_Header::_internal_opcode() const {
-  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
-  return static_cast<::Raft::RPC_Header_MessageType>(_impl_.opcode_);
-}
-inline void RPC_Header::_internal_set_opcode(::Raft::RPC_Header_MessageType value) {
-  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
-  _impl_.opcode_ = value;
-}
-
-// uint64 payloadLength = 2;
-inline void RPC_Header::clear_payloadlength() {
-  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
-  _impl_.payloadlength_ = ::uint64_t{0u};
-}
-inline ::uint64_t RPC_Header::payloadlength() const {
-  // @@protoc_insertion_point(field_get:Raft.RPC.Header.payloadLength)
-  return _internal_payloadlength();
-}
-inline void RPC_Header::set_payloadlength(::uint64_t value) {
-  _internal_set_payloadlength(value);
-  // @@protoc_insertion_point(field_set:Raft.RPC.Header.payloadLength)
-}
-inline ::uint64_t RPC_Header::_internal_payloadlength() const {
-  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
-  return _impl_.payloadlength_;
-}
-inline void RPC_Header::_internal_set_payloadlength(::uint64_t value) {
-  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
-  _impl_.payloadlength_ = value;
-}
-
 // -------------------------------------------------------------------
 
 // RPC_AppendEntries_Request_Entry
@@ -2834,19 +2548,6 @@ inline void RPC_StateMachineCmd_Response::set_allocated_msg(std::string* value) 
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace Raft
 
-
-namespace google {
-namespace protobuf {
-
-template <>
-struct is_proto_enum<::Raft::RPC_Header_MessageType> : std::true_type {};
-template <>
-inline const EnumDescriptor* GetEnumDescriptor<::Raft::RPC_Header_MessageType>() {
-  return ::Raft::RPC_Header_MessageType_descriptor();
-}
-
-}  // namespace protobuf
-}  // namespace google
 
 // @@protoc_insertion_point(global_scope)
 

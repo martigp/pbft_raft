@@ -1,12 +1,14 @@
-#ifndef COMMON_RPCNETWORK_H
-#define COMMON_RPCNETWORK_H
+#ifndef COMMON_RPC_H
+#define COMMON_RPC_H
 
 #include <stddef.h>
 #include <sstream>
 #include "google/protobuf/message.h"
 
+#define RPC_HEADER_SIZE (size_t) 9
+
 namespace Raft {
-    enum RPCType {
+    enum RPCType : std::uint8_t {
         APPEND_ENTRIES,
         REQUEST_VOTE,
         STATE_MACHINE_CMD,
@@ -40,10 +42,13 @@ namespace Raft {
              */
             ~RPCHeader();
 
-            friend std::stringstream& operator<<(std::stringstream &ss,
-                                            RPCHeader header);
-
-            std::string toString();
+            /**
+             * @brief Serialize an RPCHeader into an array.
+             * 
+             * @param buf Buf to serialize into
+             * @param buflen Size of buffer
+             */
+            void SerializeToArray(char *buf, size_t buflen);
 
             /**
              * @brief Type of RPC in payload.
@@ -77,7 +82,7 @@ namespace Raft {
              * 
              */
             char *payload;
-    }; // class RPCNetworkPacket
+    }; // class RPCPacket
 } // namespace Raft
 
-#endif /* COMMON_RPCNETWORK_H */ 
+#endif /* COMMON_RPC_H */ 
