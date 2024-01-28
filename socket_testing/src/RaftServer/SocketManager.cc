@@ -40,7 +40,8 @@ namespace Raft {
         struct kevent newEv;
 
         if (sockets.find(peerId) != sockets.end()) {
-            printf("[SocketManager] Socket with peerid %llu already exists\n", peerId);
+            printf("[SocketManager] Socket with peerid %llu already exists\n", 
+            peerId);
             return false;
         }
 
@@ -253,8 +254,10 @@ namespace Raft {
                     exit(EXIT_FAILURE);
                 }
                 else {
-                    bool success= evSocket->handleSocketEvent(ev, *this);
-                    if (!success && ev.ident != LISTEN_SOCKET_ID) {
+                    bool success = evSocket->handleSocketEvent(ev, *this);
+                    printf("[ServerSocket] Left Socket handler\n");
+                    if (!success && ev.ident != LISTEN_SOCKET_ID)
+                    {
                         stopSocketMonitor(evSocket);
                     }
                 }

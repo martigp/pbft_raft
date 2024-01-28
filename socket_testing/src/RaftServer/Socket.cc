@@ -58,43 +58,47 @@ namespace Raft {
     ServerSocket::~ServerSocket()
     { }
 
-    bool ServerSocket::handleSocketEvent( struct kevent& ev,
-                                          SocketManager& socketManager ) {
+    bool ServerSocket::handleReadEvent( SocketManager& socketManager ) {
+        printf("[Socket] Entering READ event handling, header size if %lu\n",
+                                                            RPC_HEADER_SIZE);
+        ssize_t bytesRead;
 
-        printf("[ServerSocket] Handling event id %lu\n", ev.ident);
-
-        // Received bytes from the Peer
-        if (ev.filter & EVFILT_READ && (int) ev.ident == fd) {
-            printf("[Socket] Entering READ event handling, header size if %lu\n", RPC_HEADER_SIZE);
-            ssize_t bytesRead;
-            char *readBuf;
-
+        // Breaks when no more bytes to be read or error.
+        while (true) {
+            // We have not read in a full header yet. Attempt to read in the
+            // remaining bytes needed for a complete header so that we know the
+            // type of RPC sent and the size of the RPC.
             if (readBytes.numBytesRead < RPC_HEADER_SIZE) {
                 size_t bytesAvailable = readBytes.bufLen - 
                                                 readBytes.numBytesRead;
 
-                readBuf = readBytes.bufferedBytes + readBytes.numBytesRead;
+                // Read into first unread byte in buffer whose size is set to the
+                // size of an RPCHeader. 
+                bytesRead = recv(fd, 
+                                readBytes.bufferedBytes + readBytes.numBytesRead,
+                                bytesAvailable, MSG_DONTWAIT);
 
-                bytesRead = recv(fd, readBuf, bytesAvailable, 0);
+                printf("Bytes Read %zu\n", bytesRead);
 
                 if (bytesRead == -1) {
                     printf("[Server Socket] Error reading header\n");
                     return false;
                 }
+                else if (bytesRead == 0)
+                    break;
 
                 readBytes.numBytesRead += bytesRead;
-                printf("[Socket] Update total bytes read %zu\n", readBytes.numBytesRead);
 
-                // Have full header
+                // If successfully read in the entire header, read the RPC type
+                // and length of RPC fields from header
                 if (readBytes.numBytesRead == RPC_HEADER_SIZE) {
                     printf("[ServerSocket] Received full header\n");
 
                     Raft::RPCHeader header(readBytes.bufferedBytes);
-                    // Probably need error handling if badly formed - not sure
-                    // what to do here -> remove connection?
 
+                    // Re-initialize the socket read buffer to the size of the
+                    // RPC.
                     delete[] readBytes.bufferedBytes;
-
                     readBytes.bufferedBytes = new char[header.payloadLength];
                     bzero(readBytes.bufferedBytes, header.payloadLength);
 
@@ -115,12 +119,14 @@ namespace Raft {
 
                 bytesRead = recv(fd, 
                                  readBytes.bufferedBytes + bytesOfPayloadRead, 
-                                 bytesAvailable, 0);
+                                 bytesAvailable, MSG_DONTWAIT);
 
                 if (bytesRead == -1) {
                     perror("[Server Socket] Error reading payload");
                     return false;
                 }
+                else if (bytesRead == 0)
+                    break;
 
                 readBytes.numBytesRead += bytesRead;
 
@@ -138,45 +144,63 @@ namespace Raft {
                     // To Remove, used for testing.
                     Raft::RPC::StateMachineCmd::Request rpc;
                     rpc.ParseFromArray(readBytes.bufferedBytes,
-                                       readBytes.bufLen);
+                                        readBytes.bufLen);
                     printf("Client RPC has command %s\n", rpc.cmd().c_str());
                     socketManager.sendRPC(peerId, rpc,
-                                          Raft::RPCType::STATE_MACHINE_CMD);
+                                            Raft::RPCType::STATE_MACHINE_CMD);
                     // Reset read bytes
                     readBytes = ReadBytes(RPC_HEADER_SIZE);
                 }
             }
         }
+        return true;
+    }
+
+    bool ServerSocket::handleUserEvent() {
+        
+        printf("[Socket] Entering user event handling\n");
+
+        // Lock Acquire
+        while(!sendRPCQueue.empty()) {
+
+            // TODO: Might have to do a move here, unclear on memory ops.
+            Raft::RPCPacket rpcPacket = sendRPCQueue.front();
+            sendRPCQueue.pop();
+
+            size_t payloadLen = rpcPacket.header.payloadLength;
+
+            char buf[RPC_HEADER_SIZE + payloadLen];
+
+            // Lock Release
+            // Might have to do some clever network ordering before sending
+            rpcPacket.header.SerializeToArray(buf, RPC_HEADER_SIZE);
+            memcpy(buf + RPC_HEADER_SIZE, rpcPacket.payload,
+                                                        payloadLen);
+
+            if (send(fd, buf, sizeof(buf), 0) == -1) {
+                perror("Failure to send to client");
+                return false;
+            }
+            printf("[Server Socket] Should sent response\n");
+            // Lock Acquire
+        }
+        // Lock Release
+        return true;
+    }
+
+    bool ServerSocket::handleSocketEvent( struct kevent& ev,
+                                          SocketManager& socketManager ) {
+
+        printf("[ServerSocket] Handling event id %lu\n", ev.ident);
+
+        // Received bytes from the Peer
+        if (ev.filter & EVFILT_READ && (int) ev.ident == fd) {
+            handleReadEvent(socketManager);
+        }
 
         // User Triggered event, data to write to network.
         else if (ev.filter & EVFILT_USER) {
-            printf("[Socket] Entering user event handling\n");
-
-            // Lock Acquire
-            while(!sendRPCQueue.empty()) {
-
-                // TODO: Might have to do a move here, unclear on memory ops.
-                Raft::RPCPacket rpcPacket = sendRPCQueue.front();
-                sendRPCQueue.pop();
-
-                size_t payloadLen = rpcPacket.header.payloadLength;
-
-                char buf[RPC_HEADER_SIZE + payloadLen];
-
-                // Lock Release
-                // Might have to do some clever network ordering before sending
-	            rpcPacket.header.SerializeToArray(buf, RPC_HEADER_SIZE);
-                memcpy(buf + RPC_HEADER_SIZE, rpcPacket.payload,
-                                                            payloadLen);
-
-                if (send(fd, buf, sizeof(buf), 0) == -1) {
-                    perror("Failure to send to client");
-                    return false;
-                }
-                printf("[Server Socket] Should sent response\n");
-                // Lock Acquire
-            }
-            // Lock Release
+            handleUserEvent();
         }
         else {
             printf("Server does not know what happened %u\n", ev.fflags);
@@ -194,9 +218,19 @@ namespace Raft {
     ListenSocket::~ListenSocket()
     { }
 
+    bool ListenSocket::handleReadEvent( SocketManager &socketManager ) {
+        return true;
+    }
+
+     bool ListenSocket::handleUserEvent() {
+        return true;
+    }
+
     bool ListenSocket::handleSocketEvent( struct kevent& ev,
                                           SocketManager& socketManager) {
-        
+
+        handleReadEvent(socketManager);
+
         struct sockaddr_in clientAddr;
         socklen_t clientAddrLen;
         // TODO: Use these to determine what type of connection it is e.g.
@@ -248,7 +282,7 @@ namespace Raft {
                                  peerType);
 
         socketManager.monitorSocket(newPeerId, serverSocket);
-        
+
         return true;
     }
 }

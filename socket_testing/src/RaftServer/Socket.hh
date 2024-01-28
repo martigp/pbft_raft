@@ -50,10 +50,36 @@ class Socket {
          * the user of.
          * @param socketManager Used to perform any actions in response to the
          * event ev.
+         * @return Returns false if any error occured during the event handling
+         * it is up to the Socket Manager to determine what to do in this
+         * situation. True if no errors
          */
         virtual bool handleSocketEvent( struct kevent& ev,
                                         SocketManager& socketManager ) = 0;
-            
+
+        /**
+         * @brief This method is overriden by a subclass to handle the event
+         * triggered when there are bytes to be read from the socket. The socket
+         * will read the bytes into its buffer and parse them. If there is a
+         * complete RPC, the RPC will be passed to the Raft Consensus Module.
+         * 
+         * @return Returns false if any errors occured when reading from the
+         * socket. True if no errors.
+         * 
+         * TODO: Remove Socket manager when done with testing.
+         */
+        virtual bool handleReadEvent( SocketManager& socketManager ) = 0;
+
+        /**
+         * @brief This method is overriden by a subclass to handle the event
+         * triggered by another Raft Module (user) when a Raft Module has added
+         * RPC to the sockets RPC queue. The Socket will attempt to write these
+         * to its peer.
+         * 
+         * @return Whether any errors occured when trying to write to the peer.
+         */
+        virtual bool handleUserEvent() = 0;
+
     protected:
         /**
          * @brief The socket file descriptor.
@@ -148,7 +174,27 @@ class ListenSocket : public Socket {
          */
         bool handleSocketEvent( struct kevent& ev,
                                 SocketManager& socketManager );
-    
+
+        /**
+         * @brief Unused right now. Filler to pass compiler checks that all
+         * pure virtual methods implemented.
+         * 
+         * @param socketManager 
+         * @return true 
+         * @return false 
+         */
+        bool handleReadEvent( SocketManager &socketManager );
+
+        /**
+         * @brief Unused right now. Filler to pass compiler checks that all
+         * pure virtual methods implemented.
+         * 
+         * @param socketManager 
+         * @return true 
+         * @return false 
+         */
+        bool handleUserEvent( );
+
     private:
         /**
          * @brief The Id to be assigned to the next RaftClient that connects
@@ -196,7 +242,27 @@ class ServerSocket : public Socket {
          */
         bool handleSocketEvent( struct kevent& ev,
                                 SocketManager& socketManager );
-        
+
+        /**
+         * @brief Method called when peer has sent data to be read. This method
+         * will send any well formed RPCs to the Raft Consensus module to
+         * respond to.
+         * 
+         * @return Whether the socket should be destroyed as a result of an
+         * error occuring while trying to read the data sent.
+         */
+        bool handleReadEvent( SocketManager &socketManager );
+
+        /**
+         * @brief Method called when another RaftModule produced and RPC and 
+         * signalled the socket to send it. The socket will attempt to send 
+         * every RPC in its queue (populated by other Raft Modules) to its peer.
+         * 
+         * @return Whether the socket should be destroyed as a result of an
+         * error occuring while trying to send an RPC.
+         */
+        bool handleUserEvent();
+
     private:
         /**
          * @brief Unique identifier for a peer in its socketManager. Used to
