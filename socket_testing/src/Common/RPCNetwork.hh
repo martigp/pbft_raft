@@ -55,18 +55,27 @@ namespace Raft {
             size_t payloadLength;
     }; // class RPCHeader
 
+    /**
+     * @brief All information required to send an RPC to a peer. This includes
+     * an RPCHeader to know what type of RPC it is and how many bytes the RPC
+     * is and the actual RPC, encoded in the payload.
+     * 
+     */
     class RPCPacket {
         public:
             RPCPacket(const RPCHeader& header,
-                      const google::protobuf::Message& payload);
+                      const google::protobuf::Message& rpc);
             ~RPCPacket();
 
-            friend std::stringstream& operator<<(std::stringstream &ss,
-                                                 RPCPacket packet);
-
-            std::string toString();
-
+            /**
+             * @brief The Header for the RPC
+             * 
+             */
             RPCHeader header;
+            /**
+             * @brief RPC in byte form.
+             * 
+             */
             char *payload;
     }; // class RPCNetworkPacket
 } // namespace Raft

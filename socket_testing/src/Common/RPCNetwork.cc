@@ -14,11 +14,6 @@ namespace Raft {
     {
     }
 
-    std::stringstream& operator<<(std::stringstream &ss, RPCPacket packet) {
-        ss << packet.header << packet.payload.SerializeAsString();
-        return ss;
-    }
-
     RPCHeader::RPCHeader(char *buf) {
         rpcType = (RPCType)*buf;
         payloadLength = (size_t) * (buf + sizeof(rpcType));
@@ -46,15 +41,5 @@ namespace Raft {
 
     RPCPacket::~RPCPacket()
     {
-    }
-
-    std::string RPCPacket::toString() {
-        std::stringstream ss;
-        std::string rpcPacketString;
-
-        ss << *this;
-        ss >> rpcPacketString;
-
-        return rpcPacketString;
     }
 }
