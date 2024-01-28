@@ -3,18 +3,6 @@ syntax = "proto3";
 package Raft;
 
 message RPC {
-    /* Information able to parse an RPC */
-    message Header {
-        /* Type of RPC */
-        enum MessageType {
-            AppendEntries = 0;
-            RequestVotes = 1;
-            StateMachineCmd = 2;
-        }
-        MessageType opCode = 1;
-        /* Length of following RPC */
-        uint64 payloadLength = 2;
-    }
 
     /* AppendEntries RPC */
     message AppendEntries {
@@ -84,7 +72,6 @@ message RPC {
     message StateMachineCmd {
         message Request {
             bytes cmd = 1;
-
         }
         message Response {
             bool success = 1;
