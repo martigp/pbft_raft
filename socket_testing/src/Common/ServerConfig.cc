@@ -30,16 +30,20 @@ namespace Common {
             std::string cfgListenAddr = cfg.lookup("listenAddress");
             listenAddr = cfgListenAddr;
             raftPort = cfg.lookup("raftPort");
+            serverId = cfg.lookup("serverId");
+
+            std::string cfgLogPath = cfg.lookup("logPath");
+            logPath = cfgLogPath;
 
             const libconfig::Setting& root = cfg.getRoot();
             const libconfig::Setting& servers = root["servers"];
-            int numServers = servers.getLength();
 
             // Extract information about the servers in the Raft cluster
-            for (int i = 0; i < numServers; i++) {
+            for (int i = 0; i < servers.getLength(); i++) {
                 uint64_t serverId;
                 std::string serverIPAddr;
                 struct sockaddr_in serverSockAddr;
+
 
                 const libconfig::Setting &server = servers[i];
 
@@ -65,6 +69,11 @@ namespace Common {
                 // Might need to be a non stack allocated string?
                 clusterMap[serverId] = serverSockAddr;
             }
+
+            // Number of servers including
+            numClusterServers = servers.getLength() + 1;
+
+
         }
 
         // Any error when parsing fields in the configuration file
