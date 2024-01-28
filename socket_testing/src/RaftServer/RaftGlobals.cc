@@ -1,4 +1,3 @@
-#include <string>
 #include <sys/event.h>
 #include <libconfig.h++>
 #include <iostream>

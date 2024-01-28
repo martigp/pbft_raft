@@ -132,7 +132,11 @@ namespace Raft {
 
     ClientSocketManager::ClientSocketManager( Raft::Globals& globals )
         : SocketManager( globals )
-    {        
+    {      
+        // Lazily set up sockets.
+        for (auto& it : globals.config.clusterMap) {
+            sockets[it.first] = NULL;
+        }  
     }
 
     ClientSocketManager::~ClientSocketManager()

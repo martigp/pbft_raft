@@ -203,6 +203,21 @@ class ListenSocket : public Socket {
         uint64_t nextRaftClientId;
 }; // class ListenSocket
 
+
+class ClientSocket : public Socket {
+
+    ClientSocket( int fd, uint32_t userEventId, uint64_t peerId );
+
+    ~ClientSocket();
+
+    bool handleSocketEvent( struct kevent& ev,
+                            SocketManager& socketManager );
+    
+    bool handleReadEvent( SocketManager &socketManager );
+
+    bool handleUserEvent();
+};
+
 /**
  * @brief A socket that listens for incoming Raft RPC requests.
  * ServerSockets are sockets for connections where the owner is server of the
