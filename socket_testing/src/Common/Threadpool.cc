@@ -1,4 +1,4 @@
-#include "Common/Threadpool.hh"
+#include "Common/ThreadPool.hh"
 #include <mutex>
 
 namespace Raft {
@@ -31,14 +31,15 @@ namespace Raft {
         }
     }
 
-    void ThreadPool::schedule(const std::function<void(void)>& thunk) {
+    void ThreadPool::schedule(const std::function<void(void *)>& fn, void *args) {
 
         numThreadsFreeLock.lock();
         numThreadsFree++;
         numThreadsFreeLock.unlock();
 
+        struct WorkerJob newWorkerJob { fn, args };
         jobQueueLock.lock();
-        jobs.push(thunk);
+        jobs.push(newWorkerJob);
         jobQueueLock.unlock();
 
         scheduleDispatch.release();
@@ -96,7 +97,7 @@ namespace Raft {
             if (shutdown)
                 break;
             
-            worker.job();
+            worker.job.fn(worker.job.args);
 
             worker.free = true;
             availableWorkers.release();
