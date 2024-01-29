@@ -37,6 +37,12 @@ namespace Raft {
             /* Destructor */
             ~Consensus();
 
+
+            /**
+             * @brief Reference to server globals
+            */
+            Raft::Globals& globals;
+
             /**
              * @brief Begin timer thread within consensus module
              * 
@@ -102,34 +108,16 @@ namespace Raft {
             void handleRaftServerResp(uint64_t peerId, Raft::RPCHeader header, char *payload); 
 
         private:
-            /*************************************
-             * References to global and other submodules
-            **************************************/
-
-            /**
-             * @brief Reference to server globals
-            */
-            Raft::Globals& globals;
-
-            /**
-             * @brief The ServerConfig object.
-             */
-            Common::ServerConfig config;
-
-            /**
-             * @brief Pointer to state machine module (currently unused)
-            */
-            std::shared_ptr<Raft::LogStateMachine> stateMachine;
 
             /*************************************
              * Below are the figure 2 persistent state variables needed
              * Must be updated in stable storage before responding to RPCs
             **************************************/
             /**
-             * @brief The latest term server has seen 
-             * - initialized to 0 on first boot, increases monotonically
+             * @brief Mutex used by all methods attempting to alter the 
+             * consensus module
             */
-            std::mutex persistentStateMutex;
+            std::mutex consensusMutex;
 
             /**
              * @brief The latest term server has seen 
@@ -196,6 +184,11 @@ namespace Raft {
             /*************************************
              * Below are all internal methods, etc
             **************************************/
+
+            /**
+             * @brief Most recent request_id for each RaftServer
+            */
+            std::unordered_map<uint64_t, uint64_t> mostRecentRequestId;
 
             /**
              * @brief Receiver Implementation of AppendEntriesRPC

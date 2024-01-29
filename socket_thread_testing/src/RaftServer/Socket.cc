@@ -15,19 +15,23 @@
 
 namespace Raft {
 
-Socket::ReadBytes::ReadBytes(size_t initialBufferSize)
+Socket::ReceivedMessage::ReceivedMessage(size_t initialBufferSize)
     : numBytesRead(0),
       bufferedBytes(new char[initialBufferSize]),
       bufLen(initialBufferSize),
       rpcType(Raft::RPCType::NONE) {}
 
-Socket::ReadBytes::~ReadBytes() { delete[] bufferedBytes; }
+Socket::ReceivedMessage::~ReceivedMessage() { delete[] bufferedBytes; }
 
-Socket::Socket(int fd, uint32_t userEventId)
+Socket::Socket(int fd, uint32_t userEventId, uint64_t peerId,
+               PeerType peerType, SocketManager& socketManager)
     : fd(fd),
       userEventId(userEventId),
-      readBytes(RPC_HEADER_SIZE),
-      sendRPCQueue() {
+      peerId(peerId),
+      peerType(peerType),
+      receivedMessage(RPC_HEADER_SIZE),
+      sendRPCQueue(),
+      socketManager(socketManager) {
     printf("[Socket] Constructed new socket with fd %d, userEventId %u\n", fd,
            userEventId);
 }
@@ -41,104 +45,230 @@ Socket::~Socket() {
     printf("[Socket] Socket object with fd %d deleted.", fd);
 }
 
-ServerSocket::ServerSocket(int fd, uint32_t userEventId, uint64_t peerId,
-                           PeerType peerType)
-    : Socket(fd, userEventId), peerId(peerId), peerType(peerType) {}
-
-ServerSocket::~ServerSocket() {}
-
-bool
-ServerSocket::handleReadEvent(SocketManager &socketManager) {
-    ssize_t bytesRead;
+void
+Socket::handleReceiveEvent(int64_t data) {
+    int64_t totalBytesRead = 0;
 
     // Breaks when no more bytes to be read or error.
-    while (true) {
+    while (totalBytesRead < data) {
+        printf("[Socket] New loop bytes read %lld, bytes received %lld\n",
+                                                        totalBytesRead, data);
         // We have not read in a full header yet. Attempt to read in the
         // remaining bytes needed for a complete header so that we know the
         // type of RPC sent and the size of the RPC.
-        if (readBytes.numBytesRead < RPC_HEADER_SIZE) {
-            size_t bytesAvailable = readBytes.bufLen - readBytes.numBytesRead;
+        if (receivedMessage.numBytesRead < RPC_HEADER_SIZE) {
+            size_t bytesAvailable = 
+                receivedMessage.bufLen - receivedMessage.numBytesRead;
 
             // Read into first unread byte in buffer whose size is set to the
             // size of an RPCHeader.
-            bytesRead =
-                recv(fd, readBytes.bufferedBytes + readBytes.numBytesRead,
+            ssize_t bytesRead =
+                recv(fd, receivedMessage.bufferedBytes + receivedMessage.numBytesRead,
                      bytesAvailable, MSG_DONTWAIT);
 
             printf("Bytes Read %zu\n", bytesRead);
 
-            if (bytesRead == -1) {
-                printf("[Server Socket] Error reading header\n");
-                return false;
+            if (bytesRead == -1 ) {
+                perror("[Socket] Error reading header\n");
+                disconnect();
+                break;
             } else if (bytesRead == 0)
                 break;
 
-            readBytes.numBytesRead += bytesRead;
+            receivedMessage.numBytesRead += bytesRead;
+            totalBytesRead += bytesRead;
 
             // If successfully read in the entire header, read the RPC type
             // and length of RPC fields from header
-            if (readBytes.numBytesRead == RPC_HEADER_SIZE) {
+            if (receivedMessage.numBytesRead == RPC_HEADER_SIZE) {
                 printf("[ServerSocket] Received full header\n");
 
-                Raft::RPCHeader header(readBytes.bufferedBytes);
+                Raft::RPCHeader header(receivedMessage.bufferedBytes);
 
                 // Re-initialize the socket read buffer to the size of the
                 // RPC.
-                delete[] readBytes.bufferedBytes;
-                readBytes.bufferedBytes = new char[header.payloadLength];
-                bzero(readBytes.bufferedBytes, header.payloadLength);
+                delete[] receivedMessage.bufferedBytes;
+                receivedMessage.bufferedBytes = new char[header.payloadLength];
+                bzero(receivedMessage.bufferedBytes, header.payloadLength);
 
-                readBytes.bufLen = header.payloadLength;
+                receivedMessage.bufLen = header.payloadLength;
 
-                readBytes.rpcType = header.rpcType;
+                receivedMessage.rpcType = header.rpcType;
             }
         }
 
         // Header has been read, all bytes in the buffer are payload bytes
         // and reads we do will append to that.
-        if (readBytes.numBytesRead >= RPC_HEADER_SIZE) {
+        if (receivedMessage.numBytesRead >= RPC_HEADER_SIZE) {
             size_t bytesOfPayloadRead =
-                readBytes.numBytesRead - RPC_HEADER_SIZE;
+                receivedMessage.numBytesRead - RPC_HEADER_SIZE;
 
-            size_t bytesAvailable = readBytes.bufLen - bytesOfPayloadRead;
+            size_t bytesAvailable = receivedMessage.bufLen - bytesOfPayloadRead;
 
-            bytesRead = recv(fd, readBytes.bufferedBytes + bytesOfPayloadRead,
-                             bytesAvailable, MSG_DONTWAIT);
+            ssize_t bytesRead = 
+                recv(fd, receivedMessage.bufferedBytes + bytesOfPayloadRead,
+                     bytesAvailable, MSG_DONTWAIT);
 
             if (bytesRead == -1) {
                 perror("[Server Socket] Error reading payload");
-                return false;
+                disconnect();
+                return;
             } else if (bytesRead == 0)
                 break;
 
-            readBytes.numBytesRead += bytesRead;
+            receivedMessage.numBytesRead += bytesRead;
+            totalBytesRead += bytesRead;
 
-            if (readBytes.numBytesRead == RPC_HEADER_SIZE + readBytes.bufLen) {
+            if (receivedMessage.numBytesRead == RPC_HEADER_SIZE + receivedMessage.bufLen) {
                 printf("[ServerSocket] Received network packet\n");
                 if (peerType == PeerType::RAFT_CLIENT) {
                     // ConsensusUnit->
                     // serverSocketManager.globals.handleClientReq
-                    // args: id, opcode, std::move(readBytes.bufferedBytes)
+                    // args: (uint64_t peerId, Raft::RPCHeader head, char *payload)
                 } else {
                     // serverSocketManager.globals.handleServerReq
-                    //  args: id, opcode, std::move(readBytes.bufferedBytes)
+                    //  args: id, opcode, std::move(receivedMessage.bufferedBytes)
                 }
 
                 // To Remove, used for testing.
                 Raft::RPC::StateMachineCmd::Request rpc;
-                rpc.ParseFromArray(readBytes.bufferedBytes, readBytes.bufLen);
+                rpc.ParseFromArray(receivedMessage.bufferedBytes, receivedMessage.bufLen);
                 printf("Client RPC has command %s\n", rpc.cmd().c_str());
                 socketManager.sendRPC(peerId, rpc,
                                       Raft::RPCType::STATE_MACHINE_CMD);
                 // Reset read bytes
-                readBytes = ReadBytes(RPC_HEADER_SIZE);
+                receivedMessage = ReceivedMessage(RPC_HEADER_SIZE);
             }
         }
     }
-    return true;
 }
 
-bool
+void
+Socket::disconnect() {
+    socketManager.stopSocketMonitor(this);
+}
+
+ClientSocket::ClientSocket(int fd, uint32_t userEventId, uint64_t peerId,
+                           SocketManager& socketManager,
+                           sockaddr_in peerAddress)
+    : Socket(fd, userEventId, peerId, PeerType::RAFT_CLIENT, socketManager),
+      peerAddress(peerAddress),
+      threadFlags(ClientSocket::ThreadFlag::CONNECT)
+{
+}
+
+ClientSocket::~ClientSocket() {
+    eventLock.lock();
+    threadFlags &= ClientSocket::ThreadFlag::SHUTDOWN;
+    eventCv.notify_all();
+    // Deal with spurious wakeup later;
+    shutdownCv.wait(eventLock);
+    printf("Successfully shutdown clientSocketMain");
+}
+
+void
+ClientSocket::handleUserEvent(){
+    eventLock.lock();
+    eventCv.notify_all();
+    eventLock.unlock();
+}
+
+void 
+ClientSocket::disconnect() {
+    printf("Unimplemented\n");
+    exit(EXIT_FAILURE);
+}
+
+
+void clientSocketMain(void *args) {
+    
+    ClientSocket *clientSocket = (ClientSocket *)args;
+    clientSocket->eventLock.lock();
+    while (true) {
+        
+        assert(clientSocket->threadFlags & ClientSocket::ThreadFlag::CONNECT);
+
+        printf("[ClientSocket] Attempting to connect to Raft Server %llu\n",
+                                                        clientSocket->peerId);
+        // Continually trying to connect to its Raft Server. Only exit loop
+        // once connected or if instructed by ClientSocketManager to exit.
+        while (connect(clientSocket->fd,
+                    (struct sockaddr*)&(clientSocket->peerAddress),
+				    sizeof(clientSocket->peerAddress)) < 0) {
+
+            printf("Connection to  Raft Server %llu failed\n",
+                                                        clientSocket->peerId);
+
+            if (clientSocket->threadFlags & ClientSocket::ThreadFlag::SHUTDOWN)
+                goto shutdown;
+        
+            clientSocket->eventLock.lock();
+            sleep(5);
+            clientSocket->eventLock.unlock();
+        }
+
+        clientSocket->threadFlags &= !ClientSocket::ThreadFlag::CONNECT;
+
+
+        // Main loop when connected. During normal operation this will just
+        // check if any RPCs to send and wait to be signalled by
+        // ClientSocket Manager if it is empty. Also handles if a disconnect
+        // has occured or needs to shutdown.
+        while (true) {
+            if (clientSocket->threadFlags &
+                    ClientSocket::ThreadFlag::SHUTDOWN)
+                goto shutdown;
+            else if (clientSocket->threadFlags &
+                        ClientSocket::ThreadFlag::CONNECT) {
+                // Go back to first loop
+                break;
+            }
+            else if (!clientSocket->sendRPCQueue.empty()) {
+                Raft::RPCPacket rpcPacket = clientSocket->sendRPCQueue.front();
+                clientSocket->eventLock.unlock();
+
+                size_t payloadLen = rpcPacket.header.payloadLength;
+
+                char buf[RPC_HEADER_SIZE + payloadLen];
+
+                // Might have to do some clever network ordering before sending
+                rpcPacket.header.SerializeToArray(buf, RPC_HEADER_SIZE);
+                memcpy(buf + RPC_HEADER_SIZE, rpcPacket.payload, payloadLen);
+
+                if (send(clientSocket->fd, buf, sizeof(buf), 0) == -1) {
+
+                    perror("Failure to send request to RaftServer");
+                    if (errno == ECONNRESET) {
+                        // Might be a race condition here with the 
+                        printf("[ClientSocket] Connection Reset\n");
+                        clientSocket->disconnect();
+                        continue;
+                    } else {
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                clientSocket->eventLock.lock();
+                clientSocket->sendRPCQueue.pop();
+            }
+            else {
+                clientSocket->eventCv.wait(clientSocket->eventLock);
+            }
+        } 
+    }
+
+shutdown:
+    clientSocket->shutdownCv.notify_all();
+    clientSocket->eventLock.unlock();
+}
+
+
+ServerSocket::ServerSocket(int fd, uint32_t userEventId, uint64_t peerId,
+                           PeerType peerType, SocketManager& socketManager)
+    : Socket(fd, userEventId, peerId, peerType, socketManager) {}
+
+ServerSocket::~ServerSocket() {}
+
+void
 ServerSocket::handleUserEvent() {
     printf("[Socket] Entering user event handling\n");
 
@@ -147,80 +277,48 @@ ServerSocket::handleUserEvent() {
         // TODO: Might have to do a move here, unclear on memory ops.
         Raft::RPCPacket rpcPacket = sendRPCQueue.front();
         sendRPCQueue.pop();
+        // Lock Release
 
         size_t payloadLen = rpcPacket.header.payloadLength;
 
         char buf[RPC_HEADER_SIZE + payloadLen];
 
-        // Lock Release
         // Might have to do some clever network ordering before sending
         rpcPacket.header.SerializeToArray(buf, RPC_HEADER_SIZE);
         memcpy(buf + RPC_HEADER_SIZE, rpcPacket.payload, payloadLen);
 
         if (send(fd, buf, sizeof(buf), 0) == -1) {
             perror("Failure to send to client");
-            return false;
+            disconnect();
         }
         printf("[Server Socket] Should sent response\n");
         // Lock Acquire
     }
     // Lock Release
-    return true;
-}
-
-bool
-ServerSocket::handleSocketEvent(struct kevent &ev,
-                                SocketManager &socketManager) {
-    printf("[ServerSocket] Handling event id %lu\n", ev.ident);
-
-    // Received bytes from the Peer
-    if (ev.filter & EVFILT_READ && (int)ev.ident == fd) {
-        handleReadEvent(socketManager);
-    }
-
-    // User Triggered event, data to write to network.
-    else if (ev.filter & EVFILT_USER) {
-        handleUserEvent();
-    } else {
-        printf("Server does not know what happened %u\n", ev.fflags);
-    }
-
-    return true;
 }
 
 ListenSocket::ListenSocket(int fd, uint32_t userEventId,
+                           SocketManager& socketManager,
                            uint64_t firstRaftClientId)
-    : Socket(fd, userEventId), nextRaftClientId(firstRaftClientId) {}
+    : Socket(fd, userEventId, 0, PeerType::NONE, socketManager),
+      nextRaftClientId(firstRaftClientId) {}
 
 ListenSocket::~ListenSocket() {}
 
-bool
-ListenSocket::handleReadEvent(SocketManager &socketManager) {
-    return true;
-}
-
-bool
-ListenSocket::handleUserEvent() {
-    return true;
-}
-
-bool
-ListenSocket::handleSocketEvent(struct kevent &ev,
-                                SocketManager &socketManager) {
-    handleReadEvent(socketManager);
+void
+ListenSocket::handleReceiveEvent(int64_t data) {
 
     struct sockaddr_in clientAddr;
     socklen_t clientAddrLen;
-    // TODO: Use these to determine what type of connection it is e.g.
-    // RaftServer v.s. RaftClient by cross referencing addresses with
-    // config addresses of RaftServers
-    // Currently assumes only RaftServers
+
+    printf("[ListenSocket] Number of connections attempted %lld\n", data);
 
     int socketFd =
-        accept(int(ev.ident), (struct sockaddr *)&clientAddr, &clientAddrLen);
+        accept(fd, (struct sockaddr *)&clientAddr, &clientAddrLen);
+    
     if (socketFd < 0) {
         perror("accept");
-        return false;
+        exit(EXIT_FAILURE);
     }
 
     printf("[Server] accepted new client on socket %d\n", socketFd);
@@ -231,14 +329,9 @@ ListenSocket::handleSocketEvent(struct kevent &ev,
     for (auto &it : socketManager.globals.config.clusterMap) {
         if (ntohl(it.second.sin_addr.s_addr) ==
             ntohl(clientAddr.sin_addr.s_addr)) {
-            // TODO: mark socket RaftServer/RaftClient upon receipt
-            // This is going to help for when processing an RPC?
-            // Might just be an enum in the ServerSocket object?
-            printf(
-                "[ListenSocket] Accepted connection request from RaftServer "
-                "with"
-                "id %llu\n",
-                it.first);
+            printf("[ListenSocket] Accepted connection request from RaftServer "
+                   "with id %llu\n", it.first);
+            
             newPeerId = it.first;
             peerType = ServerSocket::PeerType::RAFT_SERVER;
             break;
@@ -258,10 +351,16 @@ ListenSocket::handleSocketEvent(struct kevent &ev,
     }
 
     ServerSocket *serverSocket = new ServerSocket(
-        socketFd, socketManager.globals.genUserEventId(), newPeerId, peerType);
+        socketFd, socketManager.globals.genUserEventId(), newPeerId, peerType,
+        socketManager);
 
     socketManager.monitorSocket(newPeerId, serverSocket);
-
-    return true;
 }
+
+void
+ListenSocket::handleUserEvent() {
+    printf("[ListenSocket] Error no user events on Listen Sockets\n");
+    exit(EXIT_FAILURE);
+}
+
 }  // namespace Raft

@@ -9,6 +9,7 @@
 #include "RaftServer/RaftGlobals.hh"
 #include "Protobuf/RaftRPC.pb.h"
 #include "Common/RPC.hh"
+#include "Common/ThreadPool.hh"
 
 #define MAX_CONNECTIONS 10
 #define MAX_EVENTS 1
@@ -69,11 +70,15 @@ namespace Raft {
                          Raft::RPCType rpcType);
 
             /**
-             * @brief Method overriden by subclass that begins listening for 
-             * kernel notifications about events on registered sockets and
-             * reacts accordingly.
+             * @brief Begins listeningLoop on the thread value passed in
              */
-            virtual void start() = 0;
+            void startListening(std::thread &listeningThread);
+
+            /**
+             * @brief Listens for kernel notifications about events on
+             *  registered sockets and corresponding socket reacts accordingly
+             */
+            void listenLoop();
 
             /**
              * @brief The file descriptor of the kqueue that alerts a RaftServer
@@ -114,8 +119,13 @@ namespace Raft {
             /* Destructor */
             ~ClientSocketManager();
 
-            /* Unimplemented */
-            void start();
+        private:
+            /**
+             * @brief Threadpool responsible for spawning threads that are
+             * responsible for sending RPCs over the socket and maintaining the
+             * connection.
+             */
+            ThreadPool threadpool;
     }; // class ClientSocketManager
 
 
@@ -134,12 +144,6 @@ namespace Raft {
              * TODO: should remove all events and delete associated SocketPtr
              */
             ~ServerSocketManager();
-
-            /**
-             * @brief Begin listening for kernel notifications about events
-             * on registered server sockets and react accordingly.
-             */
-            void start();
 
     }; // class ServerSocketManager
 
