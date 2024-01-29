@@ -1,3 +1,4 @@
+#include <string>
 #include <sys/event.h>
 #include <libconfig.h++>
 #include <iostream>
@@ -14,9 +15,14 @@ namespace Raft {
           clientSocketManager(),
           serverSocketManager(),
           nextUserEventId (FIRST_USER_EVENT_ID)
-    {       
+    {   
+        try {
         clientSocketManager.reset(new ClientSocketManager(*this));
         serverSocketManager.reset(new ServerSocketManager(*this)); 
+        }
+        catch(const std::exception& e) {
+            std::cerr << e.what() << std::endl;
+        }
     }
 
     Globals::~Globals()
@@ -29,6 +35,7 @@ namespace Raft {
 
         /* Start listening. */
         serverSocketManager->start();
+        clientSocketManager->start();
     }
 
     uint32_t Globals::genUserEventId() {

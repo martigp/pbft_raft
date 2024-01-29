@@ -40,13 +40,19 @@ class ThreadPool {
          * to be executed by one of the ThreadPool's threads as soon as
          * all previously scheduled jobs have been handled.
          */
-        void schedule(const std::function<void(void *)>& fn, void *args);
+        void schedule(const std::function<void(void *args)>& fn,
+                      void *args);
 
         /**
          * Blocks and waits until all previously scheduled jobs
          * have been executed in full.
          */
         void wait();
+
+        struct WorkerJob {
+            std::function<void(void *args)> fn;
+            void *args;
+        };
 
     private:
 
@@ -56,10 +62,6 @@ class ThreadPool {
          * void fn(void *args) and is responsible for parsing arguments
          * from the generic pointer.
          */
-        struct WorkerJob {
-            std::function<void(void *)> fn;
-            void *args;
-        };
 
         /**
          * @brief Control information for a dispatcher thread to coordinate
@@ -85,11 +87,12 @@ class ThreadPool {
                 std::thread thread;
 
                 /**
-                 * @brief Job to be done by a worker thread, called in the
-                 * worker thread function.
+                 * @brief The job to be done by the worker, consisting of
+                 * a function and its arguments. This is removed from the
+                 * work Queue in the threadpool and called by the worker.
                  */
-
                 struct WorkerJob job;
+                
 
                 /**
                  * @brief Flag used to indicate that the worker is available

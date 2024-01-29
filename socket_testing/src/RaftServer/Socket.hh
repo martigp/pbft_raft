@@ -3,72 +3,64 @@
 
 #include <queue>
 #include <sys/event.h>
+#include <mutex>
+#include <condition_variable>
 #include "RaftServer/RaftGlobals.hh"
 #include "Protobuf/RaftRPC.pb.h"
 #include "Common/RPC.hh"
 
 namespace Raft {
 
-/**
- * @brief A Socket is registered to an event loop and its method
- * handleSocketEvent() is called whenever an event occurs on the
- * socket.
- */
-
 class Globals;
 class SocketManager;
+class ClientSocketManager;
+
 
 /**
  * @brief Sockets are attached to a socket file descriptor when they are
  * registered to the kernel for monitoring. When the kernel alerts the user
  * of an event on the socket file descriptor the Socket is called to handle
- * the event.
+ * the event with custom event handlers based on the type of event.
  */
 class Socket {
     
     friend SocketManager;
 
     public:
+
+        enum PeerType {
+            NONE,
+            RAFT_CLIENT,
+            RAFT_SERVER
+        };
+
         /**
          * @brief Construct a new Socket object. Once constructed it is
          * registered with the corresponding socket file descriptor to the
          * kernel to respond to events on the socket.
          * 
          */
-        Socket( int fd, uint32_t userEventId );
+        Socket( int fd, uint32_t userEventId, uint64_t peerId,
+                PeerType peerType, SocketManager& socketManager );
 
         /* Destructor */
         virtual ~Socket() = 0;
 
         /**
-         * @brief This method is overriden by a subclass to handle
-         * and event on the underlying socket. The method will be called
-         * whenever the kernel notifies the user of an event on this socket in
-         * the relevant Socket Manager event loop.
+         * @brief This method is potentially by a subclass to handle the event
+         * triggered when a peer has sent data to the socket. The socket
+         * will read the data and act accordingly. Default it assuming this is
+         * a connected socket and these are bytes of an RPC
          * 
-         * @param ev The event on the socket fd that the kqueue alerted 
-         * the user of.
-         * @param socketManager Used to perform any actions in response to the
-         * event ev.
-         * @return Returns false if any error occured during the event handling
-         * it is up to the Socket Manager to determine what to do in this
-         * situation. True if no errors
-         */
-        virtual bool handleSocketEvent( struct kevent& ev,
-                                        SocketManager& socketManager ) = 0;
-
-        /**
-         * @brief This method is overriden by a subclass to handle the event
-         * triggered when there are bytes to be read from the socket. The socket
-         * will read the bytes into its buffer and parse them. If there is a
-         * complete RPC, the RPC will be passed to the Raft Consensus Module.
+         * @param data The EVFILT_READ data value provided by kernel. This is
+         * the bytes of data available to read.
          * 
          * @return Returns false if any errors occured when reading from the
          * socket. True if no errors.
          * 
          * TODO: Remove Socket manager when done with testing.
          */
-        virtual bool handleReadEvent( SocketManager& socketManager ) = 0;
+        virtual void handleReceiveEvent(int64_t data);
 
         /**
          * @brief This method is overriden by a subclass to handle the event
@@ -78,13 +70,22 @@ class Socket {
          * 
          * @return Whether any errors occured when trying to write to the peer.
          */
-        virtual bool handleUserEvent() = 0;
+        virtual void handleUserEvent() = 0;
+
+        /**
+         * @brief Handles errors that don't require a crash by disconnecting 
+         * the conenction on the socket. The default behaviour is to ask the 
+         * socket manager to stop monitoring events on the socket file 
+         * descriptor and then delete the socket. This can be overriden by 
+         * derived classes for custom behaviour.
+         */
+        virtual void disconnect();
 
     protected:
         /**
          * @brief The socket file descriptor.
          */
-        const int fd;
+        int fd;
 
         /**
          * @brief Unique user event id used by Raft to signal to kernel that
@@ -94,21 +95,33 @@ class Socket {
         const uint32_t userEventId;
 
         /**
+         * @brief The RaftServer Id, used by the socket manager to
+         * identify which Client Socket to send RPCs on.
+         */
+        uint64_t peerId;
+
+        /**
+         * @brief Whether the peer is a RaftClient or a RaftServer. Used to
+         * determine which Consensus Module API to call to handle an RPC.
+         */
+        [[maybe_unused]] PeerType peerType;
+
+        /**
          * @brief Wrapper that stores the bytes read from socket buffer and
          * the number of bytes read from socket buffer.
          * 
          */
-        class ReadBytes {
+        class ReceivedMessage {
             public:
                 /**
                  * @brief Constructor
                  * 
-                 * @param initialBufferSize Initial size of buffer. This is
+                 * @param headerSize Initial size of buffer. This is
                  * set to the size of a header.
                  */
-                ReadBytes(size_t initialBufferSize);
+                ReceivedMessage(size_t headerSize);
 
-                ~ReadBytes();
+                ~ReceivedMessage();
 
                 /**
                  * @brief Number of bytes read in from socket buffer.
@@ -117,7 +130,8 @@ class Socket {
                 size_t numBytesRead;
                 /**
                  * @brief Bytes buffered from reading from socket. Will contain
-                 * exclusively RPC header bytes or RPC message bytes.
+                 * exclusively RPC header bytes, switching when numBytesRead is
+                 * equal to the Header size.
                  */
                 char *bufferedBytes;
 
@@ -134,13 +148,19 @@ class Socket {
                 Raft::RPCType rpcType;
         };
 
-        ReadBytes readBytes;
+        ReceivedMessage receivedMessage;
 
         /**
          * @brief Queue of RPCs to send to peer. This queue is checked when
          * Raft triggers a user event on the socket.
          */
         std::queue< Raft::RPCPacket> sendRPCQueue;
+
+        /**
+         * @brief The socket manager responsible for the socket. This is used
+         * for error handling when the socket needs to close down.
+         */
+        SocketManager& socketManager;
 
 
 }; // class Socket
@@ -156,7 +176,9 @@ class ListenSocket : public Socket {
          * @brief Construct a new Listen Socket object that listens for and
          * handles incoming connection requests.
          */
-        ListenSocket( int fd, uint32_t userEventId, uint64_t firstRaftClientId );
+        ListenSocket( int fd, uint32_t userEventId, 
+                      SocketManager& socketManager,
+                      uint64_t firstRaftClientId);
 
         /* Destructor */
         ~ListenSocket();
@@ -167,13 +189,9 @@ class ListenSocket : public Socket {
          * and add to the list of sockets that the kernel monitors. Otherwise 
          * fails silently.
          * 
-         * @param ev The kernel event returned that indicates an attempt to
-         * connect to the RaftServer.
-         * @param socketManager Used to register the newly created server socket
-         * to the kernel for monitoring.
+         * @param data The filter data value provided by the kqueue.
          */
-        bool handleSocketEvent( struct kevent& ev,
-                                SocketManager& socketManager );
+        void handleReceiveEvent(int64_t data);
 
         /**
          * @brief Unused right now. Filler to pass compiler checks that all
@@ -183,17 +201,7 @@ class ListenSocket : public Socket {
          * @return true 
          * @return false 
          */
-        bool handleReadEvent( SocketManager &socketManager );
-
-        /**
-         * @brief Unused right now. Filler to pass compiler checks that all
-         * pure virtual methods implemented.
-         * 
-         * @param socketManager 
-         * @return true 
-         * @return false 
-         */
-        bool handleUserEvent( );
+        void handleUserEvent();
 
     private:
         /**
@@ -203,20 +211,81 @@ class ListenSocket : public Socket {
         uint64_t nextRaftClientId;
 }; // class ListenSocket
 
-
+/**
+ * @brief A socket connected to a Raft Server for sending RPC requests.
+ */
 class ClientSocket : public Socket {
 
-    ClientSocket( int fd, uint32_t userEventId, uint64_t peerId );
+    friend ClientSocketManager;
 
-    ~ClientSocket();
+    friend void clientSocketMain(void *args);
 
-    bool handleSocketEvent( struct kevent& ev,
-                            SocketManager& socketManager );
-    
-    bool handleReadEvent( SocketManager &socketManager );
+    public:
+        /**
+         * @brief Constructor
+         */
+        ClientSocket( int fd, uint32_t userEventId, uint64_t peerId, 
+                      SocketManager& socketManager,
+                      struct sockaddr_in peerAddress );
 
-    bool handleUserEvent();
-};
+        ~ClientSocket();
+
+        /**
+         * @brief Signals to the thread responsible for user events to wakeup
+         * to process the event.
+         */
+        void handleUserEvent();
+
+        /**
+         * @brief Overriden method, called when a recoverable error occurs on
+         * the socket such as when a read fails. After removing the connection
+         * this will attempt to reconnect to the peer (a RaftServer).
+         */
+        void disconnect();
+
+    protected:
+
+        /**
+         * @brief The address of the peer, used for setting up a new
+         * UNIX socket with an associated file socket file descriptor.
+         */
+        struct sockaddr_in peerAddress;
+
+        enum ThreadFlag {
+            CONNECT = 1,
+            SHUTDOWN = 2
+        };
+
+        int threadFlags;
+
+        /**
+         * @brief Lock associated with the condition variable for signalling
+         * a change in state of the ClientSocket.
+         * 
+         */
+        std::mutex eventLock;
+
+        /**
+         * @brief Condition variable to signal to thread associated with the
+         * client socket that either an RPC has been added to its queue to send
+         * OR that the connection has gone bad and has to be restarted.
+         */
+        std::condition_variable_any eventCv;
+
+        /**
+         * @brief Condition variable for ClientSocketManager to wait on for
+         * the client socket's thread that it is done.
+         */
+        std::condition_variable_any shutdownCv;
+
+}; // class ClientSocket
+
+/**
+ * @brief 
+ * 
+ * @param clientSocket 
+ */
+void clientSocketMain(void *args);
 
 /**
  * @brief A socket that listens for incoming Raft RPC requests.
@@ -227,46 +296,15 @@ class ClientSocket : public Socket {
 class ServerSocket : public Socket {
     public:
 
-        enum PeerType {
-            RAFT_CLIENT,
-            RAFT_SERVER
-        };
-
-        /**
+         /**
          * @brief Construct a new Server Socket object that handles requests
          * from a socket connected to a client and sends responses.
          */
         ServerSocket( int fd , uint32_t userEventId, uint64_t peerId, 
-                      PeerType peerType );
+                      PeerType peerType, SocketManager& socketManager );
 
         /* Destructor */
         ~ServerSocket();
-
-        /**
-         * @brief Method called when the kernel notifies us that the socket 
-         * client has sent data. If the data is a valid Raft RPC Request it 
-         * replies with the corresponding Raft RPC response. Otherwise fails 
-         * silently. 
-         * 
-         * @param ev The kernel event returned by kevent which indicates there is
-         * data to be read from the socket's read buffer.
-         * @param socketManager Currently unused, will be for responding to
-         * the request.
-         * @return There was an error handling the event. Since this is a
-         * serverSocket we simply disconnect when this happens
-         */
-        bool handleSocketEvent( struct kevent& ev,
-                                SocketManager& socketManager );
-
-        /**
-         * @brief Method called when peer has sent data to be read. This method
-         * will send any well formed RPCs to the Raft Consensus module to
-         * respond to.
-         * 
-         * @return Whether the socket should be destroyed as a result of an
-         * error occuring while trying to read the data sent.
-         */
-        bool handleReadEvent( SocketManager &socketManager );
 
         /**
          * @brief Method called when another RaftModule produced and RPC and 
@@ -276,20 +314,7 @@ class ServerSocket : public Socket {
          * @return Whether the socket should be destroyed as a result of an
          * error occuring while trying to send an RPC.
          */
-        bool handleUserEvent();
-
-    private:
-        /**
-         * @brief Unique identifier for a peer in its socketManager. Used to
-         * tag RPCs when passed to other modules RPCResponses can be directed
-         * to the correct socket.
-         */
-        [[maybe_unused]]uint64_t peerId;
-        /**
-         * @brief Whether the peer is a RaftClient or a RaftServer. Used to
-         * determine which Consensus Module API to call to handle an RPC.
-         */
-        [[maybe_unused]] PeerType peerType;
+        void handleUserEvent();
 }; // class ServerSocket
 
 } // namespace Raft
