@@ -19,8 +19,12 @@
 #include <mutex>
 #include <queue>
 #include "RaftGlobals.hh"
+#include "Protobuf/RaftRPC.pb.h"
+#include "Common/RPC.hh"
 
 namespace Raft {
+
+    class Globals;
 
     class LogStateMachine {
         public:
@@ -28,7 +32,7 @@ namespace Raft {
              * @brief Construct a new LogStateMachine that applies the entries from Consensus
              * and also has reference back to globals
              */
-            LogStateMachine(Raft::Globals& globals, std::shared_ptr<Raft::Consensus> consensus);
+            LogStateMachine(Raft::Globals& globals);
 
             /* Destructor */
             ~LogStateMachine();
@@ -38,14 +42,19 @@ namespace Raft {
              * 
              * @return Thread ID for tracking in Global
             */
-            void LogStateMachine::startUpdater(NamedThread &stateMachineUpdaterThread);
+            void LogStateMachine::startUpdater(std::thread &stateMachineUpdaterThread);
+
+            /**
+             * @brief Add (peerId, string) to the statemachine queue to be executed
+            */
+            void pushCmd(std::pair<uint64_t, std::string> cmd);
 
             /**
              * @brief Project 1 Specific: Execute command and return response.
              * For now, this will be called directly from the global handleClientRequest() method.
              * Returns the result 
              */
-            std::string proj1Execute(RaftRPC rpc);
+            std::string proj1Execute(std::string command);
 
             /**
              * @brief StateMachine Updates CV 
@@ -68,7 +77,7 @@ namespace Raft {
              * TODO: what piece of info are client commands paired with to communicate back to
              * Server Socket Manager, string for now
             */
-            std::queue<std::string> stateMachineQ;
+            std::queue<std::pair<uint64_t, std::string>> stateMachineQ;
 
 
         private:
@@ -78,15 +87,10 @@ namespace Raft {
             Raft::Globals& globals;
 
             /**
-             * @brief Pointer to consensus module used for checking state
-            */
-            std::shared_ptr<Raft::Consensus> consensus;
-
-            /**
              * @brief State Machine Loop
              * Currently has the stop mechanism included for demonstration purposes mostly
             */
-            void stateMachineLoop(NamedThread *myThread);
+            void stateMachineLoop();
 
     }; // class LogStateMachine
 } // namespace Raft

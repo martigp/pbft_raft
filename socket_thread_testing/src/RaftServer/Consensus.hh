@@ -14,12 +14,14 @@
 #include <mutex>
 #include <condition_variable>
 #include <iostream>
+#include <fstream>
+#include <filesystem>
 #include <thread>
 #include <unordered_set>
 #include "RaftGlobals.hh"
 #include "LogStateMachine.hh"
-
-using namespace RaftCommon;
+#include "Protobuf/RaftRPC.pb.h"
+#include "Common/RPC.hh"
 
 namespace Raft {
 
@@ -30,14 +32,17 @@ namespace Raft {
             /**
              * @brief Constructor with the globals and config
             */
-            explicit Consensus( Raft::Globals& globals, ServerConfig config, std::shared_ptr<Raft::LogStateMachine> stateMachine);
+            Consensus( Raft::Globals& globals);
+
+            /* Destructor */
+            ~Consensus();
 
             /**
              * @brief Begin timer thread within consensus module
              * 
              * @return Thread ID for tracking in Global
             */
-            void startTimer(NamedThread& timerThread);
+            void startTimer(std::thread& timerThread);
 
             /**
              * Enum for: Follower, Candidate, Leader as specified in Figure 2
@@ -54,24 +59,47 @@ namespace Raft {
             ServerState myState;
 
             /**
-             * @brief Process an RPC Response received on our Client Socket Manager
-             * 
-             * @param resp RaftRPC response
-             * 
-             * @param serverID unique ID of server that RPC came from
+             * @brief ServerId 
             */
-            void processRPCResp(RaftRPC resp, int serverID);
+            uint64_t serverId;
 
             /**
-             * @brief Process an RPC Request received on our Server Socket Manager
-             * 
-             * @param resp RaftRPC response
-             * 
-             * @param serverID unique ID of server that RPC came from
-             * 
-             * @returns the RaftRPC message to send back
+             * @brief Guess for current leader peerId 
             */
-            RaftRPC processRPCReq(RaftRPC req, int serverID); 
+            uint64_t leaderId;
+
+            /**
+             * @brief Handle RaftClient Request received on our Server Socket Manager
+             * 
+             * @param peerId unique ID of RaftClient that RPC came from
+             * 
+             * @param header RPCHeader containing type and length for RPC decode
+             * 
+             * @param payload buffer payload of RPC
+            */
+            void handleRaftClientReq(uint64_t peerId, Raft::RPCHeader header, char *payload);
+
+            /**
+             * @brief Handle RaftServer Request received on our Server Socket Manager
+             * 
+             * @param peerId unique ID of RaftServer that RPC came from
+             * 
+             * @param header RPCHeader containing type and length for RPC decode
+             * 
+             * @param payload buffer payload of RPC
+            */
+            void handleRaftServerReq(uint64_t peerId, Raft::RPCHeader header, char *payload);
+
+            /**
+             * @brief Handle RaftServer Response received on our Client Socket Manager
+             * 
+             * @param peerId unique ID of RaftServer that RPC came from
+             * 
+             * @param header RPCHeader containing type and length for RPC decode
+             * 
+             * @param payload buffer payload of RPC
+            */
+            void handleRaftServerResp(uint64_t peerId, Raft::RPCHeader header, char *payload); 
 
         private:
             /*************************************
@@ -107,20 +135,30 @@ namespace Raft {
              * @brief The latest term server has seen 
              * - initialized to 0 on first boot, increases monotonically
             */
-            int currentTerm;
+            uint64_t currentTerm;
 
             /**
              * @brief candidateID that received vote in current term 
-             * - or -1 if none
+             * - or 0 if none
             */
-            int votedFor;
+            uint64_t votedFor;
 
             /**
              * @brief Log entries, each entry contains command for state machine
              * and term when entry was received by leader (first index is 1)
             */
-            std::vector<std::string> log;
+            [[maybe_unused]] std::vector<std::string> log;
 
+            /**
+             * @brief Load in currentTerm and votedFor stored on disk(if any)
+             * If no file is found, initializes currentTerm to 0 and votedFor to -1
+            */
+            void loadPersistentState();
+
+            /**
+             * @brief Write currentTerm and votedFor to disk
+            */
+            void writePersistentState();
 
             /*************************************
              * Below is the volatile state on all servers
@@ -130,13 +168,13 @@ namespace Raft {
              * @brief Index of highest log entry known to be committed
              * - initialized to 0, increases monotonically
             */
-            int commitIndex;
+            [[maybe_unused]] int commitIndex;
 
             /**
              * @brief Index of highest log entry applied to state machine
              * - initialized to 0, increases monotonically
             */
-            int lastApplied;
+            [[maybe_unused]] int lastApplied;
 
 
             /*************************************
@@ -147,13 +185,13 @@ namespace Raft {
              * @brief For each server, index of the next log entry to send to that server
              * - initialized to leader last log index +1
             */
-            std::vector<int> nextIndex;
+            [[maybe_unused]] std::vector<int> nextIndex;
 
             /**
              * @brief Index of highest log entry known to be replicated on server
              * - initialized to 0, increases monotonically
             */
-            std::vector<int> matchIndex;
+            [[maybe_unused]] std::vector<int> matchIndex;
 
             /*************************************
              * Below are all internal methods, etc
@@ -161,31 +199,31 @@ namespace Raft {
 
             /**
              * @brief Receiver Implementation of AppendEntriesRPC
-             * Produces a response to send back
+             * Sends back a response
              * Follows bottom left box in Figure 2
             */
-            RaftRPC receivedAppendEntriesRPC(RaftRPC req, int serverID); 
+            void receivedAppendEntriesRPC(Raft::RPC::AppendEntries::Request req, int peerId); 
 
             /**
              * @brief Sender Implementation of AppendEntriesRPC
              * Process the response received(term, success)
              * Follows bottom left box in Figure 2
             */
-            void processAppendEntriesRPCResp(RaftRPC resp, int serverID);
+            void processAppendEntriesRPCResp(Raft::RPC::AppendEntries::Response resp, int peerId);
 
             /**
              * @brief Receiver Implementation of RequestVoteRPC
-             * Produces a response to send back
+             * Sends back a response
              * Follows upper right box in Figure 2
             */
-            RaftRPC receivedRequestVoteRPC(RaftRPC req, int serverID); 
+            void receivedRequestVoteRPC(Raft::RPC::RequestVote::Request req, int peerId); 
 
             /**
              * @brief Sender Implementation of RequestVoteRPC
              * Process the response received(term, voteGranted)
              * Follows upper right box in Figure 2
             */
-            void processRequestVoteRPCResp(RaftRPC resp, int serverID);
+            void processRequestVoteRPCResp(Raft::RPC::RequestVote::Response resp, int peerId);
 
             /**
              * @brief Current election timeout length (milliseconds) 
@@ -273,6 +311,13 @@ namespace Raft {
             void sendAppendEntriesRPCs();
 
     }; // class Consensus
+
+    class PersistentState {
+        public:
+            uint64_t term;
+            uint64_t votedFor;
+    }; // class PersistentState
+
 } // namespace Raft
 
 #endif /* RAFT_CONSENSUS_H */

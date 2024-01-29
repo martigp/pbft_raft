@@ -10,9 +10,8 @@
 #include <sys/event.h>
 #include <sys/time.h>
 #include <memory>
-#include <iostream>
 #include "RaftServer/RaftGlobals.hh"
-// #include "RaftServer/Socket.hh"
+#include "RaftServer/Socket.hh"
 
 #define CONFIG_PATH "src/RaftServer/server.cfg"
 
@@ -22,7 +21,7 @@ using namespace Raft;
 int main(int argc, char const* argv[])
 {   
     Raft::Globals globals(CONFIG_PATH);
-    std::cout << "in server.cc" << std::endl;
+    std::cout << "LOG: in server.cc" << std::endl;
 
     globals.start();
 }

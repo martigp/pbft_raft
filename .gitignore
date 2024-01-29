@@ -2,3 +2,5 @@
 protobuf/*
 libconfig/
 install/
+protobuf/
+install/*

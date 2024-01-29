@@ -8,17 +8,16 @@ CCX = g++
 SOURCES=$(wildcard $(SRC_DIR)/*.c)
 OBJECTS=$(patsubst %.c, %.o, $(SOURCES))
 
-CFLAGS += -Wall -Werror -std=c++20
+CFLAGS += -Wall -Werror -std=c++17
 
-CFLAGS += $(shell export PKG_CONFIG_PATH=$(PWD)/install/lib/pkgconfig; \
-			 pkg-config --cflags protobuf libconfig++)
-
+CFLAGS += $(shell export PKG_CONFIG_PATH=../install/lib/pkgconfig; \
+			 pkg-config --cflags libconfig++)
 
 LIBS := $(shell export PKG_CONFIG_PATH=../install/lib/pkgconfig; \
-		  pkg-config --cflags --libs protobuf libconfig++)
+		  pkg-config --cflags --libs libconfig++)
 
 # -o specifies the output fiule
-all: server client
+all: server
 
 server: $(SRC_DIR)/RaftServer/*.cc \
 		$(SRC_DIR)/Common/*.cc
