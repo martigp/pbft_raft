@@ -42,15 +42,12 @@ namespace Raft {
              * future calls to kevent will alert user if there were any events
              * on the socket.
              * 
-             * @param id The id of the associated connection. For RaftServers
-             * this is the serverId from config. For RaftClients this is a
-             * monotonically increasing Id.
              * @param socket Socket object to access when an event happens on
              * the corresponding file descriptor.
              * @return Whether the socket was successfullly registered for
              * monitoring.
              */
-            bool monitorSocket( uint64_t peerId, Socket *socket );
+            void monitorSocket(Socket *socket );
 
             /**
              * @brief 
@@ -60,7 +57,7 @@ namespace Raft {
              * @return Whether the socket was successfully removed from sockets
              * that are monitored by the kernel.
              */
-            bool stopSocketMonitor( Socket* socket );
+            void stopSocketMonitor( Socket* socket );
 
             /**
              * @brief Adds a socket to 
@@ -70,13 +67,20 @@ namespace Raft {
                          Raft::RPCType rpcType);
 
             /**
-             * @brief Begins listeningLoop on the thread value passed in
+             * @brief Method overriden by subclass. Called when a peerId is
+             * found but the corresponding socket pointer is NULL.
+             * @param peerId Peer Id of the socket with missing socket pointer.
+             */
+            virtual void handleNoSocketEntry(uint64_t peerId) = 0;
+
+            /**
+             * @brief Starts listen loop on the thread passed in.
              */
             void startListening(std::thread &listeningThread);
 
             /**
              * @brief Listens for kernel notifications about events on
-             *  registered sockets and corresponding socket reacts accordingly
+             *  registered sockets and corresponding socket reacts accordingly.
              */
             void listenLoop();
 
@@ -119,6 +123,12 @@ namespace Raft {
             /* Destructor */
             ~ClientSocketManager();
 
+            /**
+             * @brief For a client socket this indicates the connection has 
+             * shut down. Creates a new socket 
+             */
+            void handleNoSocketEntry(uint64_t peerId);
+
         private:
             /**
              * @brief Threadpool responsible for spawning threads that are
@@ -144,6 +154,12 @@ namespace Raft {
              * TODO: should remove all events and delete associated SocketPtr
              */
             ~ServerSocketManager();
+
+            /**
+             * @brief Causes crash, this should not happen.
+             * 
+             */
+            void handleNoSocketEntry(uint64_t peerId);
 
     }; // class ServerSocketManager
 

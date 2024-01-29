@@ -42,20 +42,22 @@ namespace Common {
             for (int i = 0; i < servers.getLength(); i++) {
                 uint64_t serverId;
                 std::string serverIPAddr;
+                uint64_t serverPort;
                 struct sockaddr_in serverSockAddr;
 
 
                 const libconfig::Setting &server = servers[i];
 
                 if (!server.lookupValue("id", serverId) ||
-                    !server.lookupValue("address", serverIPAddr)) {
+                    !server.lookupValue("address", serverIPAddr) ||
+                    !server.lookupValue("port", serverPort)) {
                         std::cerr << "Failed to read server " << i << 
                         " config information." << std::endl;
                         exit(EXIT_FAILURE);
                 }
                 
                 serverSockAddr.sin_family = AF_INET;
-                serverSockAddr.sin_port = htons(raftPort);
+                serverSockAddr.sin_port = htons((uint16_t)serverPort);
 
                 // Populate the serverSockAddr with an IP address. Now ready
                 // for use with any socket functions.
