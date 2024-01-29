@@ -21,6 +21,7 @@ cmake . -DCMAKE_INSTALL_PREFIX=../install -DCMAKE_CXX_STANDARD=17
 cmake --build . --parallel 10
 cmake --install .
 cp lib/libconfig++.pc.in ../install/lib/pkgconfig/libconfig++.pc
+# cd ..
 mkdir install/runtime_libs
 cp lib/*.dylib ../install/runtime_libs
 export export DYLD_LIBRARY_PATH=$(PWD)/../install/runtime_libs

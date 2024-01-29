@@ -24,7 +24,6 @@ namespace Raft {
     void Consensus::startTimer(std::thread &timerThread) {
         generateRandomElectionTimeout();
         timerThread = std::thread(&Consensus::timerLoop, this);
-        return;
     }
 
     // void Consensus::processRPCResp(RaftRPC resp, int serverID) {
@@ -59,10 +58,11 @@ namespace Raft {
     // }
 
     void Consensus::timerLoop() {
-        while (1) {
+        while (true) {
             std::unique_lock<std::mutex> lock(resetTimerMutex);
             if (timerResetCV.wait_for(lock, std::chrono::milliseconds(timerTimeout), [&]{ return timerReset == true; })) {
                 timerReset = false;
+                std::cout << "Timer Reset" << std::endl;
                 continue; // TODO: add log, I think this will just restart the loop
             } else {
                 std::cout << "Timed Out" << std::endl;
@@ -72,22 +72,23 @@ namespace Raft {
     }
 
     void Consensus::timeoutHandler() {
-        switch (myState) {
-            case ServerState::FOLLOWER:
-                communicateWithSMTest();
-                // myState = ServerState::CANDIDATE;
-                // startNewElection();
-            case ServerState::CANDIDATE:
-                // startNewElection();
-            case ServerState::LEADER:
-                // sendAppendEntriesRPCs();
-        }
+        communicateWithSMTest();
+        // switch (myState) {
+        //     case ServerState::FOLLOWER:
+        //         communicateWithSMTest();
+        //         // myState = ServerState::CANDIDATE;
+        //         // startNewElection();
+        //     case ServerState::CANDIDATE:
+        //         // startNewElection();
+        //     case ServerState::LEADER:
+        //         // sendAppendEntriesRPCs();
+        // }
     }
 
     void Consensus::communicateWithSMTest() {
         std::cout << "About to communicate with State Machine" << std::endl;
         std::unique_lock<std::mutex> lock(globals.logStateMachine->stateMachineMutex);
-        globals.logStateMachine->stateMachineQ.push("ls\n");
+        globals.logStateMachine->stateMachineQ.push("pwd\n");
         globals.logStateMachine->stateMachineUpdatesCV.notify_all();
         std::cout << "Notified" << std::endl;
     }

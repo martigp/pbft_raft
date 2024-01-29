@@ -52,6 +52,11 @@ namespace Raft {
             ServerState myState;
 
             /**
+             * @brief Method to reset timer
+            */
+            void resetTimer();
+
+            /**
              * @brief Process an RPC Response received on our Client Socket Manager
              * 
              * @param resp RaftRPC response
@@ -202,11 +207,6 @@ namespace Raft {
              * @brief Assign appendEntries Heartbeat time to timerTimeout
             */
             void setHeartbeatTimeout();
-
-            /**
-             * @brief Method to not have duplicated code to reset the timer thread
-            */
-            void resetTimer();
 
             /**
              * @brief Timer reset CV 
