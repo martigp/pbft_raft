@@ -241,7 +241,9 @@ ServerSocket::ServerSocket(int fd, uint32_t userEventId, uint64_t peerId,
                            PeerType peerType, SocketManager& socketManager)
     : Socket(fd, userEventId, peerId, peerType, socketManager) {}
 
-ServerSocket::~ServerSocket() {}
+ServerSocket::~ServerSocket() {
+    printf("[ServerSocket] Successfully deleted server socket\n");
+}
 
 void
 ServerSocket::handleUserEvent() {

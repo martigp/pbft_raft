@@ -275,7 +275,6 @@ namespace Raft {
     void
     SocketManager::start()
     {
-        int numLoops = 0;
         while (true) {
             struct kevent evList[MAX_EVENTS];
 
@@ -293,16 +292,9 @@ namespace Raft {
                 continue;
             }
 
-            printf("[SocketManager] Received %d socket events\n", numEvents);
-
             for (int i = 0; i < numEvents; i++) {
 
                 struct kevent ev = evList[i];
-                printf("[SocketManager] Event on socket %lu, iteration %d \n", ev.ident, numLoops++);
-
-                if (numLoops > 5) {
-                    goto exit;
-                }
 
                 Raft::Socket *evSocket = static_cast<Raft::Socket*>(ev.udata);
 
@@ -312,26 +304,19 @@ namespace Raft {
                     perror("kevent error");
                     exit(EXIT_FAILURE);
                 }
+                else if (ev.filter == EVFILT_USER) {
+                    evSocket->handleUserEvent();
+                }
+                else if (ev.filter == EVFILT_READ) {
+                    evSocket->handleReceiveEvent(ev.data);
+                } 
                 else {
-                    // User Triggered  event
-                    //ev.filter == EVFILT_USER
-                    if (ev.filter == EVFILT_USER) {
-                        evSocket->handleUserEvent();
-                    }
-
-                    // Received bytes from the Peer, second check because 
-                    // EVFILT_USER sets the read flag, so make sure the 
-                    // identity is an fd.
-                    //ev.filter & EVFILT_READ && (int)ev.ident == fd
-                    else if (ev.filter == EVFILT_READ) {
-                        evSocket->handleReceiveEvent(ev.data);
-                    } else {
-                        printf("Socket does not know what happened %u\n", ev.fflags);
-                    }
+                    printf("Socket doesn't know what happend with flags %u",
+                            ev.fflags);
+                    exit(EXIT_FAILURE);
                 }
             }
         }
-        exit:
-            printf("[SocketManager] exited event loop");
+        printf("[SocketManager] exited event loop");
     }
 }
