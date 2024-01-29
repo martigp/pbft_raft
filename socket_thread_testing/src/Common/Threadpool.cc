@@ -1,10 +1,13 @@
-#include "Common/Threadpool.hh"
+#include "Common/ThreadPool.hh"
 #include <mutex>
+#include <memory>
+#include <iostream>
 
 namespace Raft {
     
     ThreadPool::Worker::Worker() 
-    : workToBeDone(1)
+    : workToBeDone(0),
+      free(true)
     {
     }
 
@@ -31,17 +34,24 @@ namespace Raft {
         }
     }
 
-    void ThreadPool::schedule(const std::function<void(void)>& thunk) {
+    void ThreadPool::schedule(const std::function<void(void *args)>& fn,
+                              void *args) {
 
         numThreadsFreeLock.lock();
         numThreadsFree++;
         numThreadsFreeLock.unlock();
 
+        struct WorkerJob newWorkerJob;
+        newWorkerJob.fn = fn;
+        newWorkerJob.args = args;
+        
         jobQueueLock.lock();
-        jobs.push(thunk);
+        jobs.push(std::move(newWorkerJob));
         jobQueueLock.unlock();
 
         scheduleDispatch.release();
+        printf("Job scheduled\n");
+
     }
 
     void ThreadPool::wait() {
@@ -76,7 +86,7 @@ namespace Raft {
                 for (Worker &worker: workers) {
                     if(worker.free) {
                         worker.free = false;
-                        worker.job = jobs.front();
+                        worker.job = std::move(jobs.front());
                         jobs.pop();
                         worker.workToBeDone.release();
                         //jobQueueLock.unlock();//check this is in the correct order
@@ -89,6 +99,7 @@ namespace Raft {
     }
 
     void ThreadPool::worker(size_t workerID) {
+        try{
         while(true) {
             Worker& worker = workers[workerID];
             worker.workToBeDone.acquire();
@@ -96,7 +107,8 @@ namespace Raft {
             if (shutdown)
                 break;
             
-            worker.job();
+            printf("[ThreadPool] Worker %zu about to start new job\n", workerID);
+            worker.job.fn(worker.job.args);
 
             worker.free = true;
             availableWorkers.release();
@@ -108,6 +120,10 @@ namespace Raft {
                 numThreadsFreeCv.notify_all();
             }
             numThreadsFreeLock.unlock();
+        }
+        }
+        catch(const std::exception& e) {
+            std::cerr << e.what() << std::endl;
         }
     }
 

@@ -11,7 +11,7 @@ OBJECTS=$(patsubst %.c, %.o, $(SOURCES))
 
 CFLAGS += -Wall -Werror -std=c++20
 
-CFLAGS += $(shell export PKG_CONFIG_PATH=$(PWD)/install/lib/pkgconfig; \
+CFLAGS += $(shell export PKG_CONFIG_PATH=../install/lib/pkgconfig; \
 			 pkg-config --cflags protobuf libconfig++)
 
 

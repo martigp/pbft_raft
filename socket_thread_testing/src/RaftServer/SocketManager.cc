@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <thread>
 #include <memory>
+#include <iostream>
 #include "RaftServer/SocketManager.hh"
 #include "RaftServer/Socket.hh"
 #include "Common/RPC.hh"
@@ -30,12 +31,15 @@ namespace Raft {
         }
 
         if (close(kq) == -1) {
-            perror("Failed to close kqueue");
+            perror("Failed to kqueue");
             exit(EXIT_FAILURE);
         }
     }
 
-    bool SocketManager::monitorSocket( uint64_t peerId, Socket *socket ) {
+    bool
+    SocketManager::monitorSocket( uint64_t peerId, Socket *socket ) {
+
+        printf("[SocketManager] Attempting to monitor socket\n");
 
         struct kevent newEv;
 
@@ -70,7 +74,8 @@ namespace Raft {
         return true;
     }
 
-    bool SocketManager::stopSocketMonitor( Socket* socket ) {
+    bool
+    SocketManager::stopSocketMonitor( Socket* socket ) {
         struct kevent ev;
 
         /* Set flags for an event to stop the kernel from listening for
@@ -98,9 +103,9 @@ namespace Raft {
         return true;
     }
 
-    void SocketManager::sendRPC( uint64_t peerId, 
-                                 google::protobuf::Message& rpc,
-                                 Raft::RPCType rpcType) {
+    void
+    SocketManager::sendRPC( uint64_t peerId, google::protobuf::Message& rpc,
+                            Raft::RPCType rpcType) {
 
         auto socketsEntry = sockets.find(peerId);
         if (socketsEntry == sockets.end()) {
@@ -131,32 +136,43 @@ namespace Raft {
     }
 
     ClientSocketManager::ClientSocketManager( Raft::Globals& globals )
-        : SocketManager( globals )
-    {      
+        : SocketManager( globals ),
+          threadpool(globals.config.numClusterServers - 1)
+    {    
         // Lazily set up sockets.
         for (auto& it : globals.config.clusterMap) {
-            sockets[it.first] = NULL;
-        }  
+            // Create a socketfd for
+            int socketFd;
+            if ((socketFd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		        perror("Client Socket creation error\n");
+		        exit(EXIT_FAILURE);
+	        }
+
+            ClientSocket *clientSocket = 
+                new ClientSocket(socketFd, globals.genUserEventId(), it.first,
+                                 *this, it.second);
+            
+            monitorSocket(clientSocket->peerId, clientSocket);
+            
+            // Add to sockets managed by this client
+            sockets[it.first] = clientSocket;
+
+            printf("[ClientSocketManager] Scheduling client socket with serverId %llu\n", it.first);
+
+            threadpool.schedule(clientSocketMain,
+                                (void*) clientSocket);
+
+        }
+        printf("[ClientSocketManager] Construction complete\n");
     }
 
     ClientSocketManager::~ClientSocketManager()
     {
     }
 
-    void ClientSocketManager::start(std::thread &clientThread)
-    {
-        clientThread = std::thread(&ClientSocketManager::clientLoop, this);
-    }
-
     ServerSocketManager::ServerSocketManager( Raft::Globals& globals )
         : SocketManager( globals )
     {
-        /* TODO: Iterate through the globals.config.clusterMap and
-        and create storage entries for each of them. Most likely will have
-        to be an unordered_map<uint64_t, ServerSocket *> because will need
-        to have these initialized when we receive an incoming connection and
-        determined it is a ServerSocket we can then add them? */
-
         int listenSocketFd;
         struct sockaddr_in listenSockAddr;
         int opt = 1;
@@ -197,7 +213,7 @@ namespace Raft {
             exit(EXIT_FAILURE);
         }
 
-        printf("[SocketManager] listening on %s:%u\n", 
+        printf("[ServerSocketManager] listening on %s:%u\n", 
                                 globals.config.listenAddr.c_str(),
                                 globals.config.raftPort);
         
@@ -209,9 +225,9 @@ namespace Raft {
             }
         }
 
-        Raft::ListenSocket * listenSocket = 
-                new Raft::ListenSocket(listenSocketFd, globals.genUserEventId(),
-                                       largestServerId + 1);
+        ListenSocket * listenSocket = 
+                new ListenSocket(listenSocketFd, globals.genUserEventId(),
+                                 *this, largestServerId + 1);
         
         monitorSocket(LISTEN_SOCKET_ID, listenSocket);
     }
@@ -220,8 +236,13 @@ namespace Raft {
     {
     }
 
-    void ServerSocketManager::start(std::thread &serverThread)
-    {   
+    void SocketManager::startListening(std::thread &listeningThread) {
+        listeningThread = std::thread(&SocketManager::listenLoop, this);
+    }
+
+    void
+    SocketManager::listenLoop()
+    {
         int numLoops = 0;
         while (true) {
             struct kevent evList[MAX_EVENTS];
@@ -254,17 +275,26 @@ namespace Raft {
                 Raft::Socket *evSocket = static_cast<Raft::Socket*>(ev.udata);
 
                 if (ev.fflags & EV_EOF) {
-                    stopSocketMonitor(evSocket);
+                    evSocket->disconnect();
                 } else if (ev.fflags & EV_ERROR) {
                     perror("kevent error");
                     exit(EXIT_FAILURE);
                 }
                 else {
-                    bool success = evSocket->handleSocketEvent(ev, *this);
-                    printf("[ServerSocket] Left Socket handler\n");
-                    if (!success && ev.ident != LISTEN_SOCKET_ID)
-                    {
-                        stopSocketMonitor(evSocket);
+                    // User Triggered  event
+                    //ev.filter == EVFILT_USER
+                    if (ev.filter == EVFILT_USER) {
+                        evSocket->handleUserEvent();
+                    }
+
+                    // Received bytes from the Peer, second check because 
+                    // EVFILT_USER sets the read flag, so make sure the 
+                    // identity is an fd.
+                    //ev.filter & EVFILT_READ && (int)ev.ident == fd
+                    else if (ev.filter == EVFILT_READ) {
+                        evSocket->handleReceiveEvent(ev.data);
+                    } else {
+                        printf("Socket does not know what happened %u\n", ev.fflags);
                     }
                 }
             }

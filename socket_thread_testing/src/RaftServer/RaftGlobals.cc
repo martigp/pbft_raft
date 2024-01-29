@@ -6,6 +6,8 @@
 #include <netinet/tcp.h>
 #include "RaftServer/RaftGlobals.hh"
 #include "RaftServer/Socket.hh"
+#include <fstream>
+#include <filesystem>
 
 namespace Raft {
     
@@ -16,12 +18,16 @@ namespace Raft {
           consensus(),
           logStateMachine(),
           nextUserEventId (FIRST_USER_EVENT_ID)
-    {       
-        clientSocketManager.reset(new ClientSocketManager(*this));
-        serverSocketManager.reset(new ServerSocketManager(*this));
-        consensus.reset(new Consensus(*this));
-        logStateMachine.reset(new LogStateMachine(*this)); 
-        mainThreads = std::vector<std::thread>(4); 
+    {     
+        try {  
+            clientSocketManager.reset(new ClientSocketManager(*this));
+            serverSocketManager.reset(new ServerSocketManager(*this));
+            consensus.reset(new Consensus(*this));
+            logStateMachine.reset(new LogStateMachine(*this)); 
+            mainThreads = std::vector<std::thread>(4);
+        } catch(const std::exception& e) {
+            std::cerr << e.what() << std::endl;
+        } 
     }
 
     Globals::~Globals()
@@ -31,10 +37,10 @@ namespace Raft {
     void Globals::start()
     {
         /* Start SSM listening. */
-        serverSocketManager->start(mainThreads[0]);
+        serverSocketManager->startListening(mainThreads[0]);
 
-        /* Start SSM listening. */
-        serverSocketManager->start(mainThreads[1]);
+        /* Start CSM listening. */
+        clientSocketManager->startListening(mainThreads[1]);
 
         /* Start the timer thread. */
         consensus->startTimer(mainThreads[2]);
@@ -42,7 +48,7 @@ namespace Raft {
         /* Start the updater. */
         logStateMachine->startUpdater(mainThreads[3]);
 
-        std::cout << "LOG: started SSM, CSM, timer and state machine" << std::endl;
+        std::cout << "[RaftGlobals]: started SSM, CSM, timer and state machine" << std::endl;
         
         /* Join persistent threads. All are in a while(true) */
         mainThreads[0].join();

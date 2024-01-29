@@ -42,7 +42,7 @@ namespace Raft {
              * 
              * @return Thread ID for tracking in Global
             */
-            void LogStateMachine::startUpdater(std::thread &stateMachineUpdaterThread);
+            void startUpdater(std::thread &stateMachineUpdaterThread);
 
             /**
              * @brief Add (peerId, string) to the statemachine queue to be executed

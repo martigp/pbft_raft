@@ -34,13 +34,16 @@ namespace Raft {
             while (!stateMachineQ.empty()) {
                 std::pair<uint64_t, std::string> cmd = stateMachineQ.front();
                 stateMachineQ.pop();
-                std::string resp = proj1Execute(cmd.second);
+
+                printf("[Log State Machine]: Popped RaftClient command: %s", cmd.second.c_str());
+                std::string ret = proj1Execute(cmd.second);
 
                 Raft::RPC::StateMachineCmd::Response resp;
                 resp.set_success(true);
                 resp.set_leaderid(globals.config.serverId);
-                resp.set_msg(resp);
+                resp.set_msg(ret);
                 globals.serverSocketManager->sendRPC(cmd.first, resp, Raft::RPCType::STATE_MACHINE_CMD);
+                printf("[Log State Machine]: sendRPC completed");
             }
         }
     }
