@@ -72,14 +72,14 @@ class Socket {
          */
         virtual void handleUserEvent() = 0;
 
+        virtual void checkConnection();
+
         /**
          * @brief Handles errors that don't require a crash by disconnecting 
-         * the conenction on the socket. The default behaviour is to ask the 
-         * socket manager to stop monitoring events on the socket file 
-         * descriptor and then delete the socket. This can be overriden by 
-         * derived classes for custom behaviour.
+         * the conenction on the socket. The default behaviour is to clean up
+         * everything to do with Client Socket.
          */
-        virtual void disconnect();
+        void disconnect();
 
     protected:
         /**
@@ -226,7 +226,7 @@ class ClientSocket : public Socket {
          */
         ClientSocket( int fd, uint32_t userEventId, uint64_t peerId, 
                       SocketManager& socketManager,
-                      struct sockaddr_in peerAddress );
+                      struct sockaddr_in peerAddress);
 
         ~ClientSocket();
 
@@ -236,27 +236,7 @@ class ClientSocket : public Socket {
          */
         void handleUserEvent();
 
-        /**
-         * @brief Overriden method, called when a recoverable error occurs on
-         * the socket such as when a read fails. After removing the connection
-         * this will attempt to reconnect to the peer (a RaftServer).
-         */
-        void disconnect();
-
     protected:
-
-        /**
-         * @brief The address of the peer, used for setting up a new
-         * UNIX socket with an associated file socket file descriptor.
-         */
-        struct sockaddr_in peerAddress;
-
-        enum ThreadFlag {
-            CONNECT = 1,
-            SHUTDOWN = 2
-        };
-
-        int threadFlags;
 
         /**
          * @brief Lock associated with the condition variable for signalling
@@ -276,7 +256,16 @@ class ClientSocket : public Socket {
          * @brief Condition variable for ClientSocketManager to wait on for
          * the client socket's thread that it is done.
          */
-        std::condition_variable_any shutdownCv;
+        std::condition_variable_any killThreadCv;
+
+        struct sockaddr_in peerAddress;
+
+        /**
+         * @brief Flag to indicate to client socket thread to shut down.
+         */
+        bool killThread;
+
+        bool threadKilled;
 
 }; // class ClientSocket
 

@@ -42,15 +42,12 @@ namespace Raft {
              * future calls to kevent will alert user if there were any events
              * on the socket.
              * 
-             * @param id The id of the associated connection. For RaftServers
-             * this is the serverId from config. For RaftClients this is a
-             * monotonically increasing Id.
              * @param socket Socket object to access when an event happens on
              * the corresponding file descriptor.
              * @return Whether the socket was successfullly registered for
              * monitoring.
              */
-            bool monitorSocket( uint64_t peerId, Socket *socket );
+            void monitorSocket(Socket *socket );
 
             /**
              * @brief 
@@ -60,7 +57,7 @@ namespace Raft {
              * @return Whether the socket was successfully removed from sockets
              * that are monitored by the kernel.
              */
-            bool stopSocketMonitor( Socket* socket );
+            void stopSocketMonitor( Socket* socket );
 
             /**
              * @brief Adds a socket to 
@@ -68,6 +65,13 @@ namespace Raft {
              */
             void sendRPC(uint64_t peerId, google::protobuf::Message& msg,
                          Raft::RPCType rpcType);
+
+            /**
+             * @brief Method overriden by subclass. Called when a peerId is
+             * found but the corresponding socket pointer is NULL.
+             * @param peerId Peer Id of the socket with missing socket pointer.
+             */
+            virtual void handleNoSocketEntry(uint64_t peerId) = 0;
 
             /**
              * @brief Begins listening for kernel notifications about events on
@@ -114,6 +118,12 @@ namespace Raft {
             /* Destructor */
             ~ClientSocketManager();
 
+            /**
+             * @brief For a client socket this indicates the connection has 
+             * shut down. Creates a new socket 
+             */
+            void handleNoSocketEntry(uint64_t peerId);
+
         private:
             /**
              * @brief Threadpool responsible for spawning threads that are
@@ -139,6 +149,12 @@ namespace Raft {
              * TODO: should remove all events and delete associated SocketPtr
              */
             ~ServerSocketManager();
+
+            /**
+             * @brief Causes crash, this should not happen.
+             * 
+             */
+            void handleNoSocketEntry(uint64_t peerId);
 
     }; // class ServerSocketManager
 

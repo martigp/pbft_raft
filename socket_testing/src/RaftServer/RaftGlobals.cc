@@ -16,13 +16,8 @@ namespace Raft {
           serverSocketManager(),
           nextUserEventId (FIRST_USER_EVENT_ID)
     {   
-        try {
         clientSocketManager.reset(new ClientSocketManager(*this));
         serverSocketManager.reset(new ServerSocketManager(*this)); 
-        }
-        catch(const std::exception& e) {
-            std::cerr << e.what() << std::endl;
-        }
     }
 
     Globals::~Globals()

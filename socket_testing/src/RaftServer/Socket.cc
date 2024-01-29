@@ -144,26 +144,34 @@ Socket::handleReceiveEvent(int64_t data) {
 }
 
 void
+Socket::checkConnection() {
+    // do nothing
+}
+
+void
 Socket::disconnect() {
     socketManager.stopSocketMonitor(this);
 }
 
 ClientSocket::ClientSocket(int fd, uint32_t userEventId, uint64_t peerId,
                            SocketManager& socketManager,
-                           sockaddr_in peerAddress)
+                           struct sockaddr_in peerAddress)
     : Socket(fd, userEventId, peerId, PeerType::RAFT_CLIENT, socketManager),
+      eventLock(),
+      eventCv(),
+      killThreadCv(),
       peerAddress(peerAddress),
-      threadFlags(ClientSocket::ThreadFlag::CONNECT)
+      killThread(false),
+      threadKilled(false)
 {
 }
 
 ClientSocket::~ClientSocket() {
     eventLock.lock();
-    threadFlags &= ClientSocket::ThreadFlag::SHUTDOWN;
-    eventCv.notify_all();
-    // Deal with spurious wakeup later;
-    shutdownCv.wait(eventLock);
-    printf("Successfully shutdown clientSocketMain");
+    killThread = true;
+    while (!threadKilled)
+        killThreadCv.wait(eventLock);
+    eventLock.unlock();
 }
 
 void
@@ -173,91 +181,58 @@ ClientSocket::handleUserEvent(){
     eventLock.unlock();
 }
 
-void 
-ClientSocket::disconnect() {
-    printf("Unimplemented\n");
-    exit(EXIT_FAILURE);
-}
-
 
 void clientSocketMain(void *args) {
     
     ClientSocket *clientSocket = (ClientSocket *)args;
-    clientSocket->eventLock.lock();
-    while (true) {
-        
-        assert(clientSocket->threadFlags & ClientSocket::ThreadFlag::CONNECT);
 
-        printf("[ClientSocket] Attempting to connect to Raft Server %llu\n",
+    printf("[ClientSocket] Attempting to connect to Raft Server %llu\n",
                                                         clientSocket->peerId);
-        // Continually trying to connect to its Raft Server. Only exit loop
-        // once connected or if instructed by ClientSocketManager to exit.
-        while (connect(clientSocket->fd,
-                    (struct sockaddr*)&(clientSocket->peerAddress),
-				    sizeof(clientSocket->peerAddress)) < 0) {
-
-            printf("Connection to  Raft Server %llu failed\n",
-                                                        clientSocket->peerId);
-
-            if (clientSocket->threadFlags & ClientSocket::ThreadFlag::SHUTDOWN)
-                goto shutdown;
-        
-            clientSocket->eventLock.lock();
-            sleep(5);
-            clientSocket->eventLock.unlock();
-        }
-
-        clientSocket->threadFlags &= !ClientSocket::ThreadFlag::CONNECT;
-
-
-        // Main loop when connected. During normal operation this will just
-        // check if any RPCs to send and wait to be signalled by
-        // ClientSocket Manager if it is empty. Also handles if a disconnect
-        // has occured or needs to shutdown.
-        while (true) {
-            if (clientSocket->threadFlags &
-                    ClientSocket::ThreadFlag::SHUTDOWN)
-                goto shutdown;
-            else if (clientSocket->threadFlags &
-                        ClientSocket::ThreadFlag::CONNECT) {
-                // Go back to first loop
-                break;
-            }
-            else if (!clientSocket->sendRPCQueue.empty()) {
-                Raft::RPCPacket rpcPacket = clientSocket->sendRPCQueue.front();
-                clientSocket->eventLock.unlock();
-
-                size_t payloadLen = rpcPacket.header.payloadLength;
-
-                char buf[RPC_HEADER_SIZE + payloadLen];
-
-                // Might have to do some clever network ordering before sending
-                rpcPacket.header.SerializeToArray(buf, RPC_HEADER_SIZE);
-                memcpy(buf + RPC_HEADER_SIZE, rpcPacket.payload, payloadLen);
-
-                if (send(clientSocket->fd, buf, sizeof(buf), 0) == -1) {
-
-                    perror("Failure to send request to RaftServer");
-                    if (errno == ECONNRESET) {
-                        // Might be a race condition here with the 
-                        printf("[ClientSocket] Connection Reset\n");
-                        clientSocket->disconnect();
-                        continue;
-                    } else {
-                        exit(EXIT_FAILURE);
-                    }
-                }
-                clientSocket->eventLock.lock();
-                clientSocket->sendRPCQueue.pop();
-            }
-            else {
-                clientSocket->eventCv.wait(clientSocket->eventLock);
-            }
-        } 
+    if (connect(clientSocket->fd, 
+                (struct sockaddr *)&(clientSocket->peerAddress), 
+                sizeof(clientSocket->peerAddress)) < 0) {
+        clientSocket->disconnect();
     }
 
-shutdown:
-    clientSocket->shutdownCv.notify_all();
+    while (true) {
+        clientSocket->eventLock.lock();
+        if (clientSocket->killThread) {
+            break;
+        }
+        else if (!clientSocket->sendRPCQueue.empty()) {
+            Raft::RPCPacket rpcPacket = clientSocket->sendRPCQueue.front();
+            clientSocket->eventLock.unlock();
+
+            size_t payloadLen = rpcPacket.header.payloadLength;
+
+            char buf[RPC_HEADER_SIZE + payloadLen];
+
+            // Might have to do some clever network ordering before sending
+            rpcPacket.header.SerializeToArray(buf, RPC_HEADER_SIZE);
+            memcpy(buf + RPC_HEADER_SIZE, rpcPacket.payload, payloadLen);
+
+            if (send(clientSocket->fd, buf, sizeof(buf), 0) == -1) {
+
+                perror("Failure to send request to RaftServer");
+                if (errno == ECONNRESET) {
+                    // Might be a race condition here with the closing
+                    printf("[ClientSocket] Connection Reset\n");
+                    // Does not have the lock
+                    clientSocket->disconnect();
+                    clientSocket->eventLock.lock();
+                    break;
+                } else {
+                    exit(EXIT_FAILURE);
+                }
+            }
+        } else {
+            // No RPCs to send, wait.
+            clientSocket->eventCv.wait(clientSocket->eventLock);
+        }
+    }
+
+    clientSocket->threadKilled = true;
+    clientSocket->killThreadCv.notify_all();
     clientSocket->eventLock.unlock();
 }
 
@@ -300,7 +275,7 @@ ServerSocket::handleUserEvent() {
 ListenSocket::ListenSocket(int fd, uint32_t userEventId,
                            SocketManager& socketManager,
                            uint64_t firstRaftClientId)
-    : Socket(fd, userEventId, 0, PeerType::NONE, socketManager),
+    : Socket(fd, userEventId, LISTEN_SOCKET_ID, PeerType::NONE, socketManager),
       nextRaftClientId(firstRaftClientId) {}
 
 ListenSocket::~ListenSocket() {}
@@ -354,7 +329,7 @@ ListenSocket::handleReceiveEvent(int64_t data) {
         socketFd, socketManager.globals.genUserEventId(), newPeerId, peerType,
         socketManager);
 
-    socketManager.monitorSocket(newPeerId, serverSocket);
+    socketManager.monitorSocket(serverSocket);
 }
 
 void

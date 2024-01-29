@@ -36,20 +36,23 @@ namespace Raft {
         }
     }
 
-    bool
-    SocketManager::monitorSocket( uint64_t peerId, Socket *socket ) {
+    void
+    SocketManager::monitorSocket(Socket *socket ) {
 
         printf("[SocketManager] Attempting to monitor socket\n");
 
         struct kevent newEv;
 
-        if (sockets.find(peerId) != sockets.end()) {
-            printf("[SocketManager] Socket with peerid %llu already exists\n", 
-            peerId);
-            return false;
+        // Error if re-registering a peerId for RaftClient
+        if (sockets.find(socket->peerId) != sockets.end() &&
+            socket->peerType == Socket::PeerType::RAFT_CLIENT) {
+                printf("[SocketManager] Socket with RaftClient with peerid"
+                       "%llu already exists\n", socket->peerId);
+                exit(EXIT_FAILURE);
         }
 
-        sockets[peerId] = socket;
+        // Overwrite existing no matter what!
+        sockets[socket->peerId] = socket;
 
         bzero(&newEv, sizeof(newEv));
         EV_SET(&newEv, socket->fd,
@@ -57,7 +60,7 @@ namespace Raft {
 
         if (kevent(kq, &newEv, 1, NULL, 0, NULL) == -1) {
             perror("[SocketManager] Failure to register reading events on client socket\n");
-            return false;
+            exit(EXIT_FAILURE);
         }
 
         bzero(&newEv, sizeof(newEv));
@@ -67,31 +70,42 @@ namespace Raft {
         if (kevent(kq, &newEv, 1, NULL, 0, NULL) == -1) {
             perror("[SocketManager] Failure to register reading events on client socket\n");
             // Probably have to remove the other event if this doesn't work!
-            return false;
+            exit(EXIT_FAILURE);
         }
 
-        printf("[SocketManager] Registered new socket listener for socket id %llu\n", peerId);
-        return true;
+        printf("[SocketManager] Registered new socket listener for socket id"
+               " %llu\n", socket->peerId);
     }
 
-    bool
+    void
     SocketManager::stopSocketMonitor( Socket* socket ) {
         struct kevent ev;
 
-        /* Set flags for an event to stop the kernel from listening for
-        events on this socket. */
+        // Set flags for an event to stop the kernel from listening for
+        // events on this socket.
         EV_SET(&ev, socket->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
 
         if (kevent(kq, &ev, 1, NULL, 0, NULL) == -1) {
             perror("[SocketManager] Failure to remove socket fd from kqueue");
-            return false;
+            exit(EXIT_FAILURE);
         }
 
         EV_SET(&ev, socket->userEventId, EVFILT_USER, EV_DELETE, 0, 0, NULL);
 
         if (kevent(kq, &ev, 1, NULL, 0, NULL) == -1) {
             perror("[SocketManager] Failure to remove socket user event");
-            return false;
+            exit(EXIT_FAILURE);
+        }
+
+        auto socketEntry = sockets.find(socket->peerType);
+
+        // Remove peer entries to prevent getting too large
+        if (socket->peerType == Socket::PeerType::RAFT_CLIENT) {
+            sockets.erase(socketEntry);
+        }
+        else {
+            // Set to NULL
+            socketEntry->second = NULL;
         }
 
         /* Calls socket destructor which closes the socketFd.
@@ -100,7 +114,6 @@ namespace Raft {
         printf("[SocketManager] About to delete socket pointer with read fd %d\n", socket->fd);
         delete socket;
 
-        return true;
     }
 
     void
@@ -110,10 +123,16 @@ namespace Raft {
         auto socketsEntry = sockets.find(peerId);
         if (socketsEntry == sockets.end()) {
             printf("Unable to find corresponding Socket to queue RPC\n");
-            return;
+            exit(EXIT_FAILURE);
         }
 
         Socket *socket = socketsEntry->second;
+
+        if (socket == NULL) {
+            handleNoSocketEntry(socketsEntry->first);
+        }
+
+        socket->checkConnection();
 
         Raft::RPCHeader rpcHeader(rpcType, rpc.ByteSizeLong());
 
@@ -141,26 +160,8 @@ namespace Raft {
     {    
         // Lazily set up sockets.
         for (auto& it : globals.config.clusterMap) {
-            // Create a socketfd for
-            int socketFd;
-            if ((socketFd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		        perror("Client Socket creation error\n");
-		        exit(EXIT_FAILURE);
-	        }
 
-            ClientSocket *clientSocket = 
-                new ClientSocket(socketFd, globals.genUserEventId(), it.first,
-                                 *this, it.second);
-            
-            monitorSocket(clientSocket->peerId, clientSocket);
-            
-            // Add to sockets managed by this client
-            sockets[it.first] = clientSocket;
-
-            printf("[ClientSocketManager] Scheduling client socket with serverId %llu\n", it.first);
-
-            threadpool.schedule(clientSocketMain,
-                                (void*) clientSocket);
+            handleNoSocketEntry(it.first);
 
         }
         printf("[ClientSocketManager] Construction complete\n");
@@ -168,6 +169,33 @@ namespace Raft {
 
     ClientSocketManager::~ClientSocketManager()
     {
+    }
+
+    void
+    ClientSocketManager::handleNoSocketEntry(uint64_t peerId) {
+
+        // Must be valid PeerId
+        auto socketConfig = globals.config.clusterMap.find(peerId);
+        if (socketConfig == globals.config.clusterMap.end()) {
+            printf("[ClientSocketManager]: Raft Server with id %llu not found"
+                   "in config.", peerId);
+            exit(EXIT_FAILURE);
+        }
+
+        int socketFd;
+        if ((socketFd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+            perror("Client Socket creation error\n");
+            exit(EXIT_FAILURE);
+        }
+
+        ClientSocket *clientSocket = 
+            new ClientSocket(socketFd, globals.genUserEventId(), peerId,
+                             *this, socketConfig->second);
+                        
+        monitorSocket(clientSocket);
+
+        threadpool.schedule(clientSocketMain, (void*) clientSocket);
+
     }
 
     ServerSocketManager::ServerSocketManager( Raft::Globals& globals )
@@ -229,11 +257,19 @@ namespace Raft {
                 new ListenSocket(listenSocketFd, globals.genUserEventId(),
                                  *this, largestServerId + 1);
         
-        monitorSocket(LISTEN_SOCKET_ID, listenSocket);
+        monitorSocket(listenSocket);
     }
 
     ServerSocketManager::~ServerSocketManager()
     {
+    }
+
+    void
+    ServerSocketManager::handleNoSocketEntry(uint64_t peerId) {
+        printf("[ServerSocketManager] Couldn't find socket for peer %llu\n",
+               peerId);
+        exit(EXIT_FAILURE);
+
     }
 
     void
