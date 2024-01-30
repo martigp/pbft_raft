@@ -74,8 +74,6 @@ class Socket {
          */
         virtual void handleUserEvent() = 0;
 
-        virtual void checkConnection();
-
         /**
          * @brief Handles errors that don't require a crash by disconnecting 
          * the conenction on the socket. The default behaviour is to clean up
@@ -130,10 +128,10 @@ class Socket {
         std::condition_variable_any eventCv;
 
         /**
-         * @brief Condition variable for ClientSocketManager to wait on for
-         * the client socket's thread that it is done.
+         * @brief Condition variable for Socket to wait on when destructing
+         * to ensure that associated thread finishes.
          */
-        std::condition_variable_any stateCv;
+        std::condition_variable_any killThreadCv;
 
 
         /**
