@@ -152,7 +152,7 @@ namespace Raft {
         std::unique_lock<std::mutex> lock(resetTimerMutex);
         std::random_device seed;
         std::mt19937 gen{seed()}; 
-        std::uniform_int_distribution<> dist{5000, 10000};
+        std::uniform_int_distribution<> dist{10000, 20000};
         timerTimeout = dist(gen);
         printf("[Consensus]: New timer timeout: %llu\n", timerTimeout);
     }
@@ -191,6 +191,7 @@ namespace Raft {
     }
 
     void Consensus::convertToLeader() {
+        printf("[Consensus]: Convert to leader");
         myState = ServerState::LEADER;
         setHeartbeatTimeout();
         resetTimer(); // so not interrupted again 

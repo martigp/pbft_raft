@@ -201,8 +201,10 @@ void clientSocketMain(void *args) {
     
     ClientSocket *clientSocket = (ClientSocket *)args;
 
-    printf("[ClientSocket] Attempting to connect to Raft Server %llu\n",
-                                                        clientSocket->peerId);
+    printf("[ClientSocket] Attempting to connect to Raft Server %llu, fd %d\n",
+                                                        clientSocket->peerId,
+                                                        clientSocket->fd);
+
     if (connect(clientSocket->fd, 
                 (struct sockaddr *)&(clientSocket->peerAddress), 
                 sizeof(clientSocket->peerAddress)) < 0) {
@@ -237,7 +239,7 @@ void clientSocketMain(void *args) {
                     printf("[ClientSocket] Connection Reset\n");
                     // Does not have the lock
                     clientSocket->disconnect();
-                    clientSocket->eventLock.lock();
+                    // clientSocket->eventLock.lock();
                     break;
                 } else {
                     exit(EXIT_FAILURE);
@@ -341,15 +343,17 @@ ListenSocket::handleReceiveEvent(int64_t data) {
         exit(EXIT_FAILURE);
     }
 
-    printf("[Server] accepted new client on socket %d\n", socketFd);
+    printf("[ListenSocket] accepted new client on socket %d\n", socketFd);
+    printf("[ListenSocket] client addr: s_addr %u, sin_port %u\n", clientAddr.sin_addr.s_addr, clientAddr.sin_port);
 
     uint64_t newPeerId = 0;
     ServerSocket::PeerType peerType;
 
     // Check if incoming connection is from a RaftClient or RaftServer
     for (auto &it : socketManager.globals.config.clusterMap) {
-        if (ntohl(it.second.sin_addr.s_addr) ==
-            ntohl(clientAddr.sin_addr.s_addr)) {
+        printf("[ListenSocket] cluster map addr: s_addr %u, sin_port %u\n", it.second.sin_addr.s_addr, it.second.sin_port);
+        if (ntohs(it.second.sin_port) ==
+            ntohs(clientAddr.sin_port)) {
             printf("[ListenSocket] Accepted connection request from RaftServer "
                    "with id %llu\n", it.first);
             
