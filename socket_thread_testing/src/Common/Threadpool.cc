@@ -50,7 +50,7 @@ namespace Raft {
         jobQueueLock.unlock();
 
         scheduleDispatch.release();
-        printf("Job scheduled\n");
+        printf("[ThreadPool] Job scheduled\n");
 
     }
 
@@ -75,21 +75,21 @@ namespace Raft {
     }
 
     void ThreadPool::dispatcher(){
+    try {
         while(true) {
             scheduleDispatch.acquire();
             availableWorkers.acquire();
+
             if (shutdown) break;
+
             jobQueueLock.lock();
             if (!jobs.empty()) {
-                //jobQueueLock.unlock();
-            //} else {
                 for (Worker &worker: workers) {
                     if(worker.free) {
                         worker.free = false;
                         worker.job = std::move(jobs.front());
                         jobs.pop();
                         worker.workToBeDone.release();
-                        //jobQueueLock.unlock();//check this is in the correct order
                         break;
                     }
                 }  
@@ -97,9 +97,10 @@ namespace Raft {
             jobQueueLock.unlock();
         }
     }
+    catch (std::exception &e){ std::cerr << e.what() << std::endl; }
+    }
 
     void ThreadPool::worker(size_t workerID) {
-        try{
         while(true) {
             Worker& worker = workers[workerID];
             worker.workToBeDone.acquire();
@@ -120,10 +121,6 @@ namespace Raft {
                 numThreadsFreeCv.notify_all();
             }
             numThreadsFreeLock.unlock();
-        }
-        }
-        catch(const std::exception& e) {
-            std::cerr << e.what() << std::endl;
         }
     }
 

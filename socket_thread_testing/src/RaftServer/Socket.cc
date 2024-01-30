@@ -37,10 +37,10 @@ Socket::Socket(int fd, uint32_t userEventId, uint64_t peerId,
 }
 
 Socket::~Socket() {
-    if (close(fd) != -1) {
-        perror("Failed to close socket");
-        exit(EXIT_FAILURE);
-    }
+    // if (close(fd) != -1) {
+    //     perror("Failed to close socket");
+    //     exit(EXIT_FAILURE);
+    // }
 }
 
 bool
@@ -55,6 +55,8 @@ Socket::genericHandleReceiveEvent(int64_t data, int64_t& totalBytesRead) {
         if (receivedMessage.numBytesRead < RPC_HEADER_SIZE) {
             size_t bytesAvailable = 
                 receivedMessage.bufLen - receivedMessage.numBytesRead;
+            
+            printf("[Socket] Bytes avaiable %zu, Num bytes read %zu\n",bytesAvailable, receivedMessage.numBytesRead);
 
             // Read into first unread byte in buffer whose size is set to the
             // size of an RPCHeader.
@@ -68,8 +70,10 @@ Socket::genericHandleReceiveEvent(int64_t data, int64_t& totalBytesRead) {
                 perror("[Socket] Error reading header\n");
                 disconnect();
                 return true;
-            } else if (bytesRead == 0)
+            } else if (bytesRead == 0) {
+                printf("[Socket] No bytes read\n");
                 return true;
+            }
 
             receivedMessage.numBytesRead += bytesRead;
             totalBytesRead += bytesRead;
@@ -114,9 +118,12 @@ Socket::genericHandleReceiveEvent(int64_t data, int64_t& totalBytesRead) {
 
             receivedMessage.numBytesRead += bytesRead;
             totalBytesRead += bytesRead;
+
+            if (receivedMessage.numBytesRead == 
+                    RPC_HEADER_SIZE + receivedMessage.bufLen) {
+                return false;
+            }
         }
-        if (receivedMessage.numBytesRead == RPC_HEADER_SIZE + receivedMessage.bufLen)
-            return false;
     }
     return true;
 }
@@ -131,11 +138,6 @@ Socket::genericHandleReceiveEvent(int64_t data, int64_t& totalBytesRead) {
     // receivedMessage = ReceivedMessage(RPC_HEADER_SIZE);
 
 void
-Socket::checkConnection() {
-    // do nothing
-}
-
-void
 Socket::disconnect() {
     socketManager.stopSocketMonitor(this);
 }
@@ -143,7 +145,7 @@ Socket::disconnect() {
 ClientSocket::ClientSocket(int fd, uint32_t userEventId, uint64_t peerId,
                            SocketManager& socketManager,
                            struct sockaddr_in peerAddress)
-    : Socket(fd, userEventId, peerId, PeerType::RAFT_CLIENT, socketManager),
+    : Socket(fd, userEventId, peerId, PeerType::RAFT_SERVER, socketManager),
       peerAddress(peerAddress),
       killThread(false)
 {
@@ -153,9 +155,8 @@ ClientSocket::~ClientSocket() {
     eventLock.lock();
     killThread = true;
     eventCv.notify_all();
-    printf("[ClientSocket] Told thread to exit");
     while (state != SocketState::NORMAL)
-        stateCv.wait(eventLock);
+        killThreadCv.wait(eventLock);
     eventLock.unlock();
     printf("[ClientSocket] Successfully destoryed client socket with peer"
             "id %llu\n", peerId);
@@ -173,6 +174,8 @@ ClientSocket::handleReceiveEvent(int64_t data) {
         
         socketManager.globals.consensus->handleRaftServerResp(peerId,
             receivedMessage.header, std::move(receivedMessage.bufferedBytes));
+        
+        receivedMessage = ReceivedMessage(RPC_HEADER_SIZE);
     }
 }
 
@@ -203,10 +206,13 @@ void clientSocketMain(void *args) {
         clientSocket->disconnect();
     }
 
+    clientSocket->eventLock.lock();
     while (true) {
-        clientSocket->eventLock.lock();
         if (clientSocket->killThread) {
             break;
+        }
+        else if (clientSocket->state == Socket::SocketState::ERROR) {
+            clientSocket->eventCv.wait(clientSocket->eventLock);
         }
         else if (!clientSocket->sendRPCQueue.empty()) {
             Raft::RPCPacket rpcPacket = clientSocket->sendRPCQueue.front();
@@ -223,7 +229,7 @@ void clientSocketMain(void *args) {
             if (send(clientSocket->fd, buf, sizeof(buf), 0) == -1) {
 
                 perror("Failure to send request to RaftServer");
-                if (errno == ECONNRESET) {
+                if (errno == ECONNRESET || errno == EPIPE) {
                     // Might be a race condition here with the closing
                     printf("[ClientSocket] Connection Reset\n");
                     // Does not have the lock
@@ -234,13 +240,16 @@ void clientSocketMain(void *args) {
                     exit(EXIT_FAILURE);
                 }
             }
+
+            clientSocket->eventLock.lock();
+            clientSocket->sendRPCQueue.pop();
         } else {
             // No RPCs to send, wait.
             clientSocket->eventCv.wait(clientSocket->eventLock);
         }
     }
 
-    clientSocket->threadKilled = true;
+    clientSocket->state = Socket::SocketState::NORMAL;
     clientSocket->killThreadCv.notify_all();
     clientSocket->eventLock.unlock();
 }
@@ -272,6 +281,8 @@ ServerSocket::handleReceiveEvent(int64_t data) {
                 receivedMessage.header,
                 std::move(receivedMessage.bufferedBytes)); 
         }
+
+        receivedMessage = ReceivedMessage(RPC_HEADER_SIZE);
     }
 }
 
@@ -283,8 +294,7 @@ ServerSocket::handleUserEvent() {
     while (!sendRPCQueue.empty()) {
         // TODO: Might have to do a move here, unclear on memory ops.
         Raft::RPCPacket rpcPacket = sendRPCQueue.front();
-        sendRPCQueue.pop();
-        eventLock.lock();
+        eventLock.unlock();
 
         size_t payloadLen = rpcPacket.header.payloadLength;
 
@@ -298,8 +308,9 @@ ServerSocket::handleUserEvent() {
             perror("Failure to send to client");
             disconnect();
         }
-        printf("[Server Socket] Should sent response\n");
+
         eventLock.lock();
+        sendRPCQueue.pop();
     }
     eventLock.unlock();
 }

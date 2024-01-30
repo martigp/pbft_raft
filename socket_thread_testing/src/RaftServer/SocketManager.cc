@@ -113,7 +113,6 @@ namespace Raft {
            to call delete socket! */
         printf("[SocketManager] About to delete socket pointer with read fd %d\n", socket->fd);
         delete socket;
-
     }
 
     void
@@ -126,35 +125,40 @@ namespace Raft {
             exit(EXIT_FAILURE);
         }
 
+        printf("<1>");
+
         Socket *socket = socketsEntry->second;
+
+        assert(socket != NULL);
+
+        Raft::RPCHeader rpcHeader(rpcType, rpc.ByteSizeLong());
+        Raft::RPCPacket rpcPacket(rpcHeader, rpc);
+
+        printf("<2>");
 
         socket->eventLock.lock();
         
         if (socket->state == Socket::SocketState::ERROR) {
+            printf("<3>");
             socket->eventLock.unlock();
             // Might be a race with reading here
             stopSocketMonitor(socket);
-            handleNoSocketEntry(socketsEntry->first);
+            printf("<4>");
+            handleNoSocketEntry(peerId);
+            socket->eventLock.lock();
         }
 
-        socket->checkConnection();
-
-        Raft::RPCHeader rpcHeader(rpcType, rpc.ByteSizeLong());
-
-        Raft::RPCPacket rpcPacket(rpcHeader, rpc);
-
-        std::string payload;
-
-        // Lock Acquire
+        printf("<5>");
         socket->sendRPCQueue.push(rpcPacket);
-        // Lock Release
+        socket->eventLock.unlock();
 
         struct kevent newEv;
         EV_SET(&newEv, socket->userEventId, EVFILT_USER, 0, 
                NOTE_TRIGGER, 0, socket);
 
         if (kevent(kq, &newEv, 1, NULL, 0, NULL) == -1) {
-            printf("Failed trigger user with event");
+            perror("Failed trigger user with event");
+            exit(EXIT_FAILURE);
         }
 
     }
@@ -174,6 +178,7 @@ namespace Raft {
 
     ClientSocketManager::~ClientSocketManager()
     {
+
     }
 
     void
