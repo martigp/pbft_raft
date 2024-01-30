@@ -128,7 +128,12 @@ namespace Raft {
 
         Socket *socket = socketsEntry->second;
 
-        if (socket == NULL) {
+        socket->eventLock.lock();
+        
+        if (socket->state == Socket::SocketState::ERROR) {
+            socket->eventLock.unlock();
+            // Might be a race with reading here
+            stopSocketMonitor(socket);
             handleNoSocketEntry(socketsEntry->first);
         }
 
@@ -279,7 +284,6 @@ namespace Raft {
     
     void SocketManager::listenLoop()
     {
-        int numLoops = 0;
         while (true) {
             struct kevent evList[MAX_EVENTS];
 
@@ -297,12 +301,9 @@ namespace Raft {
                 continue;
             }
 
-            printf("[SocketManager] Received %d socket events\n", numEvents);
-
             for (int i = 0; i < numEvents; i++) {
 
                 struct kevent ev = evList[i];
-                printf("[SocketManager] Event on socket %lu, iteration %d \n", ev.ident, numLoops++);
 
                 Raft::Socket *evSocket = static_cast<Raft::Socket*>(ev.udata);
 

@@ -21,6 +21,13 @@ namespace Raft {
      */
     class RPCHeader {
         public:
+
+            /**
+             * @brief Default constructor.
+             * 
+             */
+            RPCHeader ();
+
             /**
              * @brief Constructor
              * 
