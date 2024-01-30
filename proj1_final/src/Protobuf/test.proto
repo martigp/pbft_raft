@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package Test;
+
+message TestMessage
+{
+    uint64 sender=1;
+    string msg=2;
+}

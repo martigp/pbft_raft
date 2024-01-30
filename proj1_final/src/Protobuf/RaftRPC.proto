@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package Raft;
+
+message RPC {
+
+    /* AppendEntries RPC */
+    message AppendEntries {
+        message Request {
+            /* ID of leader(requestor). */
+            uint64 term = 1;
+
+            /* ID of leader for client redirection. */
+            uint64 leaderId = 2;
+
+            /* Index of log entry immediately preceding first entry in entries/ */
+            uint64 prevLogIndex = 3;
+
+            /* Term of prevLogIndex entry. */
+            uint64 prevLogTerm = 4;
+
+            /* Log Entry */
+            message Entry {
+                /**
+                * Command to be executed by raft cluster state machine.
+                */
+                bytes cmd = 1;
+            }
+
+            /* Log entries to store, empty for heartbeat. */
+            repeated Entry entries = 5;
+
+            /* Leader's commitIndex. */
+            uint64 leaderCommit = 6;
+
+            /* Request ID for implementing RPC pairing behavior. */
+            uint64 requestID = 7;
+        }
+
+        message Response {
+            /* currentTerm, for leader to update itself if larger than its own. */
+            uint64 term = 1;
+
+            /* true if follower contained entry matching prevLogIndex and 
+            prevLogTerm. */
+            bool success = 2;
+
+            /* Request ID for implementing RPC pairing behavior. */
+            uint64 requestID = 3;
+        }
+    }
+
+    /* RequestVote RPC */
+    message RequestVote {
+        message Request {
+            /* Candidate's (requestor's) term. */
+            uint64 term = 1;
+
+            /* Candidate's id. */
+            uint64 candidateId = 2;
+
+            /* Index of candidate's last log entry. */
+            uint64 lastLogIndex = 3;
+
+            /* Term of candidate's last log entry. */
+            uint64 lastLogTerm = 4;
+        }
+
+        message Response {
+            /* Current term of responder, for candidate to update itself. */
+            uint64 term = 1;
+
+            /* true means candidate received vote. */
+            bool voteGranted = 2;
+        }
+    }
+
+    message StateMachineCmd {
+        message Request {
+            bytes cmd = 1;
+        }
+        message Response {
+            bool success = 1;
+
+            uint64 leaderId = 2;
+
+            bytes msg = 3;
+        }
+    }
+
+}
