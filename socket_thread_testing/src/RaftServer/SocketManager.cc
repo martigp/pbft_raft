@@ -112,6 +112,7 @@ namespace Raft {
            Last call to close will remove from kqueue so we may only have
            to call delete socket! */
         printf("[SocketManager] About to delete socket pointer with read fd %d\n", socket->fd);
+
         delete socket;
     }
 
@@ -129,7 +130,9 @@ namespace Raft {
 
         Socket *socket = socketsEntry->second;
 
-        assert(socket != NULL);
+        if (socket == NULL) {
+            handleNoSocketEntry(peerId);
+        }
 
         Raft::RPCHeader rpcHeader(rpcType, rpc.ByteSizeLong());
         Raft::RPCPacket rpcPacket(rpcHeader, rpc);
@@ -314,7 +317,9 @@ namespace Raft {
 
                 if (ev.fflags & EV_EOF) {
                     evSocket->disconnect();
-                } else if (ev.fflags & EV_ERROR) {
+                    stopSocketMonitor(evSocket);
+                }
+                else if (ev.fflags & EV_ERROR) {
                     perror("kevent error");
                     exit(EXIT_FAILURE);
                 }

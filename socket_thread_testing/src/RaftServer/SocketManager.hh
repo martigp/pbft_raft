@@ -24,13 +24,14 @@ namespace Raft {
     /**
      * @brief Responsible for registering sockets to the kernel for monitoring
      * of events and reacting to kernel notifications of events on those
-     * sockets.
+     * sockets. A RaftServer has both a ClientSocketManager and a
+     * ServerSocketManager that override this class.
      */
     class SocketManager {
         public:
             /**
-             * @brief Construct a new SocketManager that stores the "global 
-             * socket kqueue" state
+             * @brief Constructor. Reference global needed to call other Raft
+             * Modules in response to socket events.
              */
             SocketManager( Globals& globals );
 
@@ -38,38 +39,44 @@ namespace Raft {
             virtual ~SocketManager();
 
             /**
-             * @brief Register a socket to be monitored by the kernel. Any 
-             * future calls to kevent will alert user if there were any events
-             * on the socket.
+             * @brief Register a socket to the socket manager.
              * 
-             * @param socket Socket object to access when an event happens on
-             * the corresponding file descriptor.
-             * @return Whether the socket was successfullly registered for
-             * monitoring.
+             * @param socket Socket object that returned by the kernel whenever
+             * an event happens on the socket's file descriptor. Used to do
+             * response to event.
              */
             void monitorSocket(Socket *socket );
 
             /**
-             * @brief 
+             * @brief Removes all records of the socket from the socket manager
+             * and destroys the object. Any accesses following this are to
+             * unallocated memory.
              * 
-             * @param socket Socket object to access when an event happens on
-             * the corresponding file descriptor.
-             * @return Whether the socket was successfully removed from sockets
-             * that are monitored by the kernel.
+             * @param socket socket to be removed from socket manager records.
              */
             void stopSocketMonitor( Socket* socket );
 
             /**
-             * @brief Adds a socket to 
+             * @brief API used to send an RPC. Upon return, message has been
+             * added to the queue of the relevant socket and the socket is
+             * signalled it has an RPC queued to send. 
+             * 
+             * @param peerID a unique identifier of peer that a socket is
+             * connected to. For RaftClients this Id is found out upon receipt of
+             * an RPC request.
+             * @param msg The rpc to send, represented as a base class.
+             * @param rpcType The type of RPC (AppendEntries, RequestVote,
+             * StateMachineCmd)
              * 
              */
             void sendRPC(uint64_t peerId, google::protobuf::Message& msg,
                          Raft::RPCType rpcType);
 
             /**
-             * @brief Method overriden by subclass. Called when a peerId is
-             * found but the corresponding socket pointer is NULL.
-             * @param peerId Peer Id of the socket with missing socket pointer.
+             * @brief Method overriden by subclass. Called when a peerId matches
+             * a socket manager's records but it doesn't have access to the
+             * connection with that peer.
+             * @param peerId SocketManager's identifier a connection with a peer.
              */
             virtual void handleNoSocketEntry(uint64_t peerId) = 0;
 
@@ -93,12 +100,11 @@ namespace Raft {
             /**
              * @brief Reference to server globals. Used to handle RPC requests.
              */
-            [[maybe_unused]] Raft::Globals& globals;
+            Raft::Globals& globals;
             
             /**
-             * @brief Keeps track sockets so can be deleted and removed from
-             * kq during destruction. Alternatively could just be FDs because
-             * we just need to close them, but then removal is hard?
+             * @brief Used for bookkeeping. Maps a uniquer identifier of a peer
+             * to a socket wrapper.
              * 
              */
             std::unordered_map<uint64_t, Socket *> sockets;
@@ -108,15 +114,15 @@ namespace Raft {
     /**
      * @brief Responsible for Client Sockets. In the case of a RaftServer,
      * Client Sockets correspond to connections the RaftServer initiated with
-     * other RaftServers in order to send RPC Requests to them.
+     * other RaftServers in order to send RPC Requests to them and listen
+     * for responses.
      * 
      */
     class ClientSocketManager: public SocketManager {
         public:
             /**
-             * @brief Constructor
-             * 
-             * @param globals Used to access global state
+             * @brief Constructor. Initiates persistent attempts to connect
+             * to all other RaftServers in the cluster.
              */
             ClientSocketManager( Raft::Globals& globals );
 
@@ -124,27 +130,34 @@ namespace Raft {
             ~ClientSocketManager();
 
             /**
-             * @brief For a client socket this indicates the connection has 
-             * shut down. Creates a new socket 
+             * @brief Called whenever we want to send something to another 
+             * RaftServer but there is no connected socket. Initiates attempts
+             * to connect to Raft Server identified by.
+             * @param peerId The serverId of a RaftServer
              */
             void handleNoSocketEntry(uint64_t peerId);
 
         private:
             /**
-             * @brief Threadpool responsible for spawning threads that are
-             * responsible for sending RPCs over the socket and maintaining the
-             * connection.
+             * @brief Threadpool used allocate threads to each Client connection
+             * to a Raft Server so that operations with Raft Servers can happen
+             * in parallel.
              */
             ThreadPool threadpool;
     }; // class ClientSocketManager
 
 
+    /**
+     * @brief Manages all connections initiated by the peer of the
+     * connection. This can be both RaftClient and RaftServer. Note all RPCs
+     * coming on these connections will be RPC requests and all RPCs sent will
+     * be RPC responses.
+     */
     class ServerSocketManager: public SocketManager {
         public:
             /**
              * @brief Constructor
-             * 
-             * @param globals Used to acces RaftServer global state
+             *
              */
             ServerSocketManager( Raft::Globals& globals );
 

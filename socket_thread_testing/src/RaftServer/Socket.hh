@@ -28,6 +28,11 @@ class Socket {
 
     public:
 
+        /**
+         * @brief Used with header information about what type of RPC by the
+         * socket manager to determine how to parse the RPC. 
+         * 
+         */
         enum PeerType {
             NONE,
             RAFT_CLIENT,
@@ -47,21 +52,25 @@ class Socket {
         virtual ~Socket() = 0;
 
         /**
-         * @brief This method is potentially by a subclass to handle the event
-         * triggered when a peer has sent data to the socket. The socket
-         * will read the data and act accordingly. Default it assuming this is
-         * a connected socket and these are bytes of an RPC
+         * @brief Attempts to read available bytes from socket.
          * 
-         * @param data The EVFILT_READ data value provided by kernel. This is
-         * the bytes of data available to read.
+         * @param data The number of bytes available to read from the socket.
+         * @param totalBytesRead The number of bytes that have been read since
+         * being alerted of bytes to read from the socket.
          * 
-         * @return Returns false if more bytes to be read, returns true if
-         * reading complete or an error occured and reading should discontinue.
-         * 
-         * TODO: Remove Socket manager when done with testing.
+         * @return Returns whether reading of bytes is complete.
+         * If false, this indicates a full RPC has been read in and can be 
+         * passed onto the consensus module.
+         *
          */
         bool genericHandleReceiveEvent(int64_t data, int64_t& totalBytesRead);
 
+        /**
+         * @brief A wrapper to the genericHandleReceiveEvent that also forwards
+         * any complete RPCs to the consensus module.
+         * 
+         * @param data Number of bytes available to read from the socket.
+         */
         virtual void handleReceiveEvent(int64_t data) = 0;
 
         /**
@@ -70,17 +79,22 @@ class Socket {
          * RPC to the sockets RPC queue. The Socket will attempt to write these
          * to its peer.
          * 
-         * @return Whether any errors occured when trying to write to the peer.
+         * @return Any failures in trying to write RPCs to the peer 
+         * result in the destruction of the socket.
          */
         virtual void handleUserEvent() = 0;
 
         /**
-         * @brief Handles errors that don't require a crash by disconnecting 
-         * the conenction on the socket. The default behaviour is to clean up
-         * everything to do with Client Socket.
+         * @brief Handles errors that don't require a server crash by 
+         * disconnecting the conenction on the socket. The default behaviour
+         * is to clean up everything to do with Client Socket.
          */
         virtual void disconnect();
 
+        /**
+         * @brief State used by threads to monitor.
+         * 
+         */
         enum SocketState {
             NORMAL,
             ERROR
@@ -102,8 +116,10 @@ class Socket {
         const uint32_t userEventId;
 
         /**
-         * @brief The RaftServer Id, used by the socket manager to
-         * identify which Client Socket to send RPCs on.
+         * @brief A unique identifier for the socket peer. For connections with
+         * RaftServers this is the  Raft serverId, for RaftClients this is a
+         * unique monotomically increasing UID. This is an abstraction used by
+         * raft modules to refer to sockets.
          */
         uint64_t peerId;
 
@@ -113,9 +129,9 @@ class Socket {
          */
         [[maybe_unused]] PeerType peerType;
 
-                /**
-         * @brief Lock associated with the condition variable for signalling
-         * a change in state of the ClientSocket.
+        /**
+         * @brief Lock for accessing any non-thread-safe members. In particular
+         * the state and the queue.
          * 
          */
         std::mutex eventLock;
@@ -197,6 +213,7 @@ class Socket {
 /**
  * @brief A socket that listens for incoming connection requests on a Raft
  * Server and produces connections for the client to send Raft RPC requests.
+ * Successfully connections will be registered with the ServerSocketManager.
  * 
  */
 class ListenSocket : public Socket {

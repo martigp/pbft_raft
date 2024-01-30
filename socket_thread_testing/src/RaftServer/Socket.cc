@@ -29,6 +29,9 @@ Socket::Socket(int fd, uint32_t userEventId, uint64_t peerId,
       userEventId(userEventId),
       peerId(peerId),
       peerType(peerType),
+      eventLock(),
+      eventCv(),
+      killThreadCv(),
       receivedMessage(RPC_HEADER_SIZE),
       sendRPCQueue(),
       socketManager(socketManager) {
@@ -250,8 +253,8 @@ void clientSocketMain(void *args) {
     }
 
     clientSocket->state = Socket::SocketState::NORMAL;
-    clientSocket->killThreadCv.notify_all();
     clientSocket->eventLock.unlock();
+    clientSocket->killThreadCv.notify_all();
 }
 
 
@@ -300,7 +303,6 @@ ServerSocket::handleUserEvent() {
 
         char buf[RPC_HEADER_SIZE + payloadLen];
 
-        // Might have to do some clever network ordering before sending
         rpcPacket.header.SerializeToArray(buf, RPC_HEADER_SIZE);
         memcpy(buf + RPC_HEADER_SIZE, rpcPacket.payload, payloadLen);
 
@@ -343,6 +345,7 @@ ListenSocket::handleReceiveEvent(int64_t data) {
 
     uint64_t newPeerId = 0;
     ServerSocket::PeerType peerType;
+
     // Check if incoming connection is from a RaftClient or RaftServer
     for (auto &it : socketManager.globals.config.clusterMap) {
         if (ntohl(it.second.sin_addr.s_addr) ==
@@ -356,7 +359,7 @@ ListenSocket::handleReceiveEvent(int64_t data) {
         }
     }
 
-    // Connection is a RaftClient, assign it a peerId
+    // Connection is a RaftClient
     if (newPeerId == 0) {
         newPeerId = nextRaftClientId;
         nextRaftClientId++;
@@ -368,6 +371,7 @@ ListenSocket::handleReceiveEvent(int64_t data) {
             newPeerId);
     }
 
+    // Create and register the socket.
     ServerSocket *serverSocket = new ServerSocket(
         socketFd, socketManager.globals.genUserEventId(), newPeerId, peerType,
         socketManager);
