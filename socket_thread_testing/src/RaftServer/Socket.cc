@@ -170,6 +170,7 @@ ClientSocket::~ClientSocket() {
     eventLock.lock();
     killThread = true;
     while (!threadKilled)
+        printf("waiting to kill client socket\n");
         killThreadCv.wait(eventLock);
     eventLock.unlock();
 }
@@ -232,6 +233,7 @@ void clientSocketMain(void *args) {
     }
 
     clientSocket->threadKilled = true;
+    printf("thread killed");
     clientSocket->killThreadCv.notify_all();
     clientSocket->eventLock.unlock();
 }
