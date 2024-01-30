@@ -12,21 +12,20 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <iostream>
 #include "Protobuf/RaftRPC.pb.h"
 #include "Common/RPC.hh"
+#include "Common/ClientConfig.hh"
 
-#define PORT 1234
-#define NUM_THREADS 1
+#define CONFIG_PATH "./config_client.cfg"
 
-void connectAndSendToServer(int tid)
+std::string connectAndSendToServer(Common::ClientConfig config, std::string *in)
 {
-restart:
 	int status, readBytes, clientFd;
 	struct sockaddr_in serv_addr;
 	Raft::RPC::StateMachineCmd::Request stateMachineCmd;
 	
-	std::string * cmdPtr = new std::string("pwd");
-	stateMachineCmd.set_allocated_cmd(cmdPtr);
+	stateMachineCmd.set_allocated_cmd(in);
 
 	size_t payloadLen = stateMachineCmd.ByteSizeLong();
 
@@ -47,70 +46,73 @@ restart:
 		return;
 	}
 
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(PORT);
-
-	// Convert IPv4 and IPv6 addresses from text to binary
-	// form
-	if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)
-		<= 0) {
-		printf(
-			"\nInvalid address/ Address not supported \n");
-		return;
-	}
-
-	if ((status
-		= connect(clientFd, (struct sockaddr*)&serv_addr,
-				sizeof(serv_addr)))
-		< 0) {
-		printf("\nConnection Failed \n");
-		close(clientFd);
-		sleep(5);
-		goto restart;
-	}
-	printf("[Client %d] Connected to server\n", tid);
-	Raft::RPC_StateMachineCmd_Request test;
-	test.ParseFromArray(request + RPC_HEADER_SIZE, header.payloadLength);
-
-	printf("[Client] About to send cmd %s\n", test.cmd().c_str());
-	size_t bytesSent = send(clientFd, request, sizeof(request), 0);
-	printf("[Client %d] Sent msg of size %lu to server\n", tid, bytesSent);
-	
+	// RaftClient will continue looping until it has received a response
 	while (true) {
-		readBytes = recv(clientFd, response, 1024 - 1, 0);
-		if (readBytes > 0 ) {
-			if (readBytes > RPC_HEADER_SIZE) {
-				Raft::RPCHeader header(response);
-				if (readBytes == RPC_HEADER_SIZE + header.payloadLength) {
-					Raft::RPC_StateMachineCmd_Request rpcResponse;
-					rpcResponse.ParseFromArray(response + RPC_HEADER_SIZE, header.payloadLength);
-					printf("[Client %d] received: %s\n", tid, rpcResponse.cmd().c_str());
+		for (auto& it : config.clusterMap) {
+			if ((clientFd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+				printf("\n Socket creation error \n");
+				continue;
+			}
+			if ((status 
+				= connect(clientFd, (struct sockaddr*)&serv_addr,
+						sizeof(serv_addr)))
+				< 0) {
+				printf("\nConnection Failed \n");
+				close(clientFd);
+				continue;
+			}
+			printf("[Client] Connected to server id %u\n", it.first);
+			size_t bytesSent = send(clientFd, request, sizeof(request), 0);
+			
+			while (true) {
+				readBytes = recv(clientFd, response, 1024 - 1, 0);
+				if (readBytes > 0 ) {
+					if (readBytes > RPC_HEADER_SIZE) {
+						Raft::RPCHeader header(response);
+						if (readBytes == RPC_HEADER_SIZE + header.payloadLength) {
+							Raft::RPC::StateMachineCmd::Response rpcResponse;
+							rpcResponse.ParseFromArray(response + RPC_HEADER_SIZE, header.payloadLength);
+							if (rpcResponse.success()) {
+								return rpcResponse.msg();
+							} else {
+								break;
+							}
+						}
+					}
+				} else if (readBytes == 0) {
+					close(clientFd);
+					printf("[Client] received no bytes from server\n");
+					break;
+				} else {
+					printf("[Client] Received bad value from server\n");
+					perror("Bad Socket");
+					close(clientFd);
+					break;
 				}
 			}
-		} else if (readBytes == 0) {
+			// closing the connected socket
 			close(clientFd);
-			printf("[Client %d] received no bytes from server\n", tid);
-			break;
-		} else {
-			printf("[Client %d] Received bad value from server\n", tid);
-			perror("Bad Socket");
-			close(clientFd);
-			break;
-		}
+        }
 	}
-	// closing the connected socket
-	close(clientFd);
-	return;
 }
 
-int main(int argc, char const* argv[]) {
-	std::vector<std::thread> threads(NUM_THREADS);
-	for (int tid = 0; tid < NUM_THREADS; tid++) {
-		threads[tid] = std::thread(connectAndSendToServer, tid);
-	}
+int main() {
+    // Step 1: parse configuration file to know what servers I can communicate with
+    Common::ClientConfig config = Common::ClientConfig(CONFIG_PATH);
 
-	for (int tid = 0; tid < NUM_THREADS; tid++) {
-		threads[tid].join();
-	}
-	return 0;
+    // Step 2: Launch application 
+    while (1) {
+        std::string str;
+
+        // (a) read line from stdin
+        std::getline(std::cin, str);
+
+        // (b) send the command to the cluster leader
+        std::string ret = connectAndSendToServer(config, &str);
+
+        // (c) print return value on stdout
+        std::cout << ret << std::endl;
+    }
+
+    return 0;
 }
