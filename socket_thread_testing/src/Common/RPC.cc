@@ -2,6 +2,12 @@
 #include <sstream>
 
 namespace Raft {
+
+    RPCHeader::RPCHeader()
+        : rpcType(RPCType::NONE),
+          payloadLength(0)
+        {}
+    
     RPCHeader::RPCHeader(RPCType rpcType, size_t payloadLength)
         : rpcType(rpcType),
           payloadLength(payloadLength)

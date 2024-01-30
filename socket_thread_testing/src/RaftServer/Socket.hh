@@ -55,12 +55,14 @@ class Socket {
          * @param data The EVFILT_READ data value provided by kernel. This is
          * the bytes of data available to read.
          * 
-         * @return Returns false if any errors occured when reading from the
-         * socket. True if no errors.
+         * @return Returns false if more bytes to be read, returns true if
+         * reading complete or an error occured and reading should discontinue.
          * 
          * TODO: Remove Socket manager when done with testing.
          */
-        virtual void handleReceiveEvent(int64_t data);
+        bool genericHandleReceiveEvent(int64_t data, int64_t& totalBytesRead);
+
+        virtual void handleReceiveEvent(int64_t data) = 0;
 
         /**
          * @brief This method is overriden by a subclass to handle the event
@@ -79,7 +81,14 @@ class Socket {
          * the conenction on the socket. The default behaviour is to clean up
          * everything to do with Client Socket.
          */
-        void disconnect();
+        virtual void disconnect();
+
+        enum SocketState {
+            NORMAL,
+            ERROR
+        };
+
+        SocketState state;
 
     protected:
         /**
@@ -106,6 +115,27 @@ class Socket {
          */
         [[maybe_unused]] PeerType peerType;
 
+                /**
+         * @brief Lock associated with the condition variable for signalling
+         * a change in state of the ClientSocket.
+         * 
+         */
+        std::mutex eventLock;
+
+        /**
+         * @brief Condition variable to signal to thread associated with the
+         * client socket that either an RPC has been added to its queue to send
+         * OR that the connection has gone bad and has to be restarted.
+         */
+        std::condition_variable_any eventCv;
+
+        /**
+         * @brief Condition variable for ClientSocketManager to wait on for
+         * the client socket's thread that it is done.
+         */
+        std::condition_variable_any stateCv;
+
+
         /**
          * @brief Wrapper that stores the bytes read from socket buffer and
          * the number of bytes read from socket buffer.
@@ -119,6 +149,7 @@ class Socket {
                  * @param headerSize Initial size of buffer. This is
                  * set to the size of a header.
                  */
+
                 ReceivedMessage(size_t headerSize);
 
                 ~ReceivedMessage();
@@ -145,7 +176,7 @@ class Socket {
                  * @brief Header parsed from incoming bytes. Every RPC is 
                  * prepended by a header.
                  */
-                Raft::RPCType rpcType;
+                Raft::RPCHeader header;
         };
 
         ReceivedMessage receivedMessage;
@@ -230,42 +261,28 @@ class ClientSocket : public Socket {
 
         ~ClientSocket();
 
+        void handleReceiveEvent(int64_t data);
+
         /**
          * @brief Signals to the thread responsible for user events to wakeup
          * to process the event.
          */
         void handleUserEvent();
 
+        /**
+         * @brief Set the state to error, so new action on socket will delete
+         * and reinitialized it.
+         */
+        void disconnect();
+
     protected:
-
-        /**
-         * @brief Lock associated with the condition variable for signalling
-         * a change in state of the ClientSocket.
-         * 
-         */
-        std::mutex eventLock;
-
-        /**
-         * @brief Condition variable to signal to thread associated with the
-         * client socket that either an RPC has been added to its queue to send
-         * OR that the connection has gone bad and has to be restarted.
-         */
-        std::condition_variable_any eventCv;
-
-        /**
-         * @brief Condition variable for ClientSocketManager to wait on for
-         * the client socket's thread that it is done.
-         */
-        std::condition_variable_any killThreadCv;
-
         struct sockaddr_in peerAddress;
 
         /**
-         * @brief Flag to indicate to client socket thread to shut down.
+         * @brief Flag used to indicate client socket thread should be killed
+         * 
          */
         bool killThread;
-
-        bool threadKilled;
 
 }; // class ClientSocket
 
@@ -294,6 +311,9 @@ class ServerSocket : public Socket {
 
         /* Destructor */
         ~ServerSocket();
+
+
+        void handleReceiveEvent(int64_t data);
 
         /**
          * @brief Method called when another RaftModule produced and RPC and 
