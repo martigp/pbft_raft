@@ -74,7 +74,7 @@ namespace Raft {
         }
 
         printf("[SocketManager] Registered new socket listener for socket id"
-               " %llu\n", socket->peerId);
+               " %llu, fd % d\n", socket->peerId, socket->fd);
     }
 
     void
