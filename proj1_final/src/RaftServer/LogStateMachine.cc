@@ -23,7 +23,6 @@ namespace Raft {
         stateMachineQ.push(cmd);
     }
 
-    // TODO: Need the USER FILT Stuff here!!!
     void LogStateMachine::stateMachineLoop() {
         while (true) {
             std::unique_lock<std::mutex> lock(stateMachineMutex);

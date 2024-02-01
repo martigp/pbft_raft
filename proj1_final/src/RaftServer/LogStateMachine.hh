@@ -39,8 +39,7 @@ namespace Raft {
 
             /**
              * @brief Begin state machine updater thread within StateMachine module
-             * 
-             * @return Thread ID for tracking in Global
+             * with thread passed in by reference
             */
             void startUpdater(std::thread &stateMachineUpdaterThread);
 
@@ -74,8 +73,8 @@ namespace Raft {
 
             /**
              * @brief Queue of things to execute
-             * TODO: what piece of info are client commands paired with to communicate back to
-             * Server Socket Manager, string for now
+             * Pair includes the clientId that issued the command and the 
+             * string command to execute
             */
             std::queue<std::pair<uint64_t, std::string>> stateMachineQ;
 
@@ -88,7 +87,7 @@ namespace Raft {
 
             /**
              * @brief State Machine Loop
-             * Currently has the stop mechanism included for demonstration purposes mostly
+             * Runs in  while(true) as one of the main threads in the program
             */
             void stateMachineLoop();
 

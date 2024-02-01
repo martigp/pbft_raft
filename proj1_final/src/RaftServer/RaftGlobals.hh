@@ -68,9 +68,13 @@ namespace Raft {
 
             /**
              * @brief Generates user event id to be used for user triggered
-             * events a socket manager kqueue. Starts as FIRST_USER_EVENT_ID
+             * events on a socket manager kqueue. Starts as FIRST_USER_EVENT_ID
              * and value returned will monotomically increase. When this is
              * called nextUserEventId is incremented.
+             * 
+             * Unique user event ids are generated for RaftClient connections
+             * and used to allow State Machine responses to be returned to the 
+             * correct RaftClient
              * 
              * @return Unique User Event Id 
              */
@@ -79,15 +83,20 @@ namespace Raft {
         
         private:
             /**
-             * @brief Persistent Threads(Timer, StateMachine, CSM kqueue, SSM kqueue)
+             * @brief Main Persistent Threads(Timer, StateMachine, CSM kqueue, SSM kqueue)
+             * Between these four and a threadpool for outbound client connections,
+             * all of Raft is maintained
             */
             std::vector<std::thread> mainThreads;
 
             /**
-             * @brief Map of ID to address, I think this is better
+             * @brief Map of RaftServer ID to address
              */
             std::unordered_map<int, sockaddr_in> clusterMap;
 
+            /**
+             * @brief Next Unique User Event Id
+             */
             std::atomic<uint32_t> nextUserEventId;
 
     }; // class Globals

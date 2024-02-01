@@ -37,7 +37,6 @@ namespace Raft {
             /* Destructor */
             ~Consensus();
 
-
             /**
              * @brief Reference to server globals
             */
@@ -220,8 +219,8 @@ namespace Raft {
 
             /**
              * @brief Current election timeout length (milliseconds) 
-             * Typically between 10-500ms
-             * TODO: wb heart beat sending interval (paper says 0.5ms to 20 ms)
+             * Currently timeout ranges from 5-10 seconds
+             * Heartbeat ranges from 1-2 seconds
             */
             uint64_t timerTimeout;
 
@@ -287,7 +286,7 @@ namespace Raft {
             std::unordered_set<int> myVotes;
 
             /**
-             * @brief After updating term, conversion to follow state(new election timeout and reset timer)
+             * @brief After updating term, conversion to follow state
             */
             void convertToFollower();
 
