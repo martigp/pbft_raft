@@ -258,7 +258,10 @@ class ListenSocket : public Socket {
 }; // class ListenSocket
 
 /**
- * @brief A socket connected to a Raft Server for sending RPC requests.
+ * @brief A socket connected to a Raft Server for sending RPC requests. 
+ * Client Sockets are for connections where the RaftServer is client of the
+ * underlying connection. The corresponding Server can only be a RaftServer
+ * since RaftServers do not send any RPC Requests to RaftClients
  */
 class ClientSocket : public Socket {
 
@@ -312,7 +315,7 @@ void clientSocketMain(void *args);
  * @brief A socket that listens for incoming Raft RPC requests.
  * ServerSockets are sockets for connections where the owner is server of the
  * underlying connection. The corresponding Client can be a RaftClient or a
- * RaftServer.
+ * RaftServer since both sends RPC Requests to Raft Servers.
  */
 class ServerSocket : public Socket {
     public:
