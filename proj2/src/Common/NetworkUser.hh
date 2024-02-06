@@ -8,9 +8,6 @@
 #include <netinet/in.h>
 #include "Common/NetworkServiceConfig.hh"
 
-
-#define FIRST_USER_EVENT_ID INT_MAX + 1
-
 namespace Common {
 
     class NetworkUser {
