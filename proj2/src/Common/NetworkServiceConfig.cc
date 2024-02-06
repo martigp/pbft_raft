@@ -3,10 +3,10 @@
 #include <libconfig.h++>
 #include <iostream>
 #include <arpa/inet.h>
-#include "ServerConfig.hh"
+#include "NetworkServiceConfig.hh"
 
 namespace Common {
-    ServerConfig::ServerConfig( std::string configPath ) {
+    NetworkServiceConfig::NetworkServiceConfig( std::string configPath ) {
         libconfig::Config cfg;
 
         // Read the config file. Exit if any error.
@@ -29,7 +29,7 @@ namespace Common {
         try {
             std::string cfgListenAddr = cfg.lookup("listenAddress");
             listenAddr = cfgListenAddr;
-            raftPort = cfg.lookup("raftPort");
+            networkPort = cfg.lookup("raftPort");
             serverId = cfg.lookup("serverId");
 
             std::string cfgLogPath = cfg.lookup("logPath");
@@ -87,7 +87,7 @@ namespace Common {
 
     }
 
-    ServerConfig::~ServerConfig()
+    NetworkServiceConfig::~NetworkServiceConfig()
     {
     }
 }
