@@ -1,0 +1,233 @@
+#ifndef RAFT_RaftServer_H
+#define RAFT_RaftServer_H
+
+#include <string>
+#include <memory>
+#include <optional>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+#include <utility>
+#include <libconfig.h++>
+#include <unordered_map>
+
+namespace Raft {
+
+    class Timer;
+    class Storage;
+    class Network;
+
+    enum class EventType {
+        TIMER_FIRED,
+        MESSAGE_RECEIVED
+    };
+
+    class RaftServer {
+        public:
+            /**
+             * @brief Construct a new RaftServer that stores the Global Raft State.
+            * 
+             * @param configPath The path of the configuration file. 
+             */
+            RaftServer( std::string configPath );
+
+            /* Destructor */
+            ~RaftServer();
+
+            /**
+             * @brief Start the RaftServer process
+             */
+            void start();
+
+            /**
+             * @brief Add an event to the RaftServer eventQueue
+             * All external events(messages received, timer fired)
+             * will add their notification to this queue, so that the
+             * single main thread for the RaftServer will respond in 
+             * the order that the events were received.
+             * 
+             * @param type (For now) either a message or a timer event
+             *             might make committed entries an event
+             * 
+             * @param payload Optional string containing information about
+             *                the event
+            */
+            void addRaftEvent(Raft::EventType type, std::optional<std::string> payload = std::nullopt);
+
+        
+        private:
+            /**************************************************************
+             * Below are the variables needed to manage the eventQueue:
+             * the main interface through which timer and message received
+             * events will be registered and handled by the RaftServer
+            **************************************************************/
+
+            /**
+             * @brief Mutex for the eventQueue
+            */
+            std::mutex eventQueueMutex;
+
+            /**
+             * @brief Condition Variable used to notify of new events on 
+             * the eventQueue
+            */
+            std::condition_variable eventQueueCV;
+
+            /**
+             * @brief Queue of events for the main RaftServer thread to handle
+             * Each element is a pair, indicating the type of event and an 
+             * optional string paired with the event
+            */
+            std::queue<std::pair<Raft::EventType, std::optional<std::string>>> eventQueue;
+
+            /**************************************************************
+             * Below are the variables/methods needed to manage consensus:
+             * As specified by Figure 2
+            **************************************************************/
+
+            /**
+             * Enum for: Follower, Candidate, Leader as specified in Figure 2
+            */
+            enum class ServerState {
+                FOLLOWER,
+                CANDIDATE,
+                LEADER
+            };
+
+            /*************************************
+             * Persistent state on all servers
+            **************************************/
+
+            /**
+             * @brief The latest term server has seen 
+             * - initialized to 0 on first boot, increases monotonically
+            */
+            int32_t currentTerm;
+
+            /**
+             * @brief candidateID that received vote in current term 
+             * - or 0 if none
+            */
+            int32_t votedFor;
+
+            /**
+             * @brief Index of highest log entry applied to state machine
+             * - initialized to 0, increases monotonically
+            */
+            int32_t lastApplied;
+            
+            /*************************************
+             * Volatile state on all servers
+            **************************************/
+
+            /**
+             * @brief Index of highest log entry known to be committed
+             * - initialized to 0, increases monotonically
+            */
+            int32_t commitIndex;
+
+            /*************************************
+             * Volatile state on all leaders
+            **************************************/
+
+            /**
+             * @brief For each server, index of the next log entry to send to that server
+             * - initialized to leader last log index +1
+            */
+            std::vector<int32_t> nextIndex;
+
+            /**
+             * @brief Index of highest log entry known to be replicated on server
+             * - initialized to 0, increases monotonically
+            */
+            std::vector<int32_t> matchIndex;
+
+            /*************************************
+             * Below are all internal methods, etc
+            **************************************/
+
+            /**
+             * @brief Most recent request_id for each RaftServer
+             * Allows us to only process response to the most recent
+             * request sent to each server
+            */
+            std::unordered_map<uint64_t, uint64_t> mostRecentRequestId;
+
+            /**
+             * @brief Receiver Implementation of AppendEntriesRPC
+             * Sends back a response
+             * Follows bottom left box in Figure 2
+            */
+            void receivedAppendEntriesRPC(Raft::RPC::AppendEntries::Request req, int peerId); 
+
+            /**
+             * @brief Sender Implementation of AppendEntriesRPC
+             * Process the response received(term, success)
+             * Follows bottom left box in Figure 2
+            */
+            void processAppendEntriesRPCResp(Raft::RPC::AppendEntries::Response resp, int peerId);
+
+            /**
+             * @brief Receiver Implementation of RequestVoteRPC
+             * Sends back a response
+             * Follows upper right box in Figure 2
+            */
+            void receivedRequestVoteRPC(Raft::RPC::RequestVote::Request req, int peerId); 
+
+            /**
+             * @brief Sender Implementation of RequestVoteRPC
+             * Process the response received(term, voteGranted)
+             * Follows upper right box in Figure 2
+            */
+            void processRequestVoteRPCResp(Raft::RPC::RequestVote::Response resp, int peerId);
+
+            /**
+             * @brief Decide action after timeout occurs
+            */
+            void timeoutHandler();
+
+            /**
+             * @brief Assign appendEntries Heartbeat time to timerTimeout
+            */
+            void setHeartbeatTimeout();
+
+            /**
+             * @brief Generate a new election interval, assign to timerTimeout
+            */
+            void generateRandomElectionTimeout();
+
+            /**
+             * @brief Start a new Election:
+             *      - increment currentTerm
+             *      - vote for self
+             *      - reset election timer
+             *      - Send RequestVoteRPC to all servers
+            */
+            void startNewElection();
+
+            /**
+             * @brief Private counter for number of votes received when running an election
+            */
+            int numVotesReceived;
+
+            /**
+             * @brief Set for which servers have voted for you in current election
+             * Avoids double counting votes from same server
+            */
+            std::unordered_set<int> myVotes;
+
+            /**
+             * @brief After updating term, conversion to follow state
+            */
+            void convertToFollower();
+
+            /**
+             * @brief After winning election, convert to leader
+            */
+            void convertToLeader();
+
+
+    }; // class RaftServer
+} // namespace Raft
+
+#endif /* RAFT_RAFTSERVER_H */

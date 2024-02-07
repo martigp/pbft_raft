@@ -4,20 +4,32 @@
 #include <cstdlib>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
-#include "RaftServer/RaftGlobals.hh"
-#include "RaftServer/Socket.hh"
+#include "RaftServer/RaftServer.hh"
 #include <fstream>
 #include <filesystem>
 
 namespace Raft {
     
-    Globals::Globals( std::string configPath )
-        : config( configPath ),
-          clientSocketManager(),
-          serverSocketManager(),
-          consensus(),
-          logStateMachine(),
-          nextUserEventId (FIRST_USER_EVENT_ID)
+    RaftServer::RaftServer( std::string configPath )
+        : config( configPath )
+        , network( )
+        , timer( )
+        , storage( )
+        , myState ( Consensus::ServerState::FOLLOWER )
+        , serverId ( globals.config.serverId )
+        , leaderId ( 0)
+        , currentTerm ( 0 )
+        , votedFor ( 0 )
+        , log ( {} )
+        , commitIndex ( 0 )
+        , lastApplied ( 0 )
+        , nextIndex ( 0 )
+        , matchIndex ( {} )
+        , mostRecentRequestId ( 0 )
+        , timerTimeout ( 0 )
+        , timerReset ( false )
+        , numVotesReceived ( 0 )
+        , myVotes ( {} )
     {     
         try {  
             clientSocketManager.reset(new ClientSocketManager(*this));
@@ -30,11 +42,11 @@ namespace Raft {
         } 
     }
 
-    Globals::~Globals()
+    RaftServer::~RaftServer()
     {
     }
 
-    void Globals::start()
+    void RaftServer::start()
     {
         /* Start SSM listening. */
         serverSocketManager->startListening(mainThreads[0]);
@@ -48,16 +60,12 @@ namespace Raft {
         /* Start the updater. */
         logStateMachine->startUpdater(mainThreads[3]);
 
-        std::cout << "[RaftGlobals]: started SSM, CSM, timer and state machine" << std::endl;
+        std::cout << "[RaftRaftServer]: started SSM, CSM, timer and state machine" << std::endl;
         
         /* Join persistent threads. All are in a while(true) */
         mainThreads[0].join();
         mainThreads[1].join();
         mainThreads[2].join();
         mainThreads[3].join();
-    }
-
-    uint32_t Globals::genUserEventId() {
-        return nextUserEventId++;
     }
 }
