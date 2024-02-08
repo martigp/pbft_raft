@@ -3,9 +3,9 @@
 #include <libconfig.h++>
 #include <iostream>
 #include <arpa/inet.h>
-#include "ClientConfig.hh"
+#include "RaftClient/ClientConfig.hh"
 
-namespace Common {
+namespace Raft {
     ClientConfig::ClientConfig( std::string configPath ) {
         libconfig::Config cfg;
 
@@ -16,12 +16,12 @@ namespace Common {
         }
         catch(const libconfig::FileIOException &fioex)
         {
-            std::cerr << "I/O error while reading file." << std::endl;
+            std::cerr << "[ClientConfig]: I/O error while reading config. Exiting." << std::endl;
             exit(EXIT_FAILURE);
         }
         catch(const libconfig::ParseException &pex)
         {
-            std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
+            std::cerr << "[ClientConfig]: Config file parse error at " << pex.getFile() << ":" << pex.getLine()
                     << " - " << pex.getError() << std::endl;
             exit(EXIT_FAILURE);
         }
@@ -39,33 +39,19 @@ namespace Common {
                 uint64_t serverId;
                 std::string serverIPAddr;
                 uint64_t serverPort;
-                struct sockaddr_in serverSockAddr;
-
 
                 const libconfig::Setting &server = servers[i];
 
                 if (!server.lookupValue("id", serverId) ||
                     !server.lookupValue("address", serverIPAddr) ||
                     !server.lookupValue("port", serverPort)) {
-                        std::cerr << "Failed to read server " << i << 
+                        std::cerr << "[ClientConfig]: Failed to read server " << i << 
                         " config information." << std::endl;
                         exit(EXIT_FAILURE);
                 }
-                
-                serverSockAddr.sin_family = AF_INET;
-                serverSockAddr.sin_port = htons((uint16_t)serverPort);
-
-                // Populate the serverSockAddr with an IP address. Now ready
-                // for use with any socket functions.
-                if (inet_pton(AF_INET, serverIPAddr.c_str(),
-                              &serverSockAddr.sin_addr) <= 0) {
-                    std::cerr << "Invalid server config address" << 
-                                 serverIPAddr << std::endl;
-                    exit(EXIT_FAILURE);
-                }
 
                 // Might need to be a non stack allocated string?
-                clusterMap[serverId] = serverSockAddr;
+                clusterMap[serverId] = {serverIPAddr, serverPort};
             }
 
             // Number of servers including
@@ -76,7 +62,7 @@ namespace Common {
         // Any error when parsing fields in the configuration file
         catch(const libconfig::SettingNotFoundException &nfex)
         {
-            std::cerr << "Server setting not found in cfg file," << std::endl;
+            std::cerr << "[ClientConfig]: Server setting not found in cfg file," << std::endl;
             exit(EXIT_FAILURE);
         }
 

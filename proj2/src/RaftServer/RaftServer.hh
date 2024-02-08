@@ -10,16 +10,50 @@
 #include <utility>
 #include <libconfig.h++>
 #include <unordered_map>
+#include "RaftServer/ShellStateMachine.hh"
+#include "Protobuf/RaftRPC.pb.h"
+#include "Common/RPC.hh"
+#include "Common/NetworkService.hh"
 
 namespace Raft {
 
-    class Timer;
-    class Storage;
-    class Network;
+    // class Timer;
+    // class Storage;
+    // class ShellStateMachine;
 
-    enum class EventType {
+    // TODO: Do we want to use this to make things easier to pass around 
+    // string addr and int port before they make it to the network class?
+    struct IPAddress {
+        std::string addr;
+        uint64_t port;
+        bool operator==(const IPAddress& a) const
+        {
+        return (addr == a.addr && port == a.port);
+        }
+    };
+
+    enum EventType {
         TIMER_FIRED,
-        MESSAGE_RECEIVED
+        MESSAGE_RECEIVED,
+        STATE_MACHINE_APPLIED
+    };
+
+    /**
+     * RaftServerEvent is the generic wrapper for all incoming
+     * events that will be queued up for the Raft Server to handle.
+     * The EventQueue will be processed by a single thread, to ensure
+     * no race conditions and provide a logic handling method
+     * consistent with the Raft paper.
+    */
+    struct RaftServerEvent {
+        EventType type;
+        /* If type is MESSAGE_RECEIVED, this field will be set*/
+        std::optional<std::string> ipAddr;
+        std::optional<uint64_t> ipPort;
+        std::optional<std::string> networkMsg;
+        /* If type is STATE_MACHINE_APPLIED, these fields will be set*/
+        std::optional<uint64_t> logIndex;
+        std::optional<std::string> stateMachineResult;
     };
 
     class RaftServer {
@@ -40,22 +74,43 @@ namespace Raft {
             void start();
 
             /**
-             * @brief Add an event to the RaftServer eventQueue
-             * All external events(messages received, timer fired)
-             * will add their notification to this queue, so that the
-             * single main thread for the RaftServer will respond in 
-             * the order that the events were received.
+             * @brief Raft callback method for the Network
+             * TODO: these are bad explanations
              * 
-             * @param type (For now) either a message or a timer event
-             *             might make committed entries an event
+             * @param ipAddr IP Address from which a message was received
              * 
-             * @param payload Optional string containing information about
-             *                the event
+             * @param ipPort IP Port from which a message was received
+             * 
+             * @param networkMsg String contents of network message received
             */
-            void addRaftEvent(Raft::EventType type, std::optional<std::string> payload = std::nullopt);
+            void notifyRaftOfNetworkMessage(std::string ipAddr, uint64_t ipPort, std::string networkMsg);
+
+            /**
+             * @brief Raft callback method for the Timer
+            */
+            void notifyRaftOfTimerEvent();
+
+            /**
+             * @brief Raft callback method for the State Machine
+             * 
+             * @param index Index of log entry that was applied
+             * 
+             * @param stateMachineResult Result of application of log entry 
+             * to the State Machine
+            */
+            void notifyRaftOfStateMachineApplied(int32_t index, std::string stateMachineResult);
 
         
         private:
+            /**************************************************************
+             * Unique pointers to each of the other classes that support
+             * the RaftServer functionality
+            **************************************************************/
+            std::unique_ptr<ShellStateMachine> shellSM;
+            std::unique_ptr<Timer> timer;
+            std::unique_ptr<Storage> storage;
+            std::unique_ptr<Common::NetworkService> network;
+
             /**************************************************************
              * Below are the variables needed to manage the eventQueue:
              * the main interface through which timer and message received
@@ -75,10 +130,14 @@ namespace Raft {
 
             /**
              * @brief Queue of events for the main RaftServer thread to handle
-             * Each element is a pair, indicating the type of event and an 
-             * optional string paired with the event
+             * Each element is a struct of type RaftServerEvent
+             * 
+             * All external events(messages received, timer fired, state machine 
+             * applied) will add their notification to this queue, so that the
+             * single main thread for the RaftServer will respond in 
+             * the order that the events were received.
             */
-            std::queue<std::pair<Raft::EventType, std::optional<std::string>>> eventQueue;
+            std::queue<RaftServerEvent> eventQueue;
 
             /**************************************************************
              * Below are the variables/methods needed to manage consensus:
@@ -181,6 +240,13 @@ namespace Raft {
             */
             void processRequestVoteRPCResp(Raft::RPC::RequestVote::Response resp, int peerId);
 
+            /**
+             * @brief Current election timeout length (milliseconds) 
+             * Currently timeout ranges from 5-10 seconds
+             * Heartbeat ranges from 1-2 seconds
+            */
+            uint64_t timerTimeout;
+            
             /**
              * @brief Decide action after timeout occurs
             */

@@ -1,16 +1,21 @@
-#ifndef COMMON_CLIENTCONFIG_H
-#define COMMON_CLIENTCONFIG_H
+#ifndef RAFT_CLIENTCONFIG_H
+#define RAFT_CLIENTCONFIG_H
 
 #include <string>
 #include <netinet/in.h>
 
-namespace Common {
+namespace Raft {
     class ClientConfig {
         public:
             /**
-             * @brief Constructor
+             * @brief Constructor for a Raft Client configuraiton
+             * 
              * @param configPath path to file with all Raft Server cluster
              * configuation information.
+             * 
+             * @returns Object with easily accessible address and port
+             * information for the cluster.
+             * Will exit if file is not found or is unable to be read.
              */
             ClientConfig(std::string configPath);
 
@@ -26,7 +31,7 @@ namespace Common {
              * @brief Port for RaftClient
              * 
              */
-            int port;
+            uint64_t port;
 
             /**
              * @brief The number of servers INCLUDING the current server.
@@ -35,15 +40,12 @@ namespace Common {
             uint64_t numClusterServers;
 
             /**
-             * @brief Maps Raft Server Id to an fully initialized socket address 
-             * for all other RaftServers in this cluster. Socket address can be 
-             * passed into a socket constructor without any additional 
-             * configuration. These addresses are used for sending RaftServer 
-             * Requests to other Raft Servers
+             * @brief Maps Raft Server Id to address and port pair
+             * TODO: I know we won't be using pair so need to replace this
              */
-            std::unordered_map<uint64_t, sockaddr_in> clusterMap;
+            std::unordered_map<uint64_t, std::pair<std::string, uint64_t>> clusterMap;
 
     }; // class ClientConfig
-} // namespace Common
+} // namespace Raft
 
-#endif /* COMMON_CLIENTCONFIG_H */
+#endif /* RAFT_CLIENTCONFIG_H */

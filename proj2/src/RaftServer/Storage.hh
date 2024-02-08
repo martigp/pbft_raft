@@ -1,6 +1,10 @@
+#ifndef RAFT_STORAGE_H
+#define RAFT_STORAGE_H
+
 #include <string>
 
 namespace Raft {
+
     class Storage {
         public:
             /**
@@ -112,5 +116,7 @@ namespace Raft {
             int32_t votedFor = -1;
             int32_t lastApplied = -1;
             int32_t logLength = -1;
-    }
-}
+    }; // class Storage
+} // namespace Raft
+
+#endif /* RAFT_STORAGE_H */
