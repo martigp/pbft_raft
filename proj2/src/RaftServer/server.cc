@@ -13,19 +13,17 @@
 #include <fstream>
 #include <filesystem>
 #include <string>
-#include "RaftServer/RaftGlobals.hh"
-#include "RaftServer/Socket.hh"
-
-#define CONFIG_PATH_HEADER "./config_ID_"
-#define CONFIG_SUFFIX ".cfg"
+#include "RaftServer/RaftServer.hh"
 
 using namespace Raft;
 
 /* Run a Raft Server */
 int main(int argc, char const* argv[])
 {   
-    Raft::Globals globals(CONFIG_PATH_HEADER + std::string(argv[1]) + CONFIG_SUFFIX);
+    // Pass in server ID specified on command line and optional flag for first boot
+    // TODO: add the optional flag
+    Raft::RaftServer server(arvg[1]);
     std::cout << "[RaftServerMain]: in server.cc" << std::endl;
 
-    globals.start();
+    server.start();
 }

@@ -11,6 +11,7 @@
 #include <utility>
 #include <libconfig.h++>
 #include <unordered_map>
+#include "RaftServer/ServerConfig.hh"
 #include "RaftServer/ShellStateMachine.hh"
 #include "RaftServer/Timer.hh"
 #include "Protobuf/RaftRPC.pb.h"
@@ -18,10 +19,6 @@
 #include "Common/NetworkService.hh"
 
 namespace Raft {
-
-    // class Timer;
-    // class Storage;
-    // class ShellStateMachine;
 
     // TODO: Do we want to use this to make things easier to pass around 
     // string addr and int port before they make it to the network class?
@@ -62,10 +59,12 @@ namespace Raft {
         public:
             /**
              * @brief Construct a new RaftServer that stores the Global Raft State.
-            * 
+             * 
              * @param configPath The path of the configuration file. 
+             * 
+             * @param serverID Parsed from the command line, must be present in config file
              */
-            RaftServer( std::string configPath );
+            RaftServer( std::string configPath, uint64_t serverID);
 
             /* Destructor */
             ~RaftServer();
@@ -113,6 +112,8 @@ namespace Raft {
             std::unique_ptr<Storage> storage;
             std::unique_ptr<Common::NetworkService> network;
 
+            ServerConfig config;
+
             /**************************************************************
              * Below are the variables needed to manage the eventQueue:
              * the main interface through which timer and message received
@@ -154,6 +155,11 @@ namespace Raft {
                 CANDIDATE,
                 LEADER
             };
+
+            /**
+             * @brief State of this server
+            */
+            ServerState myState;
 
             /*************************************
              * Persistent state on all servers

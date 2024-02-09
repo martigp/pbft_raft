@@ -10,33 +10,29 @@
 
 namespace Raft {
     
-    RaftServer::RaftServer( std::string configPath )
-        : config( configPath )
-        , network( )
+    RaftServer::RaftServer( std::string configPath, uint64_t serverID )
+        : network( )
         , timer( )
         , storage( )
-        , myState ( Consensus::ServerState::FOLLOWER )
-        , serverId ( globals.config.serverId )
-        , leaderId ( 0)
+        , myState ( RaftServer::ServerState::FOLLOWER )
+        , serverId ( config.serverId )
+        , leaderId ( 0 )
         , currentTerm ( 0 )
         , votedFor ( 0 )
-        , log ( {} )
         , commitIndex ( 0 )
         , lastApplied ( 0 )
         , nextIndex ( 0 )
         , matchIndex ( {} )
         , mostRecentRequestId ( 0 )
-        , timerTimeout ( 0 )
-        , timerReset ( false )
         , numVotesReceived ( 0 )
         , myVotes ( {} )
-    {     
+    {   
+        config = ServerConfig(configPath, serverID);  
         try {  
-            clientSocketManager.reset(new ClientSocketManager(*this));
+            timer.reset(new Timer(&RaftServer::notifyRaftOfTimerEvent, *this));
             serverSocketManager.reset(new ServerSocketManager(*this));
             consensus.reset(new Consensus(*this));
             logStateMachine.reset(new LogStateMachine(*this)); 
-            mainThreads = std::vector<std::thread>(4);
         } catch(const std::exception& e) {
             std::cerr << e.what() << std::endl;
         } 

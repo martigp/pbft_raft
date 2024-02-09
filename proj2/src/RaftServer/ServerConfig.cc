@@ -3,10 +3,10 @@
 #include <libconfig.h++>
 #include <iostream>
 #include <arpa/inet.h>
-#include "RaftClient/ClientConfig.hh"
+#include "RaftServer/ServerConfig.hh"
 
 namespace Raft {
-    ClientConfig::ClientConfig( std::string configPath ) {
+    ServerConfig::ServerConfig( std::string configPath ) {
         libconfig::Config cfg;
 
         // Read the config file. Exit if any error.
@@ -16,20 +16,21 @@ namespace Raft {
         }
         catch(const libconfig::FileIOException &fioex)
         {
-            std::cerr << "[ClientConfig]: I/O error while reading config. Exiting." << std::endl;
+            std::cerr << "I/O error while reading file." << std::endl;
             exit(EXIT_FAILURE);
         }
         catch(const libconfig::ParseException &pex)
         {
-            std::cerr << "[ClientConfig]: Config file parse error at " << pex.getFile() << ":" << pex.getLine()
+            std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
                     << " - " << pex.getError() << std::endl;
             exit(EXIT_FAILURE);
         }
 
         try {
-            std::string cfgAddr = cfg.lookup("addr");
-            addr = cfgAddr;
-            port = cfg.lookup("port");
+            std::string cfgListenAddr = cfg.lookup("listenAddress");
+            addr = cfgListenAddr;
+            port = cfg.lookup("raftPort");
+            serverId = cfg.lookup("serverId");
 
             const libconfig::Setting& root = cfg.getRoot();
             const libconfig::Setting& servers = root["servers"];
@@ -45,7 +46,7 @@ namespace Raft {
                 if (!server.lookupValue("id", serverId) ||
                     !server.lookupValue("address", serverIPAddr) ||
                     !server.lookupValue("port", serverPort)) {
-                        std::cerr << "[ClientConfig]: Failed to read server " << i << 
+                        std::cerr << "Failed to read server " << i << 
                         " config information." << std::endl;
                         exit(EXIT_FAILURE);
                 }
@@ -54,20 +55,19 @@ namespace Raft {
             }
 
             // Number of servers including
-            numClusterServers = servers.getLength();
-
+            numClusterServers = servers.getLength() + 1;
         }
 
         // Any error when parsing fields in the configuration file
         catch(const libconfig::SettingNotFoundException &nfex)
         {
-            std::cerr << "[ClientConfig]: Server setting not found in cfg file," << std::endl;
+            std::cerr << "Server setting not found in cfg file," << std::endl;
             exit(EXIT_FAILURE);
         }
 
     }
 
-    ClientConfig::~ClientConfig()
+    ServerConfig::~ServerConfig()
     {
     }
 }

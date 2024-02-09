@@ -28,11 +28,11 @@ namespace Raft {
             bool setCurrentTermValue(int32_t term);
 
             /**
-             * @brief  Read the value for currentTerm
+             * @brief Get the value for currentTerm
              * 
              * @returns Value of the currentTerm
             */
-            int32_t readCurrentTermValue();
+            int32_t getCurrentTermValue();
 
             /**
              * @brief Set the value for votedFor and write to storage
@@ -42,14 +42,14 @@ namespace Raft {
             bool setVotedForValue(int32_t term);
 
             /**
-             * @brief  Read the value for votedFor
+             * @brief Get the value for votedFor
              * 
              * @returns Value of the votedFor
             */
-            int32_t readVotedForValue();
+            int32_t getVotedForValue();
 
             /**
-             * @brief  Read the value of logLength
+             * @brief Get the value of logLength
              * 
              * @returns Length of the log
             */
@@ -63,11 +63,11 @@ namespace Raft {
             bool setLastAppliedValue(int32_t term);
 
             /**
-             * @brief  Read the value for lastApplied log index
+             * @brief Get the value for lastApplied log index
              * 
              * @returns Value of the lastApplied
             */
-            int32_t readLastAppliedValue();
+            int32_t getLastAppliedValue();
 
             /**
              * @brief Store a log entry at a specified index with a specified term
@@ -84,7 +84,7 @@ namespace Raft {
             bool setLogEntry(int32_t index, int32_t term, std::string entry);
 
             /**
-             * @brief Read a log entry at a specified index
+             * @brief Get a log entry at a specified index
              * 
              * @param index Index in the log
              * 
@@ -94,7 +94,7 @@ namespace Raft {
              * 
              * @returns boolean indicating success or failure
             */
-            bool readLogEntry(int32_t index, int32_t &term, std::string &entry);
+            bool getLogEntry(int32_t index, int32_t &term, std::string &entry);
 
             /**
              * @brief Truncate log entries starting at specified index

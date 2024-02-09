@@ -34,7 +34,7 @@ namespace Raft {
             uint64_t port;
 
             /**
-             * @brief The number of servers INCLUDING the current server.
+             * @brief The number of servers in the Raft Cluster.
              * 
              */
             uint64_t numClusterServers;
