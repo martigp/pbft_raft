@@ -24,14 +24,9 @@ namespace Raft {
 
             /**
              * @brief Address for RaftClient
+             * Formatted: "xx.xx.xx.xx:port"
              */
-            std::string addr;
-
-            /**
-             * @brief Port for RaftClient
-             * 
-             */
-            uint64_t port;
+            std::string ipAddr;
 
             /**
              * @brief The number of servers in the Raft Cluster.
@@ -41,9 +36,8 @@ namespace Raft {
 
             /**
              * @brief Maps Raft Server Id to address and port pair
-             * TODO: I know we won't be using pair so need to replace this
              */
-            std::unordered_map<uint64_t, std::pair<std::string, uint64_t>> clusterMap;
+            std::unordered_map<uint64_t, std::string> clusterMap;
 
     }; // class ClientConfig
 } // namespace Raft

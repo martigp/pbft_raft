@@ -28,8 +28,7 @@ namespace Raft {
 
         try {
             std::string cfgListenAddr = cfg.lookup("listenAddress");
-            addr = cfgListenAddr;
-            port = cfg.lookup("raftPort");
+            ipAddr = cfgListenAddr;
             serverId = cfg.lookup("serverId");
 
             const libconfig::Setting& root = cfg.getRoot();
@@ -39,19 +38,17 @@ namespace Raft {
             for (int i = 0; i < servers.getLength(); i++) {
                 uint64_t serverId;
                 std::string serverIPAddr;
-                uint64_t serverPort;
 
                 const libconfig::Setting &server = servers[i];
 
                 if (!server.lookupValue("id", serverId) ||
-                    !server.lookupValue("address", serverIPAddr) ||
-                    !server.lookupValue("port", serverPort)) {
+                    !server.lookupValue("address", serverIPAddr)) {
                         std::cerr << "Failed to read server " << i << 
                         " config information." << std::endl;
                         exit(EXIT_FAILURE);
                 }
 
-                clusterMap[serverId] = {serverIPAddr, serverPort};
+                clusterMap[serverId] = serverIPAddr;
             }
 
             // Number of servers including

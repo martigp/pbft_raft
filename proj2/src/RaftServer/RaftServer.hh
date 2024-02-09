@@ -48,7 +48,6 @@ namespace Raft {
         EventType type;
         /* If type is MESSAGE_RECEIVED, this field will be set*/
         std::optional<std::string> ipAddr;
-        std::optional<uint64_t> ipPort;
         std::optional<std::string> networkMsg;
         /* If type is STATE_MACHINE_APPLIED, these fields will be set*/
         std::optional<uint64_t> logIndex;
@@ -79,12 +78,11 @@ namespace Raft {
              * TODO: these are bad explanations
              * 
              * @param ipAddr IP Address from which a message was received
-             * 
-             * @param ipPort IP Port from which a message was received
+             * Formatted: "xx.xx.xx.xx:port"
              * 
              * @param networkMsg String contents of network message received
             */
-            void notifyRaftOfNetworkMessage(std::string ipAddr, uint64_t ipPort, std::string networkMsg);
+            void notifyRaftOfNetworkMessage(std::string ipAddr, std::string networkMsg);
 
             /**
              * @brief Raft callback method for the Timer
@@ -99,7 +97,7 @@ namespace Raft {
              * @param stateMachineResult Result of application of log entry 
              * to the State Machine
             */
-            void notifyRaftOfStateMachineApplied(int32_t index, std::string stateMachineResult);
+            void notifyRaftOfStateMachineApplied(uint64_t logIndex, std::string stateMachineResult);
 
         
         private:
@@ -221,32 +219,60 @@ namespace Raft {
             std::unordered_map<uint64_t, uint64_t> mostRecentRequestId;
 
             /**
+             * @brief Method processes a callback received from the State Machine
+             * prompting an update to lastApplied information.
+             * Additionally, if the log index is associated with a Client IPAddr,
+             * the RaftServer will send the response.
+            */
+            void handleAppliedLogEntry(uint64_t appliedIndex, std::string result);
+
+            /**
+             * @brief Given an IP Address and string message:
+             *      Parse message and extract protobuf format
+             *      Extract RaftServer ID or RaftClient based on IP
+            */
+            void parseAndHandleNetworkMessage(std::string ipAddr, std::string networkMsg);
+
+            /**
              * @brief Receiver Implementation of AppendEntriesRPC
              * Sends back a response
              * Follows bottom left box in Figure 2
             */
-            void receivedAppendEntriesRPC(Raft::RPC::AppendEntries::Request req, int peerId); 
+            void receivedAppendEntriesRPC(int peerId, Raft::RPC::AppendEntries::Request req); 
 
             /**
              * @brief Sender Implementation of AppendEntriesRPC
              * Process the response received(term, success)
              * Follows bottom left box in Figure 2
             */
-            void processAppendEntriesRPCResp(Raft::RPC::AppendEntries::Response resp, int peerId);
+            void processAppendEntriesRPCResp(int peerId, Raft::RPC::AppendEntries::Response resp);
 
             /**
              * @brief Receiver Implementation of RequestVoteRPC
              * Sends back a response
              * Follows upper right box in Figure 2
             */
-            void receivedRequestVoteRPC(Raft::RPC::RequestVote::Request req, int peerId); 
+            void receivedRequestVoteRPC(int peerId, Raft::RPC::RequestVote::Request req); 
 
             /**
              * @brief Sender Implementation of RequestVoteRPC
              * Process the response received(term, voteGranted)
              * Follows upper right box in Figure 2
             */
-            void processRequestVoteRPCResp(Raft::RPC::RequestVote::Response resp, int peerId);
+            void processRequestVoteRPCResp(int peerId, Raft::RPC::RequestVote::Response resp);
+
+            /**
+             * @brief Mapping of log index to client IP addr
+             * Once log indices are committed, respond to the 
+             * corresponding client IP
+            */
+            std::map<uint64_t, uint64_t> logToClientIPMap;
+
+            /**
+             * @brief Receipt of new shell command from client
+             * 
+            */
+            void receivedClientCommandRPC(std::string ipAddr, Raft::RPC::ClientCommand cmd);
             
             /**
              * @brief Decide action after timeout occurs

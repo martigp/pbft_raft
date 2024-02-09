@@ -59,7 +59,7 @@ namespace Raft {
              * @brief Function provided by RaftServer that will accept as arguments a
              * log index and a result once they have been applied
             */
-            std::function<void<int32_t, std::string>> callbackRaftServer;
+            std::function<void<uint64_t, std::string>> callbackRaftServer;
 
             /**
              * @brief StateMachine Updates CV 
