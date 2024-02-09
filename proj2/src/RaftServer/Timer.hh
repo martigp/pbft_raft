@@ -7,6 +7,7 @@
 #include <mutex>
 #include <thread>
 #include <chrono>
+#include "RaftServer/RaftServer.hh"
 
 namespace Raft {
 
@@ -18,7 +19,7 @@ namespace Raft {
              * 
              * @param callbackFn Function to be called when timer times out
             */
-            Timer(std::function<void()> callbackFn);
+            Timer(std::function<void()> callbackFn, Raft::RaftServer& server);
 
             /**
              * Destructor for Timer object

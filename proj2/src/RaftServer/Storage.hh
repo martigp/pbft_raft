@@ -25,49 +25,49 @@ namespace Raft {
              * 
              * @param term Value of the currentTerm
             */
-            bool setCurrentTermValue(int32_t term);
+            bool setCurrentTermValue(uint64_t term);
 
             /**
              * @brief Get the value for currentTerm
              * 
              * @returns Value of the currentTerm
             */
-            int32_t getCurrentTermValue();
+            uint64_t getCurrentTermValue();
 
             /**
              * @brief Set the value for votedFor and write to storage
              * 
              * @param term Value of votedFor
             */
-            bool setVotedForValue(int32_t term);
+            bool setVotedForValue(uint64_t term);
 
             /**
              * @brief Get the value for votedFor
              * 
              * @returns Value of the votedFor
             */
-            int32_t getVotedForValue();
+            uint64_t getVotedForValue();
 
             /**
              * @brief Get the value of logLength
              * 
              * @returns Length of the log
             */
-            int32_t getLogLength();
+            uint64_t getLogLength();
 
             /**
              * @brief Set the value for lastApplied log index and write to storage
              * 
              * @param term Value of lastApplied
             */
-            bool setLastAppliedValue(int32_t term);
+            bool setLastAppliedValue(uint64_t term);
 
             /**
              * @brief Get the value for lastApplied log index
              * 
              * @returns Value of the lastApplied
             */
-            int32_t getLastAppliedValue();
+            uint64_t getLastAppliedValue();
 
             /**
              * @brief Store a log entry at a specified index with a specified term
@@ -81,7 +81,7 @@ namespace Raft {
              * 
              * @returns boolean indicating success or failure
             */
-            bool setLogEntry(int32_t index, int32_t term, std::string entry);
+            bool setLogEntry(uint64_t index, uint64_t term, std::string entry);
 
             /**
              * @brief Get a log entry at a specified index
@@ -94,7 +94,7 @@ namespace Raft {
              * 
              * @returns boolean indicating success or failure
             */
-            bool getLogEntry(int32_t index, int32_t &term, std::string &entry);
+            bool getLogEntry(uint64_t index, uint64_t &term, std::string &entry);
 
             /**
              * @brief Truncate log entries starting at specified index
@@ -104,7 +104,7 @@ namespace Raft {
              * @returns boolean indicating success or failure. If index is not 
              *          within the log, will return success.
             */
-            bool truncateLog(int32_t index);
+            bool truncateLog(uint64_t index);
 
 
         private:
@@ -112,10 +112,10 @@ namespace Raft {
             /**
              * Locally stored variables for read without accessing storage
             */
-            int32_t currentTerm = -1;
-            int32_t votedFor = -1;
-            int32_t lastApplied = -1;
-            int32_t logLength = -1;
+            uint64_t currentTerm = 0;
+            uint64_t votedFor = 0;
+            uint64_t lastApplied = 0;
+            uint64_t logLength = 0;
     }; // class Storage
 } // namespace Raft
 

@@ -2,12 +2,12 @@
 
 namespace Raft {
 
-    Timer::Timer(std::function<void()> callbackFn) 
+    Timer::Timer(std::function<void()> callbackFn, Raft::RaftServer& server) 
         : timerTimeout(10000)
         , timerReset(false)
     {
         callbackFn = std::bind(callbackFn); // TODO: fix this bind thing to have a reference to RaftServer
-        std::thread t = std::thread(&Timer::timerLoop, this);
+        std::thread t = std::thread(&Timer::timerLoop, server);
         t.detach();
     }
 

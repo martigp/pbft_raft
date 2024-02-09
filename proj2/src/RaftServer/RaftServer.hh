@@ -201,13 +201,13 @@ namespace Raft {
              * @brief For each server, index of the next log entry to send to that server
              * - initialized to leader last log index +1
             */
-            std::vector<int32_t> nextIndex;
+            std::map<uint64_t, uint64_t> nextIndex;
 
             /**
              * @brief Index of highest log entry known to be replicated on server
              * - initialized to 0, increases monotonically
             */
-            std::vector<int32_t> matchIndex;
+            std::map<uint64_t, uint64_t> matchIndex;
 
             /*************************************
              * Below are all internal methods, etc
@@ -284,6 +284,15 @@ namespace Raft {
              * Avoids double counting votes from same server
             */
             std::unordered_set<int> myVotes;
+
+            /**
+             * @brief Format AppendEntries RPCs and send to other
+             * servers in the cluster
+             * 
+             * @param isHeartbeat Optional bool to indicate that 
+             * the entries field should be left empty
+            */
+            void sendAppendEntriesRPCs(std::optional<bool> isHeartbeat = false);
 
             /**
              * @brief After updating term, conversion to follow state
