@@ -48,24 +48,22 @@ namespace Raft {
 
     void RaftServer::start()
     {
-        /* Start SSM listening. */
-        serverSocketManager->startListening(mainThreads[0]);
+        // Set a random ElectionTimeout
+        generateRandomElectionTimeout();
+    }
 
-        /* Start CSM listening. */
-        clientSocketManager->startListening(mainThreads[1]);
+    void RaftServer::generateRandomElectionTimeout() {
+        std::random_device seed;
+        std::mt19937 gen{seed()}; 
+        std::uniform_int_distribution<> dist{5000, 10000};
+        uint64_t timerTimeout = dist(gen);
+        printf("[RaftServer.cc]: New timer timeout: %llu\n", timerTimeout);\
+        timer->resetTimer(timerTimeout);
+    }
 
-        /* Start the timer thread. */
-        consensus->startTimer(mainThreads[2]);
-
-        /* Start the updater. */
-        logStateMachine->startUpdater(mainThreads[3]);
-
-        std::cout << "[RaftRaftServer]: started SSM, CSM, timer and state machine" << std::endl;
-        
-        /* Join persistent threads. All are in a while(true) */
-        mainThreads[0].join();
-        mainThreads[1].join();
-        mainThreads[2].join();
-        mainThreads[3].join();
+    void RaftServer::setHeartbeatTimeout() {
+        uint64_t timerTimeout = 1000; // TODO: is it ok if this is hardcoded 
+        printf("[RaftServer.cc]: New timer timeout: %llu\n", timerTimeout);\
+        timer->resetTimer(timerTimeout);
     }
 }

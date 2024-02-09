@@ -2,6 +2,7 @@
 #define RAFT_RaftServer_H
 
 #include <string>
+#include <random>
 #include <memory>
 #include <optional>
 #include <mutex>
@@ -11,6 +12,7 @@
 #include <libconfig.h++>
 #include <unordered_map>
 #include "RaftServer/ShellStateMachine.hh"
+#include "RaftServer/Timer.hh"
 #include "Protobuf/RaftRPC.pb.h"
 #include "Common/RPC.hh"
 #include "Common/NetworkService.hh"
@@ -239,13 +241,6 @@ namespace Raft {
              * Follows upper right box in Figure 2
             */
             void processRequestVoteRPCResp(Raft::RPC::RequestVote::Response resp, int peerId);
-
-            /**
-             * @brief Current election timeout length (milliseconds) 
-             * Currently timeout ranges from 5-10 seconds
-             * Heartbeat ranges from 1-2 seconds
-            */
-            uint64_t timerTimeout;
             
             /**
              * @brief Decide action after timeout occurs
@@ -253,14 +248,16 @@ namespace Raft {
             void timeoutHandler();
 
             /**
-             * @brief Assign appendEntries Heartbeat time to timerTimeout
+             * @brief Decide AppendEntries heartbeat time(hardcoded)
+             * AND restart the timer with this new value
             */
             void setHeartbeatTimeout();
 
             /**
-             * @brief Generate a new election interval, assign to timerTimeout
+             * @brief Generate a new election interval 
+             * AND restart the timer with the new value
             */
-            void generateRandomElectionTimeout();
+            void setRandomElectionTimeout();
 
             /**
              * @brief Start a new Election:
@@ -291,7 +288,6 @@ namespace Raft {
              * @brief After winning election, convert to leader
             */
             void convertToLeader();
-
 
     }; // class RaftServer
 } // namespace Raft
