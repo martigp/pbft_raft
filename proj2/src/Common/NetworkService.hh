@@ -5,13 +5,24 @@
 #include <memory>
 #include <unordered_map>
 #include <sys/event.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
 #include <mutex>
-#include "Common/NetworkServiceConfig.hh"
 #include "Common/NetworkUser.hh"
 
-#define MAX_CONNECTIONS 10
+/* The backlog of connections a server can sustain. Somewhat arbitrary. */
+#define MAX_CONNECTIONS 16
+/* The maximum number of the kqueue can return. Somewhat arbitrary */
 #define MAX_EVENTS 1
-#define LISTEN_SOCKET_ID 0
+/* Socket Fd value for HostConnectionState if the socket is closed */
+#define INVALID_SOCKET_FD -1
+/* The default value of payloadBytesNeeded member of HostConnectionState.
+   Indicates a full header has not been read in yet. */
+#define UNKNOWN_NUM_BYTES -1
+/* The size of a header. The header is just an unsigned long indicating the
+   number of bytes in the following payload. */
+#define HEADER_SIZE sizeof(uint64_t)
 
 namespace Common {
 
@@ -20,132 +31,186 @@ namespace Common {
 
     /**
      * @brief Service responsible for conducting network communication needed by
-     * the Network User. The user will provide a cluster network users that
-     * it should be able to send and receive messages to by default. The Network
-     * Service will also listen for any incoming connections from both network
-     * users in the cluster and outside of it. If these connections are
-     * successfully established, its network user may send and receive messages
-     * to it as well.
+     * the Network User.
      */
     class NetworkService {
         public:
             /**
-             * @brief Constructor.
+             * @brief Construct a new Network Service. Runtime error thrown 
+             * there is a error setting up the Network Service that would not 
+             * allow it to provide the service.
              * 
-             * @param user Reference to the user that is plugging into the
-             * network. This will be used to obtain configuation information
-             * for the NetworkService to start running and pass on any messages
-             * received on the Network Service.
+             * @param networkUser The user of the network service.
              * 
              */
-            NetworkService( NetworkUser& user );
+            NetworkService(NetworkUser& networkUser);
 
             /* Destructor */
-            virtual ~NetworkService();
+            ~NetworkService();
 
             /**
              * @brief API used to send a message a known peer in the network.
              * This will attempt to send the message asynchronously and fail
              * silently if the message could not be sent.
              * 
-             * @param peerID a unique identifier of peer that the user wants to
-             *  send a message to.
+             * @param sendAddr Address the message should be sent to in the
+             * form ip:port
              * @param msg The message to be sent to the peer
              * 
              */
-            void sendMessage(uint64_t peerId, std::string& msg);
+            void sendMessage(const std::string& sendAddr,const std::string& msg);
 
             /**
-             * @brief Method called to start up the network service.
-             * 
-             * @param listeningThread The thread that listens for incoming
-             * connection requests and messages to the Network Service.
+             * @brief Method called to start the network service listening
+             * on the provided listen address. Throws an error on failure
+             * of setting up the listen socket or an error on the listen
+             * socket.
+             *
              */
-            void startListening(std::thread &listeningThread);
+            void startListening(const std::string& listenAddr);
 
         private:
 
             /**
-             * @brief Add a socket to the set of sockets that the NetworkService
-             * is polling for incoming messages. If the file descriptor is
-             * already being polled will fail silently.
+             * @brief Registers the socket to the kqueue to monitor for read
+             * events. Throws error if unable to register it with string
+             * version of the error returned by the kqueue.
              * 
-             * @param socketFd The file descriptor of the socket that we want
-             * to monitor.
-             */
-            void monitorSocket(int socketFd);
-
-            /**
-             * TODO: figure out what this does with respect to closing a socket
-             * if we close the socket, this will automatically be done for us.
-             * @brief Removes all records of the socket from the socket manager
-             * and destroys the object. Any accesses following this are to
-             * unallocated memory.
+             * @param socketFd The file descriptor of the socket.
              * 
-             * @param socketFd The file descriptor of the socket that we want
-             * to stop monitoring.
              */
-            void stopMonitorSocket( int socketfd );
+            void monitorSocketForEvents(int socketFd);
+            
+            /**
+             * @brief Remove any trace of a connected host.
+             * 
+             * @param hostAddr The host address in form ip:port
+             */
+            void removeHost(const std::string& hostAddr);
 
             /**
-             * TODO: Determine if this method is still needed!
-             * @param peerId The unique identifier for the peer that does not
-             * have an associated socket.
+             * @brief Handles the event that there is data available to read
+             * from the socket. 
+             * 
+             * If the isListenSocket is set will attempt to establish new
+             * connection. Throws exception if an issue and it is a listen
+             * socket. 
+             * 
+             * If a connectedSocket (not listen socket) will pass on any
+             * complete messages to the user. Fails silently.
+             * 
+             * @param receiveSocketFd The file descriptor of the socket on which
+             * the event occured.
+             * @param eventInformation The information about the event returned
+             * by the kqueue.
+             * @param isListenSocket True if the event occured on the listen
+             * socket. Used to interpret the eventInformation
              */
-            void handleNoSocketEntry(uint64_t peerId);
+            void handleReceiveEvent(int receiveSocketFd,
+                                    uint64_t eventInformation,
+                                    bool isListenSocket);
 
             /**
-             * @brief The function run by the thread provided as an argument
-             * to startListening. This will listen for any incoming connection
-             * requests and messages on connections established by the Network
-             * Service.
+             * @brief Create a listen socket that listens on provided
+             * listenAddr. Throws an exception on failure.
+             * 
+             * @param listenAddr Address in form ip:port
+             * @return int The file descriptor of the listening socket.
              */
-            void listenLoop();
+            int createListenSocket(const std::string& listenAddr);
+
+
+            /**
+             * @brief Populates the sockaddr with the ip and port provided in
+             * addr. Throws exception if failure to do so.
+             * 
+             * @param addr Address in form ip:port
+             * @param sockaddr The sockaddr to be populated
+             * @return ip The returned ip address 
+             * @return port The returned port
+             */
+            void populateSockAddr(const std::string &addr,
+                                  struct sockaddr_in *sockaddr);
+
+            /**
+             * @brief Returns the address of the host connected to by the
+             * socket. Since these operations are generally followed by use
+             * of map THIS IS NOT THREAD SAFE i.e. it assumes that the caller 
+             * has the hostStateMap lock.
+             * 
+             * @param socketFd The file descriptor of the socket connected to
+             * a host.
+             * @return const std::string The host address in form ip:port
+             */
+            const std::string getAddrFromSocketFd(int socketFd);
 
             /**
              * @brief The file descriptor which the kernel uses to notify the
              * Network Service of activity on any of the file descriptors of
-             * sockets that it listening or connected to. All new connections
-             * are registered to this pollFd.
+             * sockets that are registered to it to listen for events on.
              */
             int pollFd;
 
             /**
-             * @brief The information about each Network peer required to
-             * communicate with a that peer using the Network Service.
+             * @brief State associated with a host's connection for reading
+             * and writing data to the host.
              * 
              */
-            struct peerInformation {
-                /**
-                 * @brief The file descriptor of the socket associated with the
-                 * peer. Set to -1 if the peer is in the cluster the Network
-                 * Service is plugged into but the Network Service is not
-                 * connected to it.
-                 */
-                int socketFd;
-                /**
-                 * @brief Lock to ensure that actions on a socket file
-                 * descriptor are synchronized.
-                 * 
-                 */
-                std::mutex sendToPeerLock;
+            class HostConnectionState {
+                public:
+                    HostConnectionState(int socketFd);
+
+                    ~HostConnectionState();
+                    /**
+                     * @brief The file descriptor of the socket that is
+                     * connected to the host.
+                     */
+                    int socketFd;
+                    /** 
+                     * @brief Lock to ensure synchronous access and modification
+                     * of the host's connection state.
+                     */
+                    std::mutex lock;
+
+                    /**
+                     * @brief Stores the bytes of a message received on host
+                     * socket. Will at most store 1 complete message at a time.
+                     * 
+                     */
+                    std::string msg;
+
+                    /**
+                     * @brief The number of bytes from payload needed,
+                     * UNKNOWN_NUM_BYTES (-1) if we have not read in a complete
+                     * header and so don't know the size of the payload.
+                     * 
+                     */
+                    ssize_t payloadBytesNeeded;
             };
         
             /**
-             * @brief Reference to user of this the Network Service. Used to
-             * access NetworkService configuration information and to pass on
-             * messages received by the NetworkService.
+             * @brief Callback function to pass on any messages received by
+             * the Network Service to the Network User.
              */
-            Common::NetworkUser& user;
+            std::function<void(const std::string&,
+                               const std::string)> userCallbackFunction;
             
             /**
-             * @brief Maps a uniquer identifier of a peer to all the information
-             * required to communicate with that peer. Initially populated with
-             * information about all members of the cluster that the Network
-             * Service is joining.
-             * 
+             * @brief Maps a host address in form ip:port to state assocaited
+             * with the connection. If the host is not present there is no 
+             * existing connection to that host.
              */
-            std::unordered_map<uint64_t, peerInformation> sockets;
+            std::unordered_map<const std::string,
+                              std::shared_ptr<HostConnectionState>> 
+                              hostStateMap;
+
+            /**
+             * @brief Synchronization for hostStateMap operations. This lock
+             * can be released once you get access to a values in the map
+             * (a shared pointer). But all read and write to the map itself
+             * require holding this lock.
+             */
+            std::mutex hostStateMapLock;
 
     }; // class NetworkService
 

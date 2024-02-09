@@ -5,40 +5,27 @@
 #include <memory>
 #include <libconfig.h++>
 #include <unordered_map>
-#include <netinet/in.h>
-#include "Common/NetworkServiceConfig.hh"
 
 namespace Common {
 
+    /**
+     * @brief Abstract class for a user of a NetworkService. 
+     * 
+     */
     class NetworkUser {
         public:
             /**
-             * @brief Construct a new NetworkUser.
-            * 
-             * @param networkConfigPath The path of the configuration file with
-             * all information required to use a networkService
-             */
-            NetworkUser( std::string networkConfigPath );
-
-            /* Destructor */
-            ~NetworkUser();
-
-            /**
-             * @brief This method is overriden by the derrived class to handle
-             * any messages that are received by the Network Service.
+             * @brief This method is overriden by the derrived class. It is
+             * the callback function for Network Service to pass on any messages
+             * it receives to its NetworkUser
              * 
-             * @param peerId The unique identifier of the message received by
-             * the network.
+             * @param receiveAddr The address from which the message was
+             * received.
              * @param msg A message received by the Network Service.
              */
-            virtual void handleNetworkMessage(uint64_t peerId,
-                                              std::string& msg) = 0;
+            virtual void handleNetworkMessage(const std::string& receiveAddr,
+                                              const std::string msg) = 0;
 
-            /**
-             * @brief Configuration data needed for the NetworkService the user
-             * will plug into.
-             */
-            Common::NetworkServiceConfig config;
 
     }; // class NetworkUser
 } // namespace Common
