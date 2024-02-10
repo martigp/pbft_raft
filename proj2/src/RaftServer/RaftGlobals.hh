@@ -7,7 +7,8 @@
 #include <unordered_map>
 #include <netinet/in.h>
 #include "Common/ServerConfig.hh"
-#include "RaftServer/SocketManager.hh"
+#include "Common/NetworkUser.hh"
+#include "Common/NetworkService.hh"
 #include "RaftServer/Socket.hh"
 #include "RaftServer/Consensus.hh"
 #include "RaftServer/LogStateMachine.hh"
@@ -22,7 +23,7 @@ namespace Raft {
     class Consensus;
     class LogStateMachine;
 
-    class Globals {
+    class Globals : public Common::NetworkUser {
         public:
             /**
              * @brief Construct a new Globals that stores the Global Raft State.
@@ -39,46 +40,28 @@ namespace Raft {
              */
             void start();
 
+            void handleNetworkMessage(const std::string& receiveAddr,
+                                              const std::string msg);
+
             /**
              * @brief Configuration data needed for a RaftServer
              */
             Common::ServerConfig config;
 
             /**
-             * @brief Handles any actions on sockets where the RaftServer is 
-             * the client i.e. it initiated the connection.
+             * @brief Service to send and receive messages from network. 
              */
-            std::shared_ptr<ClientSocketManager> clientSocketManager;
-
-            /**
-             * @brief Handles any actions on sockets where the RaftServer is 
-             * the server i.e. it did not initiate the connection.
-             */
-            std::shared_ptr<ServerSocketManager> serverSocketManager;
+            Common::NetworkService networkService;
 
             /**
              * @brief Raft Consensus Unit: Figure 2 from Paper.
              */
-            std::shared_ptr<Consensus> consensus;
+            Consensus consensus;
 
             /**
              * @brief Log State Machine.
              */
-            std::shared_ptr<LogStateMachine> logStateMachine;
-
-            /**
-             * @brief Generates user event id to be used for user triggered
-             * events on a socket manager kqueue. Starts as FIRST_USER_EVENT_ID
-             * and value returned will monotomically increase. When this is
-             * called nextUserEventId is incremented.
-             * 
-             * Unique user event ids are generated for RaftClient connections
-             * and used to allow State Machine responses to be returned to the 
-             * correct RaftClient
-             * 
-             * @return Unique User Event Id 
-             */
-            uint32_t genUserEventId();
+            LogStateMachine logStateMachine;
 
         
         private:
@@ -92,7 +75,7 @@ namespace Raft {
             /**
              * @brief Map of RaftServer ID to address
              */
-            std::unordered_map<int, sockaddr_in> clusterMap;
+            std::unordered_map<int, std::string> clusterMap;
 
             /**
              * @brief Next Unique User Event Id

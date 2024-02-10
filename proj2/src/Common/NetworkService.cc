@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iostream>
 #include <sstream>
+#include <string>
 #include <stdexcept>
 #include <cerrno>
 #include <cstdio>
@@ -53,12 +54,15 @@ namespace Common {
             }
         }
 
-        std::string errorMsg =  "Socket %d is not associated with a connected"
-                                 "host", socketFd;
+        std::string errorMsg("Socket " + std::to_string(socketFd) + 
+                             "is not associated with a connected host");
+
         throw std::runtime_error(errorMsg);
     }
 
     NetworkService::NetworkService(NetworkUser& user)
+        : hostStateMap(),
+          hostStateMapLock()
     {
         userCallbackFunction = std::bind(&NetworkUser::handleNetworkMessage,
                                          &user,
@@ -105,12 +109,11 @@ namespace Common {
                     close(hostSocketFd);
                 }
 
-                hostState = std::make_shared<HostConnectionState>(
-                                    new HostConnectionState(hostSocketFd));
+                hostState.reset(new HostConnectionState(hostSocketFd));
 
                 hostStateMapLock.lock();
                 hostStateMap[sendAddr] = hostState;
-                
+
                 monitorSocketForEvents(hostSocketFd);
             }
             else {
@@ -128,15 +131,15 @@ namespace Common {
             memcpy(buf + HEADER_SIZE, msg.c_str(), payloadLength);
 
 
-            hostEntry->lock.lock();
+            hostState->lock.lock();
 
-            if (send(hostEntry->socketFd, buf, sizeof(buf), 0) == -1) {
-                hostEntry->lock.unlock();
+            if (send(hostState->socketFd, buf, sizeof(buf), 0) == -1) {
+                hostState->lock.unlock();
                 removeHost(sendAddr);
                 return;
             }
             
-            hostEntry->lock.unlock();
+            hostState->lock.unlock();
         });
 
         sendMessageThread.detach();                            
@@ -202,10 +205,9 @@ namespace Common {
                     &hostAddrLen);
             
             if (hostSocketFd < 0) {
-                errorMsg = "Failed to accept an incoming connection: %s. There"
-                           "are %llu pending connections", std::strerror(errno),
-                                                           eventInformation;
-                throw std::runtime_error(errorMsg);
+                errorMsg = "Failed to accept an incoming connection: ";
+
+                throw std::runtime_error(errorMsg + std::strerror(errno));
             }
 
             // Obtain the string version of the host IP address and port so
@@ -222,13 +224,13 @@ namespace Common {
 
             uint16_t hostPort = ntohs(hostSockAddr.sin_port);
 
-            const std::string hostAddr = "%s:%u", hostIp, hostPort;
+            const std::string hostAddr = hostIp + std::to_string(hostPort);
 
-            HostConnectionState * hostState = new HostConnectionState(hostSocketFd);
+            std::shared_ptr<HostConnectionState> hostState =
+                std::make_shared<HostConnectionState>(hostSocketFd);
             
             const std::lock_guard<std::mutex> lg(hostStateMapLock);
-            hostStateMap[hostAddr] = 
-                std::make_shared<HostConnectionState>(hostState);
+            hostStateMap[hostAddr] = hostState;
             
             return;
         } // ListenSocket Event
@@ -306,8 +308,6 @@ namespace Common {
 
     int
     NetworkService::createListenSocket(const std::string& listenAddr) {
-        struct sockaddr_in listenSockAddr;
-        int opt = 1;
         std::string errorMsg;
 
         int listenSocketFd = socket(AF_INET, SOCK_STREAM, 0);

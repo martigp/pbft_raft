@@ -25,6 +25,15 @@ namespace Common {
              */
             virtual void handleNetworkMessage(const std::string& receiveAddr,
                                               const std::string msg) = 0;
+        
+        protected:
+            /**
+             * @brief The callback function into the network service to send
+             * a the message msg to the host at address sendAddr.
+             * 
+             */
+            std::function<void(const std::string& sendAddr,
+                               const std::string& msg)> sendMsgFn;
 
 
     }; // class NetworkUser

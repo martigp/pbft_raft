@@ -200,7 +200,7 @@ namespace Common {
              * with the connection. If the host is not present there is no 
              * existing connection to that host.
              */
-            std::unordered_map<const std::string,
+            std::unordered_map<std::string,
                               std::shared_ptr<HostConnectionState>> 
                               hostStateMap;
 

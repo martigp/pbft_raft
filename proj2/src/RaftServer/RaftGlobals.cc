@@ -1,33 +1,29 @@
-#include <sys/event.h>
 #include <libconfig.h++>
 #include <iostream>
 #include <cstdlib>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include "RaftServer/RaftGlobals.hh"
+#include "RaftServer/LogStateMachine.hh"
+#include "RaftServer/Consensus.hh"
 #include "RaftServer/Socket.hh"
 #include <fstream>
+#include <thread>
 #include <filesystem>
 
 namespace Raft {
     
     Globals::Globals( std::string configPath )
         : config( configPath ),
-          clientSocketManager(),
-          serverSocketManager(),
-          consensus(),
-          logStateMachine(),
-          nextUserEventId (FIRST_USER_EVENT_ID)
-    {     
-        try {  
-            clientSocketManager.reset(new ClientSocketManager(*this));
-            serverSocketManager.reset(new ServerSocketManager(*this));
-            consensus.reset(new Consensus(*this));
-            logStateMachine.reset(new LogStateMachine(*this)); 
-            mainThreads = std::vector<std::thread>(4);
-        } catch(const std::exception& e) {
-            std::cerr << e.what() << std::endl;
-        } 
+          networkService(*this),
+          consensus(*this),
+          logStateMachine(*this),
+          mainThreads()          
+    {
+        sendMsgFn = std::bind(&Common::NetworkService::sendMessage,
+                            &networkService,
+                            std::placeholders::_1,
+                            std::placeholders::_2);
     }
 
     Globals::~Globals()
@@ -37,27 +33,23 @@ namespace Raft {
     void Globals::start()
     {
         /* Start SSM listening. */
-        serverSocketManager->startListening(mainThreads[0]);
+        // Get listen address
+        std::thread networkThread(&Common::NetworkService::startListening,
+                                  &networkService, config.listenAddr);
 
-        /* Start CSM listening. */
-        clientSocketManager->startListening(mainThreads[1]);
+        mainThreads.push_back(networkThread);
 
-        /* Start the timer thread. */
-        consensus->startTimer(mainThreads[2]);
+        std::thread consensusThread(&Consensus::startTimer, &consensus);
+        mainThreads.push_back(consensusThread);
 
-        /* Start the updater. */
-        logStateMachine->startUpdater(mainThreads[3]);
+        std::thread stateMachineThread(&LogStateMachine::stateMachineLoop, &logStateMachine);
+        mainThreads.push_back(stateMachineThread);
 
         std::cout << "[RaftGlobals]: started SSM, CSM, timer and state machine" << std::endl;
         
         /* Join persistent threads. All are in a while(true) */
-        mainThreads[0].join();
-        mainThreads[1].join();
-        mainThreads[2].join();
-        mainThreads[3].join();
-    }
-
-    uint32_t Globals::genUserEventId() {
-        return nextUserEventId++;
+        for (auto& t : mainThreads) {
+            t.join();
+        }
     }
 }
