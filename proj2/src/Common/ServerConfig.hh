@@ -46,10 +46,9 @@ namespace Common {
 
 
             /**
-             * @brief Path of the file to add log entries. Used by Consensus
-             * module.
+             * @brief Path of the file used for persistent storage.
              */
-            std::string logPath;
+            std::string persistentStoragePath;
 
     }; // class ServerConfig
 } // namespace Common

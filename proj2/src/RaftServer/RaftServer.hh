@@ -1,5 +1,5 @@
-#ifndef RAFT_RaftServer_H
-#define RAFT_RaftServer_H
+#ifndef RAFT_RAFTSERVER_H
+#define RAFT_RAFTSERVER_H
 
 #include <string>
 #include <random>
@@ -11,25 +11,17 @@
 #include <utility>
 #include <libconfig.h++>
 #include <unordered_map>
-#include "RaftServer/ServerConfig.hh"
+#include "Common/ServerConfig.hh"
 #include "RaftServer/ShellStateMachine.hh"
 #include "RaftServer/Timer.hh"
+#include "RaftServer/Storage.hh"
 #include "Protobuf/RaftRPC.pb.h"
-#include "Common/RPC.hh"
 #include "Common/NetworkService.hh"
 
 namespace Raft {
 
-    // TODO: Do we want to use this to make things easier to pass around 
-    // string addr and int port before they make it to the network class?
-    struct IPAddress {
-        std::string addr;
-        uint64_t port;
-        bool operator==(const IPAddress& a) const
-        {
-        return (addr == a.addr && port == a.port);
-        }
-    };
+    class ShellStateMachine;
+    class Timer;
 
     enum EventType {
         TIMER_FIRED,
@@ -47,23 +39,24 @@ namespace Raft {
     struct RaftServerEvent {
         EventType type;
         /* If type is MESSAGE_RECEIVED, this field will be set*/
-        std::optional<std::string> ipAddr;
-        std::optional<std::string> networkMsg;
+        std::optional<std::string> addr;
+        std::optional<std::string> msg;
         /* If type is STATE_MACHINE_APPLIED, these fields will be set*/
         std::optional<uint64_t> logIndex;
         std::optional<std::string> stateMachineResult;
     };
 
-    class RaftServer {
+    class RaftServer : public Common::NetworkUser {
         public:
             /**
              * @brief Construct a new RaftServer that stores the Global Raft State.
              * 
              * @param configPath The path of the configuration file. 
              * 
-             * @param serverID Parsed from the command line, must be present in config file
+             * @param firstServerBoot Whether this is the first time that the
+             * server has run.
              */
-            RaftServer( std::string configPath, uint64_t serverID);
+            RaftServer(const std::string& configPath, bool firstServerBoot);
 
             /* Destructor */
             ~RaftServer();
@@ -74,15 +67,16 @@ namespace Raft {
             void start();
 
             /**
-             * @brief Raft callback method for the Network
-             * TODO: these are bad explanations
+             * @brief Overriden function that is called by the Network Service
+             * that the RaftServer is a user of when it has received a message.
              * 
-             * @param ipAddr IP Address from which a message was received
+             * @param sendAddr Host address from which a message was received
              * Formatted: "xx.xx.xx.xx:port"
              * 
-             * @param networkMsg String contents of network message received
+             * @param networkMsg Network message received
             */
-            void notifyRaftOfNetworkMessage(std::string ipAddr, std::string networkMsg);
+            void handleNetworkMessage(const std::string& sendAddr,
+                                      const std::string& networkMsg);
 
             /**
              * @brief Raft callback method for the Timer
@@ -97,20 +91,31 @@ namespace Raft {
              * @param stateMachineResult Result of application of log entry 
              * to the State Machine
             */
-            void notifyRaftOfStateMachineApplied(uint64_t logIndex, std::string stateMachineResult);
+            void notifyRaftOfStateMachineApplied(uint64_t logIndex,
+                                                 const std::string stateMachineResult);
 
         
         private:
             /**************************************************************
-             * Unique pointers to each of the other classes that support
-             * the RaftServer functionality
+             * Other classes that support RaftServer functionality
             **************************************************************/
-            std::unique_ptr<ShellStateMachine> shellSM;
-            std::unique_ptr<Timer> timer;
-            std::unique_ptr<Storage> storage;
-            std::unique_ptr<Common::NetworkService> network;
+            /**
+             * @brief The configuration class that stores all of a Raft Server's
+             * configuration information. 
+             */
+            Common::ServerConfig config;
 
-            ServerConfig config;
+            ShellStateMachine shellSM;
+
+            Timer timer;
+
+            Storage storage;
+
+            /**
+             * @brief The service used by the Raft Server to send and receive
+             * messages on the network.
+             */
+            Common::NetworkService network;
 
             /**************************************************************
              * Below are the variables needed to manage the eventQueue:
@@ -191,32 +196,43 @@ namespace Raft {
             */
             int32_t commitIndex;
 
-            /*************************************
-             * Volatile state on all leaders
-            **************************************/
-
             /**
-             * @brief For each server, index of the next log entry to send to that server
-             * - initialized to leader last log index +1
-            */
-            std::map<uint64_t, uint64_t> nextIndex;
-
-            /**
-             * @brief Index of highest log entry known to be replicated on server
-             * - initialized to 0, increases monotonically
-            */
-            std::map<uint64_t, uint64_t> matchIndex;
+             * @brief The Raft Server Id of the current leader.
+             * 
+             */
+            uint64_t leaderId;
 
             /*************************************
-             * Below are all internal methods, etc
+             * Volatile state about other raft servers needed by the leader.
             **************************************/
-
-            /**
-             * @brief Most recent request_id for each RaftServer
-             * Allows us to only process response to the most recent
-             * request sent to each server
+           
+           struct RaftServerVolatileState {
+                /**
+                 * @brief The index of the next log entry to send to the server.
+                 * Initialized to leader last log index + 1
+                 * 
+                 */
+                uint64_t nextIndex;
+                /**
+                 * @brief Index of the highest known log entry to be replicated
+                 * on the server. Initialized to 0, increases monotonically
+                 * 
+                 */
+                uint64_t matchIndex;
+                /**
+                 * @brief As name. Ensures only the server's response to the
+                 * most recent request sent to it is processed.
+                 * 
+                 */
+                uint64_t mostRecentRequestId;
+           };
+           
+           /**
+            * @brief Centralized record of all per server volatile state
+            * 
             */
-            std::unordered_map<uint64_t, uint64_t> mostRecentRequestId;
+           std::unordered_map<uint64_t, struct RaftServerVolatileState>
+                    volatileServerInfo;
 
             /**
              * @brief Method processes a callback received from the State Machine
@@ -224,55 +240,60 @@ namespace Raft {
              * Additionally, if the log index is associated with a Client IPAddr,
              * the RaftServer will send the response.
             */
-            void handleAppliedLogEntry(uint64_t appliedIndex, std::string result);
+            void handleAppliedLogEntry(uint64_t appliedIndex,
+                                       const std::string& result);
 
             /**
              * @brief Given an IP Address and string message:
              *      Parse message and extract protobuf format
              *      Extract RaftServer ID or RaftClient based on IP
             */
-            void parseAndHandleNetworkMessage(std::string ipAddr, std::string networkMsg);
+            void parseAndHandleNetworkMessage(const std::string& ipAddr,
+                                              const std::string& networkMsg);
 
             /**
              * @brief Receiver Implementation of AppendEntriesRPC
              * Sends back a response
              * Follows bottom left box in Figure 2
             */
-            void receivedAppendEntriesRPC(int peerId, Raft::RPC::AppendEntries::Request req); 
+            void processAppendEntriesReq(uint64_t serverId, 
+                                         const RPC_AppendEntries_Request& req); 
 
             /**
              * @brief Sender Implementation of AppendEntriesRPC
              * Process the response received(term, success)
              * Follows bottom left box in Figure 2
             */
-            void processAppendEntriesRPCResp(int peerId, Raft::RPC::AppendEntries::Response resp);
+            void processAppendEntriesResp(uint64_t serverId,
+                                          const RPC_AppendEntries_Response& resp);
 
             /**
              * @brief Receiver Implementation of RequestVoteRPC
              * Sends back a response
              * Follows upper right box in Figure 2
             */
-            void receivedRequestVoteRPC(int peerId, Raft::RPC::RequestVote::Request req); 
+            void processRequestVoteReq(uint64_t serverId,
+                                       const RPC_RequestVote_Request& req); 
 
             /**
              * @brief Sender Implementation of RequestVoteRPC
              * Process the response received(term, voteGranted)
              * Follows upper right box in Figure 2
             */
-            void processRequestVoteRPCResp(int peerId, Raft::RPC::RequestVote::Response resp);
+            void processRequestVoteResp(uint64_t serverId,
+                                        const RPC_RequestVote_Response& resp);
 
             /**
-             * @brief Mapping of log index to client IP addr
-             * Once log indices are committed, respond to the 
-             * corresponding client IP
+             * @brief Mapping of log index to client addr.
             */
-            std::map<uint64_t, uint64_t> logToClientIPMap;
+            std::map<uint64_t, std::string> logToClientAddrMap;
 
             /**
              * @brief Receipt of new shell command from client
              * 
             */
-            void receivedClientCommandRPC(std::string ipAddr, Raft::RPC::ClientCommand cmd);
+            void processClientRequest(const std::string& clientAddr,
+                                      const RPC_StateMachineCmd_Request& cmd);
             
             /**
              * @brief Decide action after timeout occurs

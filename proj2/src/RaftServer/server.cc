@@ -1,28 +1,42 @@
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/poll.h>
-#include <unistd.h>
-#include <netinet/tcp.h>
-#include <arpa/inet.h>
-#include <sys/event.h>
-#include <sys/time.h>
-#include <memory>
-#include <fstream>
-#include <filesystem>
-#include <string>
+#include <iostream>
 #include "RaftServer/RaftServer.hh"
 
 using namespace Raft;
 
+
+void printUsage() {
+    std::cout << "usage: server [<options>] <config_path>" << std::endl
+              << "      -n  create Raft Server for first time that "
+                 "does not have any persistent storage." << std::endl
+              << "      -h  show usage" << std::endl;
+}
+
 /* Run a Raft Server */
-int main(int argc, char const* argv[])
+int main(int argc, char *argv[])
 {   
     // Pass in server ID specified on command line and optional flag for first boot
     // TODO: add the optional flag
-    Raft::RaftServer server(arvg[1]);
+
+    int opt;
+    bool firstServerBoot = false;
+
+    while((opt = getopt(argc, argv, "hn") != -1)) {
+        switch(opt) {
+            case 'h':
+                printUsage();
+                return 0;
+            case 'n':
+                firstServerBoot = true;
+        }
+    }
+
+    if (optind != argc - 1) {
+        std::cout << "Too many arguments" << std::endl;
+        printUsage();
+        return 1;
+    }
+
+    Raft::RaftServer server(argv[optind], firstServerBoot);
     std::cout << "[RaftServerMain]: in server.cc" << std::endl;
 
     server.start();

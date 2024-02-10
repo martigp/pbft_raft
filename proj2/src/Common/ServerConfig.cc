@@ -15,8 +15,10 @@ namespace Common {
         listenAddr = cfgListenAddr;
         serverId = cfg.lookup("serverId");
 
-        std::string cfgLogPath = cfg.lookup("logPath");
-        logPath = cfgLogPath;
+        std::string cfgPersistentStoragePath = 
+                            cfg.lookup("persistentStoragePath");
+        
+        persistentStoragePath = cfgPersistentStoragePath;
 
         const libconfig::Setting& root = cfg.getRoot();
         const libconfig::Setting& servers = root["servers"];

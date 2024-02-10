@@ -24,7 +24,7 @@ namespace Common {
              * @param msg A message received by the Network Service.
              */
             virtual void handleNetworkMessage(const std::string& receiveAddr,
-                                              const std::string msg) = 0;
+                                              const std::string& msg) = 0;
         
         protected:
             /**

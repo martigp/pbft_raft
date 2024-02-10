@@ -225,12 +225,10 @@ namespace Common {
             uint16_t hostPort = ntohs(hostSockAddr.sin_port);
 
             const std::string hostAddr = hostIp + std::to_string(hostPort);
-
-            std::shared_ptr<HostConnectionState> hostState =
-                std::make_shared<HostConnectionState>(hostSocketFd);
             
             const std::lock_guard<std::mutex> lg(hostStateMapLock);
-            hostStateMap[hostAddr] = hostState;
+            hostStateMap[hostAddr] = 
+                std::make_shared<HostConnectionState>(hostSocketFd);
             
             return;
         } // ListenSocket Event

@@ -3,29 +3,29 @@
 
 #include <string>
 #include <vector>
+#include <queue>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <functional>
-#include "RaftGlobals.hh"
+#include "RaftServer/RaftServer.hh"
 #include "Protobuf/RaftRPC.pb.h"
-#include "Common/RPC.hh"
 
 namespace Raft {
 
-    class Globals;
+    class RaftServer;
 
     class ShellStateMachine {
         public:
             /**
              * @brief Construct a new ShellStateMachine that applies log entries
              * 
-             * @param callback Function provided by RaftServer to callback once
-             * state machine entres have been applied
+             * @param server The raft server that the shell state machine is
+             * plugged into.
              * 
              * TODO: make sure this gets lastApplied on reboot
              */
-            ShellStateMachine(std::function<void<int32_t, std::string>> callback);
+            ShellStateMachine(RaftServer* server);
 
             /* Destructor */
             ~ShellStateMachine();
@@ -38,6 +38,9 @@ namespace Raft {
              * indicate future, monotonically increasing commit indices
             */
             void newCommitIndex(uint64_t commitIndex);
+
+
+            void pushCmd(std::pair<uint64_t, std::string> cmd);
 
 
         private:
@@ -56,10 +59,18 @@ namespace Raft {
             void stateMachineLoop();
 
             /**
+             * @brief Executes the provided command locally.
+             * 
+             * @param command Command to executed
+             * @return std::string The shell response from running the command
+             */
+            std::string applyCmd(const std::string& cmd);
+
+            /**
              * @brief Function provided by RaftServer that will accept as arguments a
              * log index and a result once they have been applied
             */
-            std::function<void<uint64_t, std::string>> callbackRaftServer;
+            std::function<void(uint64_t, const std::string)> callbackRaftServer;
 
             /**
              * @brief StateMachine Updates CV 
@@ -69,22 +80,15 @@ namespace Raft {
             std::condition_variable stateMachineUpdatesCV;
 
             /**
-             * @brief Mutex for access to the commitIndex
+             * @brief Mutex to synchronize access to the commandQueue
             */
-            std::mutex stateMachineMutex;
+            std::mutex commandQueueMutex;
 
             /**
-             * @brief  Index of highest log entry known to be committed,
-             * as notified of by RaftServer
-            */
-            uint64_t commitIndex;
-
-            /**
-             * @brief  Index of highest log entry known to be applied,
-             * will be sent back to RaftServer in callback as each entry
-             * is applied
-            */
-            uint64_t lastApplied;
+             * @brief 
+             * 
+             */
+            std::queue<std::pair<uint64_t, std::string>> commandQueue;
 
     }; // class ShellStateMachine
 } // namespace Raft

@@ -12,8 +12,10 @@ namespace Raft {
              * Reads from filepath given if exists, else generates a new file
              * 
              * @param storagePath Path for persistent storage file
+             * @param firstServerBoot User provided flagindicating whether the
+             * server has been run before.
             */
-            Storage(std::string storagePath);
+            Storage(const std::string& storagePath, bool firstServerBoot);
 
             /**
              * Destructor for Storage object
