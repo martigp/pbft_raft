@@ -1,29 +1,29 @@
 #include <string>
 #include <cstdio>
-#include "LogStateMachine.hh"
+#include "ShellStateMachine.hh"
 #include "Consensus.hh"
 
 namespace Raft {
     
-    LogStateMachine::LogStateMachine(Raft::Globals& globals)
+    ShellStateMachine::ShellStateMachine(Raft::Globals& globals)
         : globals(globals)
     {        
     }
 
-    LogStateMachine::~LogStateMachine()
+    ShellStateMachine::~ShellStateMachine()
     {
     }
 
-    void LogStateMachine::startUpdater(std::thread &stateMachineUpdaterThread) {
-        stateMachineUpdaterThread = std::thread(&LogStateMachine::stateMachineLoop, this);
+    void ShellStateMachine::startUpdater(std::thread &stateMachineUpdaterThread) {
+        stateMachineUpdaterThread = std::thread(&ShellStateMachine::stateMachineLoop, this);
     }
 
-    void LogStateMachine::pushCmd(std::pair<uint64_t, std::string> cmd) {
+    void ShellStateMachine::pushCmd(std::pair<uint64_t, std::string> cmd) {
         std::unique_lock<std::mutex> lock(stateMachineMutex);
         stateMachineQ.push(cmd);
     }
 
-    void LogStateMachine::stateMachineLoop() {
+    void ShellStateMachine::stateMachineLoop() {
         while (true) {
             std::unique_lock<std::mutex> lock(stateMachineMutex);
             while (stateMachineQ.empty()) {
@@ -47,7 +47,7 @@ namespace Raft {
         }
     }
 
-    std::string LogStateMachine::proj1Execute(std::string command) {
+    std::string ShellStateMachine::proj1Execute(std::string command) {
         std::string ret;
         const char *c = command.c_str();
         FILE *pipe = popen(c, "r");

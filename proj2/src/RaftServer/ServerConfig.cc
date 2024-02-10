@@ -3,10 +3,10 @@
 #include <libconfig.h++>
 #include <iostream>
 #include <arpa/inet.h>
-#include "ClientConfig.hh"
+#include "RaftServer/ServerConfig.hh"
 
-namespace Common {
-    ClientConfig::ClientConfig( std::string configPath ) {
+namespace Raft {
+    ServerConfig::ServerConfig( std::string configPath ) {
         libconfig::Config cfg;
 
         // Read the config file. Exit if any error.
@@ -27,9 +27,9 @@ namespace Common {
         }
 
         try {
-            std::string cfgAddr = cfg.lookup("addr");
-            addr = cfgAddr;
-            port = cfg.lookup("port");
+            std::string cfgListenAddr = cfg.lookup("listenAddress");
+            ipAddr = cfgListenAddr;
+            serverId = cfg.lookup("serverId");
 
             const libconfig::Setting& root = cfg.getRoot();
             const libconfig::Setting& servers = root["servers"];
@@ -38,39 +38,21 @@ namespace Common {
             for (int i = 0; i < servers.getLength(); i++) {
                 uint64_t serverId;
                 std::string serverIPAddr;
-                uint64_t serverPort;
-                struct sockaddr_in serverSockAddr;
-
 
                 const libconfig::Setting &server = servers[i];
 
                 if (!server.lookupValue("id", serverId) ||
-                    !server.lookupValue("address", serverIPAddr) ||
-                    !server.lookupValue("port", serverPort)) {
+                    !server.lookupValue("address", serverIPAddr)) {
                         std::cerr << "Failed to read server " << i << 
                         " config information." << std::endl;
                         exit(EXIT_FAILURE);
                 }
-                
-                serverSockAddr.sin_family = AF_INET;
-                serverSockAddr.sin_port = htons((uint16_t)serverPort);
 
-                // Populate the serverSockAddr with an IP address. Now ready
-                // for use with any socket functions.
-                if (inet_pton(AF_INET, serverIPAddr.c_str(),
-                              &serverSockAddr.sin_addr) <= 0) {
-                    std::cerr << "Invalid server config address" << 
-                                 serverIPAddr << std::endl;
-                    exit(EXIT_FAILURE);
-                }
-
-                // Might need to be a non stack allocated string?
-                clusterMap[serverId] = serverSockAddr;
+                clusterMap[serverId] = serverIPAddr;
             }
 
             // Number of servers including
-            numClusterServers = servers.getLength();
-
+            numClusterServers = servers.getLength() + 1;
         }
 
         // Any error when parsing fields in the configuration file
@@ -82,7 +64,7 @@ namespace Common {
 
     }
 
-    ClientConfig::~ClientConfig()
+    ServerConfig::~ServerConfig()
     {
     }
 }
