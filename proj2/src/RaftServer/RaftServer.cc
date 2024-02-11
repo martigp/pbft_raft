@@ -44,7 +44,7 @@ namespace Raft {
         // Set a random ElectionTimeout
         setRandomElectionTimeout();
 
-        network.startListening(config.listenAddr);
+        network.startListening(config.serverAddr);
 
         std::unique_lock<std::mutex> lock(eventQueueMutex);
         // Begin main loop waiting for events to be available on the event queue
@@ -61,7 +61,7 @@ namespace Raft {
                 case EventType::TIMER_FIRED:
                     timeoutHandler();
                 case EventType::MESSAGE_RECEIVED:
-                    parseAndHandleNetworkMessage(nextEvent.addr.value(),
+                    processNetworkMessage(nextEvent.addr.value(),
                                                  nextEvent.msg.value());
                 case EventType::STATE_MACHINE_APPLIED:
                     handleAppliedLogEntry(nextEvent.logIndex.value(), nextEvent.stateMachineResult.value());
@@ -131,7 +131,7 @@ namespace Raft {
             case ServerState::CANDIDATE:
                 startNewElection();
             case ServerState::LEADER:
-                sendAppendEntriesRPCs();
+                sendAppendEntriesReqs();
         }
     }
 
@@ -184,18 +184,23 @@ namespace Raft {
 
         // TODO: turn RPC's into strings for Network
         printf("[RaftServer.cc]: About to send RequestVote, term: %d, serverId: %llu\n", currentTerm, config.serverId);
-        for (auto& peer: config.clusterMap) {
-            network.sendMessage(peer.second, reqString);
+        for (auto& [_, raftServerAddrs]: config.clusterMap) {
+            network.sendMessage(raftServerAddrs.first, reqString);
         }
     }
 
-    void RaftServer::sendAppendEntriesRPCs(std::optional<bool> isHeartbeat) {
+    void RaftServer::sendAppendEntriesReqs(std::optional<bool> isHeartbeat) {
         RPC_AppendEntries_Request req;
         printf("[RaftServer.cc]: About to send AppendEntries, term: %d\n", currentTerm);
-        for (auto& [serverId, serverAddr]: config.clusterMap) {
+        for (auto& [raftServerId, raftServerAddrs]: config.clusterMap) {
             // NOTE: sendMessage only requires an addr, port, string
 
-            struct RaftServerVolatileState& serverInfo = volatileServerInfo[serverId];
+            // Send request to the RaftServer server address.
+            const std::string sendToAddr = raftServerAddrs.second;
+
+            struct RaftServerVolatileState& serverInfo = 
+                volatileServerInfo[raftServerId];
+
             req.set_term(currentTerm);
             req.set_leaderid(config.serverId);
             req.set_prevlogindex(serverInfo.nextIndex - 1);
@@ -224,59 +229,71 @@ namespace Raft {
             req.set_requestid(serverInfo.mostRecentRequestId);
 
             std::string reqString = req.SerializeAsString();
-            network.sendMessage(serverAddr, reqString);
+            network.sendMessage(sendToAddr, reqString, CREATE_CONNECTION,
+                                config.clientAddr);
         }
     }
 
-    void RaftServer::parseAndHandleNetworkMessage(const std::string& hostAddr, 
+    void RaftServer::processNetworkMessage(const std::string& senderAddr, 
                                                   const std::string& msg) {
-        // TODO: Super pseudo code for now, need proto buf stuff etc
+        // Check it is a well formed Raft Message
+        RPC rpc;
+        if (!rpc.ParseFromString(msg)) {
+            return;
+        }
+        RPC::MsgCase msgType = rpc.msg_case();
 
         // Option 1: Message is a Raft Server, or use a .find method idk
-        RPC rpc;
-        rpc.ParseFromString(msg);
-
-        for (auto& peer: config.clusterMap) {
-            if (peer.second == hostAddr) {
-                RPC rpc;
-                rpc.ParseFromString(msg);
+        for (auto& [raftServerId, raftServerAddrs]: config.clusterMap) {
+            // First is the address for the connection where the Raft Server
+            // acts as a client i.e. the message should be a request
+            if (raftServerAddrs.first == senderAddr) {
                  // TODO: figure out how we will parse strings with one of
-                switch (rpc.msg_case()) {
+                switch (msgType) {
                     case RPC::kAppendEntriesReq:
-                        processAppendEntriesReq(peer.first,
+                        processAppendEntriesReq(raftServerId,
                                                 rpc.appendentriesreq());
-                        break;
-                    case RPC::kAppendEntriesResp:
-                        processAppendEntriesResp(peer.first,
-                                                 rpc.appendentriesresp());
-                        break;
+                        return;
                     case RPC::kRequestVoteReq:
-                        processRequestVoteReq(peer.first,
+                        processRequestVoteReq(raftServerId,
                                               rpc.requestvotereq());
-                        break;
-                    case RPC::kRequestVoteResp:
-                        processRequestVoteResp(peer.first,
-                                               rpc.requestvoteresp());
-                        break;  
+                        return;
                     default:
-                        std::cerr << "Received malformed message from host with"
-                                     "address: " << hostAddr << std::endl;
-                return;
+                        return;
+                }
+            }
+            // Second address is where the Raft Server acts as a server i.e.
+            // the message should be a response.
+            else if (raftServerAddrs.second == senderAddr) {
+                switch(msgType) {
+                    case RPC::kAppendEntriesResp:
+                        processAppendEntriesResp(raftServerId,
+                                                 rpc.appendentriesresp());
+                        return;
+                    case RPC::kRequestVoteResp:
+                        processRequestVoteResp(raftServerId,
+                                               rpc.requestvoteresp());
+                        return;
+                    default:
+                        return;
+                    
                 }
             }
         }
 
-        // Option 2: Did not find a raftServer matching address
-        // must be a RaftClient
-
-        processClientRequest(hostAddr, rpc.statemachinecmdreq());
+        // Option 2: Did not find a raftServer matching address, check that
+        // the message is a State Machine Command Request. Do nothing if not.
+        if (msgType == RPC::kStateMachineCmdReq) {
+            processClientRequest(senderAddr, rpc.statemachinecmdreq());
+        }
     }
 
     void RaftServer::processClientRequest(const std::string& clientAddr, 
                                           const RPC_StateMachineCmd_Request& req) {
         // Step 1: Append string cmd to log, get log index
         uint64_t nextLogIndex = storage.getLogLength() + 1;
-        if (!storage.setLogEntry(nextLogIndex, currentTerm, )) {
+        std::string entry;
+        if (!storage.setLogEntry(nextLogIndex, currentTerm, entry)) {
             std::cerr << "[RaftServer.cc]: Error while writing entry to log." << std::endl;
             exit(EXIT_FAILURE);
         }
@@ -325,7 +342,9 @@ namespace Raft {
         }
 
         const std::string respString = resp.SerializeAsString();
-        network.sendMessage(config.clusterMap[serverId], respString);
+
+        auto serverAddrs = config.clusterMap[serverId];
+        network.sendMessage(serverAddrs.first, respString);
     }
 
     void RaftServer::processAppendEntriesResp(uint64_t serverId,
@@ -375,7 +394,9 @@ namespace Raft {
         }
         // TODO: send the string not the RPC
         std::string respString = resp.SerializeAsString();
-        network.sendMessage(config.clusterMap[serverId], respString);
+
+        auto serverAddrs = config.clusterMap[serverId];
+        network.sendMessage(serverAddrs.first, respString);
     }
 
     void RaftServer::processRequestVoteResp(uint64_t serverId,

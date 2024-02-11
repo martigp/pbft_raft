@@ -248,7 +248,7 @@ namespace Raft {
              *      Parse message and extract protobuf format
              *      Extract RaftServer ID or RaftClient based on IP
             */
-            void parseAndHandleNetworkMessage(const std::string& ipAddr,
+            void processNetworkMessage(const std::string& senderAddr,
                                               const std::string& networkMsg);
 
             /**
@@ -333,13 +333,13 @@ namespace Raft {
             std::unordered_set<int> myVotes;
 
             /**
-             * @brief Format AppendEntries RPCs and send to other
-             * servers in the cluster
+             * @brief Format and attempts to send AppendEntries Requests to all
+             * servers asynchronously. Fails silently.
              * 
              * @param isHeartbeat Optional bool to indicate that 
              * the entries field should be left empty
             */
-            void sendAppendEntriesRPCs(std::optional<bool> isHeartbeat = false);
+            void sendAppendEntriesReqs(std::optional<bool> isHeartbeat = false);
 
             /**
              * @brief After updating term, conversion to follow state

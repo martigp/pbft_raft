@@ -13,7 +13,7 @@
 
 namespace Common {
 
-    NetworkService::HostConnectionState::HostConnectionState(int socketFd)
+    NetworkService::ConnectionState::ConnectionState(int socketFd)
         : socketFd(socketFd),
           lock(),
           msg(""),
@@ -48,8 +48,8 @@ namespace Common {
     
     const std::string NetworkService::getAddrFromSocketFd(int socketFd) {
         
-        for (const auto& [hostAddr, hostState] : hostStateMap) {
-            if (hostState->socketFd == socketFd) {
+        for (const auto& [hostAddr, connectionState] : connectionStateMap) {
+            if (connectionState->socketFd == socketFd) {
                 return hostAddr;
             }
         }
@@ -61,8 +61,8 @@ namespace Common {
     }
 
     NetworkService::NetworkService(NetworkUser& user)
-        : hostStateMap(),
-          hostStateMapLock()
+        : connectionStateMap(),
+          connectionStateMapLock()
     {
         userCallbackFunction = std::bind(&NetworkUser::handleNetworkMessage,
                                          &user,
@@ -79,48 +79,73 @@ namespace Common {
     }
 
     void 
-    NetworkService::sendMessage(const std::string& sendAddr,
-                                const std::string& msg) {
+    NetworkService::sendMessage(const std::string& sendToAddr,
+                                const std::string& msg,
+                                bool createConnection,
+                                const std::string& sendFromAddr) {
 
         std::thread sendMessageThread([&] {
-            hostStateMapLock.lock();                         
-            auto hostEntryIt = hostStateMap.find(sendAddr);
-            std::shared_ptr<HostConnectionState> hostState;
-            // Do not have an open socket, create the client socket.
-            if (hostEntryIt == hostStateMap.cend()) {
-                hostStateMapLock.unlock();
+            connectionStateMapLock.lock();                         
+
+            // Should only be one entry in map for each address, if this
+            // count is greater than 0, we are already connected to this address
+            bool connectedToRecipient = connectionStateMap.count(sendToAddr) > 0;
+            std::shared_ptr<ConnectionState> connectionState;
+
+            if (connectedToRecipient) {
+                connectionState = connectionStateMap[sendToAddr];
+            }
+            else if (createConnection) {
+                connectionStateMapLock.unlock();
                 
-                int hostSocketFd = socket(AF_INET, SOCK_STREAM, 0);
-                if (hostSocketFd  < 0) {
+                int sendSocketFd = socket(AF_INET, SOCK_STREAM, 0);
+                if (sendSocketFd  < 0) {
                     return;
                 }
 
-                struct sockaddr_in hostSockAddr;
+                struct sockaddr_in sendToSockAddr;
                 try {
-                    populateSockAddr(sendAddr, &hostSockAddr);
+                    // A send address was specified so bind the socket to this
+                    // address.
+                    if (sendFromAddr != "") {
+                        struct sockaddr_in sendFromSockAddr;
+                        populateSockAddr(sendFromAddr, &sendFromSockAddr);
+
+                        if (bind(sendSocketFd,
+                                 (struct sockaddr *)&sendFromAddr,
+                                 sizeof(sendFromSockAddr) < 0)) {
+                            throw std::runtime_error(
+                                "Failed to bind specified send address" + 
+                                sendFromAddr + "to socket");
+                        }
+
+                    }
+                    populateSockAddr(sendToAddr, &sendToSockAddr);
                 }
                 catch(std::exception e) {
-                    close (hostSocketFd);
+                    close (sendSocketFd);
                     return;
                 }
 
-                if (connect(hostSocketFd,(struct sockaddr *)&(hostSockAddr), 
-                    sizeof(hostSockAddr)) < 0) {
-                    close(hostSocketFd);
+                if (connect(sendSocketFd,(struct sockaddr *)&(sendToSockAddr), 
+                    sizeof(sendToSockAddr)) < 0) {
+                    close(sendSocketFd);
+                    return;
                 }
 
-                hostState.reset(new HostConnectionState(hostSocketFd));
+                connectionState.reset(new ConnectionState(sendSocketFd));
 
-                hostStateMapLock.lock();
-                hostStateMap[sendAddr] = hostState;
+                connectionStateMapLock.lock();
+                connectionStateMap[sendToAddr] = connectionState;
 
-                monitorSocketForEvents(hostSocketFd);
+                monitorSocketForEvents(sendSocketFd);
             }
             else {
-                hostState = hostEntryIt->second;
+                connectionStateMapLock.unlock();
+                return;
             }
 
-            hostStateMapLock.unlock();
+            connectionStateMapLock.unlock();
 
 
             // Create the network message prefixing the message with a header
@@ -131,15 +156,15 @@ namespace Common {
             memcpy(buf + HEADER_SIZE, msg.c_str(), payloadLength);
 
 
-            hostState->lock.lock();
+            connectionState->lock.lock();
 
-            if (send(hostState->socketFd, buf, sizeof(buf), 0) == -1) {
-                hostState->lock.unlock();
-                removeHost(sendAddr);
+            if (send(connectionState->socketFd, buf, sizeof(buf), 0) == -1) {
+                connectionState->lock.unlock();
+                removeHost(sendToAddr);
                 return;
             }
             
-            hostState->lock.unlock();
+            connectionState->lock.unlock();
         });
 
         sendMessageThread.detach();                            
@@ -166,25 +191,25 @@ namespace Common {
     void 
     NetworkService::removeHost(const std::string& hostAddr) {
 
-        hostStateMapLock.lock();
-        auto hostInfoPair = hostStateMap.find(hostAddr);
+        connectionStateMapLock.lock();
+        auto hostInfoPair = connectionStateMap.find(hostAddr);
 
-        if (hostInfoPair != hostStateMap.cend()) {
+        if (hostInfoPair != connectionStateMap.cend()) {
             // Remove from map
-            hostInfoPair = hostStateMap.erase(hostInfoPair);
-            hostStateMapLock.unlock();
+            hostInfoPair = connectionStateMap.erase(hostInfoPair);
+            connectionStateMapLock.unlock();
 
-            auto hostState = hostInfoPair->second;
+            auto connectionState = hostInfoPair->second;
 
             // Closing the socket removes it from the kqueue as well
             // Someone may have gotten the entry from the map already, make
             // sure it is unusable by setting socketFd to invalid.
-            hostState->lock.lock();
-            close(hostState->socketFd);
-            hostState->socketFd = INVALID_SOCKET_FD;
-            hostState->lock.unlock();
+            connectionState->lock.lock();
+            close(connectionState->socketFd);
+            connectionState->socketFd = INVALID_SOCKET_FD;
+            connectionState->lock.unlock();
         } else {
-            hostStateMapLock.unlock();
+            connectionStateMapLock.unlock();
         }
     }
 
@@ -226,9 +251,9 @@ namespace Common {
 
             const std::string hostAddr = hostIp + std::to_string(hostPort);
             
-            const std::lock_guard<std::mutex> lg(hostStateMapLock);
-            hostStateMap[hostAddr] = 
-                std::make_shared<HostConnectionState>(hostSocketFd);
+            const std::lock_guard<std::mutex> lg(connectionStateMapLock);
+            connectionStateMap[hostAddr] = 
+                std::make_shared<ConnectionState>(hostSocketFd);
             
             return;
         } // ListenSocket Event
@@ -237,18 +262,18 @@ namespace Common {
         size_t socketBytesAvailable = eventInformation;
         size_t totalBytesRead = 0;
         
-        hostStateMapLock.lock();
+        connectionStateMapLock.lock();
         std::string hostAddr = getAddrFromSocketFd(receiveSocketFd);
-        std::shared_ptr<HostConnectionState> hostState = 
-            hostStateMap[hostAddr];
-        hostStateMapLock.unlock();
+        std::shared_ptr<ConnectionState> connectionState = 
+            connectionStateMap[hostAddr];
+        connectionStateMapLock.unlock();
 
 
         // This is to read the prefix of a network message which is the
         // number of bytes in the payload
         while (totalBytesRead < socketBytesAvailable) {
             // Read attempt to read header size bytes
-            if (hostState->msg.size() < HEADER_SIZE) {
+            if (connectionState->msg.size() < HEADER_SIZE) {
                 // Only read in header bytes worth
                 size_t headerBytesToRead = HEADER_SIZE - totalBytesRead;
                 char buf [headerBytesToRead];
@@ -261,20 +286,20 @@ namespace Common {
                 }
 
                 totalBytesRead += headerBytesRead;
-                hostState->msg += buf;                
+                connectionState->msg += buf;                
             }
             // Read in complete header but have not parsed the header yet since
             // the payloadBytesNeeded is still its default value.
-            if (hostState->msg.size() == HEADER_SIZE &&
-                hostState->payloadBytesNeeded == UNKNOWN_NUM_BYTES) {
+            if (connectionState->msg.size() == HEADER_SIZE &&
+                connectionState->payloadBytesNeeded == UNKNOWN_NUM_BYTES) {
 
                 // Convert bytes to uint64_t and convert to correct ordering
                 // for network message
-                uint64_t networkOrderedPayloadLen = std::stoull(hostState->msg);
-                hostState->payloadBytesNeeded = ntohll(networkOrderedPayloadLen);
+                uint64_t networkOrderedPayloadLen = std::stoull(connectionState->msg);
+                connectionState->payloadBytesNeeded = ntohll(networkOrderedPayloadLen);
             }
 
-            size_t payloadBytesToRead = hostState->payloadBytesNeeded;
+            size_t payloadBytesToRead = connectionState->payloadBytesNeeded;
             char buf [payloadBytesToRead];
 
             ssize_t payloadBytesRead = 
@@ -285,18 +310,18 @@ namespace Common {
             }
 
             totalBytesRead += payloadBytesRead;
-            hostState->msg += buf;
-            hostState->payloadBytesNeeded -= payloadBytesRead;
+            connectionState->msg += buf;
+            connectionState->payloadBytesNeeded -= payloadBytesRead;
 
-            if (hostState->payloadBytesNeeded == 0) {
-                size_t payloadSize = hostState->msg.size() - HEADER_SIZE;
+            if (connectionState->payloadBytesNeeded == 0) {
+                size_t payloadSize = connectionState->msg.size() - HEADER_SIZE;
                 const std::string payload = 
-                    hostState->msg.substr(HEADER_SIZE, payloadSize);
+                    connectionState->msg.substr(HEADER_SIZE, payloadSize);
 
                 userCallbackFunction(hostAddr, payload);
 
-                hostState->msg = "";
-                hostState->payloadBytesNeeded = 
+                connectionState->msg = "";
+                connectionState->payloadBytesNeeded = 
                     UNKNOWN_NUM_BYTES;
             }
         }
@@ -381,7 +406,7 @@ namespace Common {
                 bool isListenSocket = socketFd == listenSocketFd;
 
                 if (!isListenSocket) {
-                    const std::lock_guard<std::mutex> lg(hostStateMapLock);
+                    const std::lock_guard<std::mutex> lg(connectionStateMapLock);
                     hostAddr = getAddrFromSocketFd(socketFd);
                 }
 

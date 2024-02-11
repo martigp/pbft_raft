@@ -15,14 +15,17 @@
 #define MAX_CONNECTIONS 16
 /* The maximum number of the kqueue can return. Somewhat arbitrary */
 #define MAX_EVENTS 1
-/* Socket Fd value for HostConnectionState if the socket is closed */
+/* Socket Fd value for ConnectionState if the socket is closed */
 #define INVALID_SOCKET_FD -1
-/* The default value of payloadBytesNeeded member of HostConnectionState.
+/* The default value of payloadBytesNeeded member of ConnectionState.
    Indicates a full header has not been read in yet. */
 #define UNKNOWN_NUM_BYTES -1
 /* The size of a header. The header is just an unsigned long indicating the
    number of bytes in the following payload. */
 #define HEADER_SIZE sizeof(uint64_t)
+/* Flag used to specify to the Network that a connection should be created
+   to the specified recipient if one does not exist already. */
+#define CREATE_CONNECTION true
 
 namespace Common {
 
@@ -53,12 +56,19 @@ namespace Common {
              * This will attempt to send the message asynchronously and fail
              * silently if the message could not be sent.
              * 
-             * @param sendAddr Address the message should be sent to in the
+             * @param sendToAddr Address the message should be sent to in the
              * form ip:port
              * @param msg The message to be sent to the peer
+             * @param createConnection TRUE if user wants to create connection
+             * with the sendToAddr if one does not exist. By default FALSE
+             * @param sendFromAddr An address to send the message from. By
+             * default this is unused.
              * 
              */
-            void sendMessage(const std::string& sendAddr,const std::string& msg);
+            void sendMessage(const std::string& sendToAddr,
+                             const std::string& msg,
+                             bool createConnection = false,
+                             const std::string& sendFromAddr = "");
 
             /**
              * @brief Method called to start the network service listening
@@ -136,7 +146,7 @@ namespace Common {
              * @brief Returns the address of the host connected to by the
              * socket. Since these operations are generally followed by use
              * of map THIS IS NOT THREAD SAFE i.e. it assumes that the caller 
-             * has the hostStateMap lock.
+             * has the connectionStateMap lock.
              * 
              * @param socketFd The file descriptor of the socket connected to
              * a host.
@@ -156,11 +166,11 @@ namespace Common {
              * and writing data to the host.
              * 
              */
-            class HostConnectionState {
+            class ConnectionState {
                 public:
-                    HostConnectionState(int socketFd);
+                    ConnectionState(int socketFd);
 
-                    ~HostConnectionState();
+                    ~ConnectionState();
                     /**
                      * @brief The file descriptor of the socket that is
                      * connected to the host.
@@ -201,16 +211,16 @@ namespace Common {
              * existing connection to that host.
              */
             std::unordered_map<std::string,
-                              std::shared_ptr<HostConnectionState>> 
-                              hostStateMap;
+                              std::shared_ptr<ConnectionState>> 
+                              connectionStateMap;
 
             /**
-             * @brief Synchronization for hostStateMap operations. This lock
+             * @brief Synchronization for connectionStateMap operations. This lock
              * can be released once you get access to a values in the map
              * (a shared pointer). But all read and write to the map itself
              * require holding this lock.
              */
-            std::mutex hostStateMapLock;
+            std::mutex connectionStateMapLock;
 
     }; // class NetworkService
 

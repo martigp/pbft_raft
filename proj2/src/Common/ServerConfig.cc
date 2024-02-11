@@ -11,8 +11,12 @@ namespace Common {
 
         cfg.readFile(configPath);
 
-        std::string cfgListenAddr = cfg.lookup("listenAddress");
-        listenAddr = cfgListenAddr;
+        std::string cfgListenAddr = cfg.lookup("clientAddress");
+        clientAddr = cfgListenAddr;
+
+        std::string cfgListenAddr = cfg.lookup("serverAddress");
+        serverAddr = cfgListenAddr;
+
         serverId = cfg.lookup("serverId");
 
         std::string cfgPersistentStoragePath = 
@@ -27,10 +31,12 @@ namespace Common {
         for (int i = 0; i < servers.getLength(); i++) {
             const libconfig::Setting &server = servers[i];
             uint64_t serverId = server.lookup("id");
-            std::string serverAddr = server.lookup("address");
+            std::string clientAddr = server.lookup("clientAddress");
+            std::string serverAddr = server.lookup("serverAddress");
 
             // Might need to be a non stack allocated string?
-            clusterMap[serverId] = serverAddr;
+            clusterMap[serverId] = 
+                std::make_pair(clientAddr, serverAddr);
         }
 
         // Number of servers including
