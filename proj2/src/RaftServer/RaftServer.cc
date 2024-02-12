@@ -62,11 +62,13 @@ namespace Raft {
             switch (nextEvent.type) {
                 case EventType::TIMER_FIRED:
                     timeoutHandler();
+                    break;
                 case EventType::MESSAGE_RECEIVED:
-                    processNetworkMessage(nextEvent.addr.value(),
-                                                 nextEvent.msg.value());
+                    processNetworkMessage(nextEvent.addr.value(), nextEvent.msg.value());
+                    break;
                 case EventType::STATE_MACHINE_APPLIED:
                     handleAppliedLogEntry(nextEvent.logIndex.value(), nextEvent.stateMachineResult.value());
+                    break;
             }
             lock.lock();
         }
@@ -134,15 +136,15 @@ namespace Raft {
                 printf("[RaftServer.cc]: Called timeout as follower\n");
                 myState = ServerState::CANDIDATE;
                 startNewElection();
-                return;
+                break;
             case ServerState::CANDIDATE:
                 printf("[RaftServer.cc]: Called timeout as candidate\n");
                 startNewElection();
-                return;
+                break;
             case ServerState::LEADER:
                 printf("[RaftServer.cc]: Called timeout as leader\n");
                 sendAppendEntriesReqs();
-                return;
+                break;
         }
     }
 

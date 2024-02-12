@@ -35,7 +35,7 @@ namespace Raft {
              * 
              * @param newTimeout Optionally provided to indicate new timeout
             */
-            void resetTimer(const std::optional<uint64_t>& newTimeout = std::nullopt);
+            void resetTimer(std::optional<uint64_t> newTimeout = std::nullopt);
 
         private:
             /**

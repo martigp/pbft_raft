@@ -40,11 +40,11 @@ namespace Raft {
     struct RaftServerEvent {
         EventType type;
         /* If type is MESSAGE_RECEIVED, this field will be set*/
-        std::optional<std::string> addr;
-        std::optional<std::string> msg;
+        std::optional<std::string> addr = std::nullopt;
+        std::optional<std::string> msg = std::nullopt;
         /* If type is STATE_MACHINE_APPLIED, these fields will be set*/
-        std::optional<uint64_t> logIndex;
-        std::optional<std::string> stateMachineResult;
+        std::optional<uint64_t> logIndex = std::nullopt;
+        std::optional<std::string> stateMachineResult = std::nullopt;
     };
 
     class RaftServer : public Common::NetworkUser {
