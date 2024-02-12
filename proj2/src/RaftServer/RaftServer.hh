@@ -14,7 +14,7 @@
 #include "Common/ServerConfig.hh"
 #include "RaftServer/ShellStateMachine.hh"
 #include "RaftServer/Timer.hh"
-#include "RaftServer/Storage.hh"
+#include "RaftServer/ServerStorage.hh"
 #include "Protobuf/RaftRPC.pb.h"
 #include "Common/NetworkService.hh"
 
@@ -22,6 +22,7 @@ namespace Raft {
 
     class ShellStateMachine;
     class Timer;
+    class ServerStorage;
 
     enum EventType {
         TIMER_FIRED,
@@ -105,11 +106,11 @@ namespace Raft {
              */
             Common::ServerConfig config;
 
-            ShellStateMachine shellSM;
+            Raft::ServerStorage storage;
 
-            Timer timer;
+            std::unique_ptr<Raft::ShellStateMachine> shellSM;
 
-            Storage storage;
+            std::unique_ptr<Raft::Timer> timer;
 
             /**
              * @brief The service used by the Raft Server to send and receive

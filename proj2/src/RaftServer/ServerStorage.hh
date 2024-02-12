@@ -1,29 +1,35 @@
-#ifndef RAFT_STORAGE_H
-#define RAFT_STORAGE_H
+#ifndef RAFT_SERVERSTORAGE_H
+#define RAFT_SERVERSTORAGE_H
 
 #include <string>
+#include <filesystem>
+#include <memory>
+#include <sys/stat.h>
+#include "Common/KeyValueStorage.hh"
 
 namespace Raft {
 
-    class Storage {
+    class ServerStorage {
         public:
             /**
-             * Create a new Storage object for the Raft Consensus Algorithm
-             * Reads from filepath given if exists, else generates a new file
+             * Create a new ServerStorage object for the Raft Consensus Algorithm
+             * Using the generic KeyValueStorage mechanism, the RaftServer Storage
+             * manages a KeyValue file for persistent state and for each log entry.
              * 
-             * @param storagePath Path for persistent storage file
-             * @param firstServerBoot User provided flagindicating whether the
+             * @param serverID ID of RaftServer used tagging its persistence files
+             * 
+             * @param firstServerBoot User provided flag indicating whether the
              * server has been run before.
             */
-            Storage(const std::string& storagePath, bool firstServerBoot);
+            ServerStorage(uint64_t serverID, bool firstServerBoot);
 
             /**
-             * Destructor for Storage object
+             * Destructor for ServerStorage object
             */
-            ~Storage();
+            ~ServerStorage();
 
             /**
-             * @brief Set the value for currentTerm and write to storage
+             * @brief Set the value for currentTerm and write to ServerStorage
              * 
              * @param term Value of the currentTerm
             */
@@ -37,11 +43,11 @@ namespace Raft {
             uint64_t getCurrentTermValue();
 
             /**
-             * @brief Set the value for votedFor and write to storage
+             * @brief Set the value for votedFor and write to ServerStorage
              * 
-             * @param term Value of votedFor
+             * @param votedFor Value of votedFor
             */
-            bool setVotedForValue(uint64_t term);
+            bool setVotedForValue(uint64_t votedFor);
 
             /**
              * @brief Get the value for votedFor
@@ -51,18 +57,18 @@ namespace Raft {
             uint64_t getVotedForValue();
 
             /**
-             * @brief Get the value of logLength
+             * @brief Iterate the Server Storage directory to get the length of the log
              * 
              * @returns Length of the log
             */
             uint64_t getLogLength();
 
             /**
-             * @brief Set the value for lastApplied log index and write to storage
+             * @brief Set the value for lastApplied log index and write to ServerStorage
              * 
-             * @param term Value of lastApplied
+             * @param index Value of lastApplied
             */
-            bool setLastAppliedValue(uint64_t term);
+            bool setLastAppliedValue(uint64_t index);
 
             /**
              * @brief Get the value for lastApplied log index
@@ -108,17 +114,27 @@ namespace Raft {
             */
             bool truncateLog(uint64_t index);
 
-
         private:
+            /**
+             * @brief Server storage directory path
+            */
+            std::string storageDirectory;
 
             /**
-             * Locally stored variables for read without accessing storage
+             * Locally stored variables for read without accessing ServerStorage
             */
             uint64_t currentTerm = 0;
             uint64_t votedFor = 0;
             uint64_t lastApplied = 0;
-            uint64_t logLength = 0;
-    }; // class Storage
+
+            /**
+             * Generic Key-Value storage objects used for both the state and 
+             * each log entry
+            */
+            std::unique_ptr<Common::KeyValueStorage> persistentState;
+            std::vector<Common::KeyValueStorage*> logEntries = {};
+
+    }; // class ServerStorage
 } // namespace Raft
 
-#endif /* RAFT_STORAGE_H */
+#endif /* RAFT_SERVERSTORAGE_H */

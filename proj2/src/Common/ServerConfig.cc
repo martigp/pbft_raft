@@ -14,8 +14,8 @@ namespace Common {
         std::string cfgListenAddr = cfg.lookup("clientAddress");
         clientAddr = cfgListenAddr;
 
-        std::string cfgListenAddr = cfg.lookup("serverAddress");
-        serverAddr = cfgListenAddr;
+        std::string cfgServerAddr = cfg.lookup("serverAddress");
+        serverAddr = cfgServerAddr;
 
         serverId = cfg.lookup("serverId");
 

@@ -20,12 +20,12 @@ namespace Raft {
             /**
              * @brief Construct a new ShellStateMachine that applies log entries
              * 
-             * @param server The raft server that the shell state machine is
+             * @param callbackFn The raft server that the shell state machine is
              * plugged into.
              * 
              * TODO: make sure this gets lastApplied on reboot
              */
-            ShellStateMachine(RaftServer* server);
+            ShellStateMachine(std::function<void(uint64_t, const std::string)> callbackFn);
 
             /* Destructor */
             ~ShellStateMachine();

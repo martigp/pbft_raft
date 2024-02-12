@@ -15,7 +15,7 @@ namespace Common {
     class NetworkUser {
         public:
             /**
-             * @brief This method is overriden by the derrived class. It is
+             * @brief This method is overriden by the derived class. It is
              * the callback function for Network Service to pass on any messages
              * it receives to its NetworkUser
              * 

@@ -6,15 +6,11 @@ namespace Raft {
     
     // TODO: get correct values for commit index and last applied from
     // the server, may not be in constructor.
-    ShellStateMachine::ShellStateMachine(RaftServer* server)
-        : stateMachineUpdatesCV()
+    ShellStateMachine::ShellStateMachine(std::function<void(uint64_t, const std::string)> callbackFn)
+        : callbackRaftServer(callbackFn)
+        , stateMachineUpdatesCV()
         , commandQueueMutex()
     {        
-        callbackRaftServer = 
-            std::bind(&RaftServer::notifyRaftOfStateMachineApplied,
-                      server,
-                      std::placeholders::_1, std::placeholders::_2);
-
         std::thread t(&ShellStateMachine::stateMachineLoop, this);
         t.detach();
     }

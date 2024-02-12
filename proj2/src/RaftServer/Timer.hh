@@ -16,11 +16,14 @@ namespace Raft {
     class Timer {
         public:
             /**
-             * Create a new Timer object for the Raft Consensus Algorithm
+             * Create a new Timer object with a specified callback function
+             * to indicate when a timeout has occured.
+             * Will be used as apart of the Raft Consensus Algorithm.
              * 
-             * @param server The Raft Server that responds to timer events.
+             * @param callbackFn The method given to the timer to be invoked
+             * on timeouts
             */
-            Timer(RaftServer* server);
+            Timer(std::function<void()> callbackFn);
 
             /**
              * Destructor for Timer object

@@ -15,9 +15,7 @@ namespace Raft {
     
     RaftServer::RaftServer( const std::string& configPath, bool firstServerBoot)
         : config ( configPath )
-        , shellSM ( this )
-        , timer ( this )
-        , storage ( config.persistentStoragePath, firstServerBoot )
+        , storage( config.serverId, firstServerBoot )
         , network( *this )
         , eventQueueMutex()
         , eventQueueCV()
@@ -33,6 +31,9 @@ namespace Raft {
         , numVotesReceived ( 0 )
         , myVotes ( {} )
     {   
+        timer.reset(new Timer(std::bind(&RaftServer::notifyRaftOfTimerEvent, this)));
+        shellSM.reset(new ShellStateMachine(std::bind(&RaftServer::notifyRaftOfStateMachineApplied,
+                      this, std::placeholders::_1, std::placeholders::_2)));
     }
 
     RaftServer::~RaftServer()
@@ -156,24 +157,32 @@ namespace Raft {
         std::uniform_int_distribution<> dist{5000, 10000};
         uint64_t timerTimeout = dist(gen);
         printf("[RaftServer.cc]: New timer timeout: %llu\n", timerTimeout);
-        timer.resetTimer(timerTimeout);
+        timer->resetTimer(timerTimeout);
     }
 
     void RaftServer::setHeartbeatTimeout() {
         uint64_t timerTimeout = 1000; // TODO: is it ok if this is hardcoded 
         printf("[RaftServer.cc]: New timer timeout: %llu\n", timerTimeout);
-        timer.resetTimer(timerTimeout);
+        timer->resetTimer(timerTimeout);
     }
 
     void RaftServer::startNewElection() {
         printf("[RaftServer.cc]: Start New Election\n");
         currentTerm += 1;
         votedFor = config.serverId;
-        writePersistentState(); // TODO: add real persistent state
+        if (!storage.setCurrentTermValue(currentTerm)) {
+            std::cerr << "[RaftServer.cc]: Error while writing current term value." << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        if (!storage.setVotedForValue(votedFor)) {
+            std::cerr << "[RaftServer.cc]: Error while writing votedFor value." << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        // writePersistentState(); // TODO: add real persistent state
         myVotes.clear();
         myVotes.insert(config.serverId);
         numVotesReceived = 1;
-        timer.resetTimer();
+        timer->resetTimer();
 
         RPC_RequestVote_Request req;
         req.set_term(currentTerm);
@@ -187,6 +196,10 @@ namespace Raft {
         for (auto& [_, raftServerAddrs]: config.clusterMap) {
             network.sendMessage(raftServerAddrs.first, reqString);
         }
+    }
+
+    void RaftServer::convertToFollower() {
+        
     }
 
     void RaftServer::sendAppendEntriesReqs(std::optional<bool> isHeartbeat) {
@@ -329,7 +342,7 @@ namespace Raft {
             resp.set_success(false);
         } else {
             // At this point, we must be talking to the currentLeader, resetTimer as specified in Rules for Follower
-            timer.resetTimer();
+            timer->resetTimer();
 
             // Update who the current leader is
             leaderId = req.leaderid();
@@ -388,7 +401,7 @@ namespace Raft {
         } else if (votedFor == 0 || votedFor == req.candidateid()) {
             votedFor = req.candidateid();
             resp.set_votegranted(true);
-            timer.resetTimer();
+            timer->resetTimer();
         } else {
             resp.set_votegranted(false);
         }
