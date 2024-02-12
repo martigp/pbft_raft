@@ -173,19 +173,19 @@ namespace Raft {
              * @brief The latest term server has seen 
              * - initialized to 0 on first boot, increases monotonically
             */
-            int32_t currentTerm;
+            uint64_t currentTerm;
 
             /**
              * @brief candidateID that received vote in current term 
              * - or 0 if none
             */
-            int32_t votedFor;
+            uint64_t votedFor;
 
             /**
              * @brief Index of highest log entry applied to state machine
              * - initialized to 0, increases monotonically
             */
-            int32_t lastApplied;
+            uint64_t lastApplied;
             
             /*************************************
              * Volatile state on all servers
@@ -195,7 +195,7 @@ namespace Raft {
              * @brief Index of highest log entry known to be committed
              * - initialized to 0, increases monotonically
             */
-            int32_t commitIndex;
+            [[maybe_unused]] uint64_t commitIndex;
 
             /**
              * @brief The Raft Server Id of the current leader.
@@ -340,7 +340,7 @@ namespace Raft {
              * @param isHeartbeat Optional bool to indicate that 
              * the entries field should be left empty
             */
-            void sendAppendEntriesReqs(std::optional<bool> isHeartbeat = false);
+            void sendAppendEntriesReqs(std::optional<bool> isHeartbeat = std::nullopt);
 
             /**
              * @brief After updating term, conversion to follow state

@@ -45,7 +45,8 @@ namespace Raft {
         // Set a random ElectionTimeout
         setRandomElectionTimeout();
 
-        network.startListening(config.serverAddr);
+        std::thread t(&Common::NetworkService::startListening, &network, config.serverAddr);
+        t.detach();
 
         std::unique_lock<std::mutex> lock(eventQueueMutex);
         // Begin main loop waiting for events to be available on the event queue
@@ -57,7 +58,7 @@ namespace Raft {
             RaftServerEvent nextEvent = eventQueue.front();
             eventQueue.pop();
             lock.unlock();
-
+            printf("[RaftServer.cc]: Popped new event, queue length %zu\n", eventQueue.size());
             switch (nextEvent.type) {
                 case EventType::TIMER_FIRED:
                     timeoutHandler();
@@ -90,6 +91,7 @@ namespace Raft {
         }
 
         eventQueueCV.notify_all();
+        printf("[RaftServer.cc]: Network Message Handler: eventQueueCV notified, queue length %zu\n", eventQueue.size());
     }
 
     void RaftServer::notifyRaftOfTimerEvent() {
@@ -102,6 +104,7 @@ namespace Raft {
         }
 
         eventQueueCV.notify_all();
+        printf("[RaftServer.cc]: Timer Event Handler: eventQueueCV notified, queue length %zu\n", eventQueue.size());
     }
 
     void RaftServer::notifyRaftOfStateMachineApplied(
@@ -118,6 +121,7 @@ namespace Raft {
         }
 
         eventQueueCV.notify_all();
+        printf("[RaftServer.cc]: SM Applied Handler: eventQueueCV notified, queue length %zu\n", eventQueue.size());
     }
 
     /*****************************************************
@@ -127,12 +131,18 @@ namespace Raft {
     void RaftServer::timeoutHandler() {
         switch (myState) {
             case ServerState::FOLLOWER:
+                printf("[RaftServer.cc]: Called timeout as follower\n");
                 myState = ServerState::CANDIDATE;
                 startNewElection();
+                return;
             case ServerState::CANDIDATE:
+                printf("[RaftServer.cc]: Called timeout as candidate\n");
                 startNewElection();
+                return;
             case ServerState::LEADER:
+                printf("[RaftServer.cc]: Called timeout as leader\n");
                 sendAppendEntriesReqs();
+                return;
         }
     }
 
@@ -178,7 +188,6 @@ namespace Raft {
             std::cerr << "[RaftServer.cc]: Error while writing votedFor value." << std::endl;
             exit(EXIT_FAILURE);
         }
-        // writePersistentState(); // TODO: add real persistent state
         myVotes.clear();
         myVotes.insert(config.serverId);
         numVotesReceived = 1;
@@ -192,19 +201,29 @@ namespace Raft {
         std::string reqString = req.SerializeAsString();
 
         // TODO: turn RPC's into strings for Network
-        printf("[RaftServer.cc]: About to send RequestVote, term: %d, serverId: %llu\n", currentTerm, config.serverId);
+        printf("[RaftServer.cc]: About to send RequestVote, term: %llu, serverId: %llu\n", currentTerm, config.serverId);
         for (auto& [_, raftServerAddrs]: config.clusterMap) {
             network.sendMessage(raftServerAddrs.first, reqString);
         }
     }
 
     void RaftServer::convertToFollower() {
-        
+        printf("[RaftServer.cc]: Converting to follower, term: %llu, serverId: %llu\n", currentTerm, config.serverId);
+        myState = ServerState::FOLLOWER;
+        setRandomElectionTimeout();
+    }
+
+    void RaftServer::convertToLeader() {
+        printf("[RaftServer.cc]: Converting to follower, term: %llu, serverId: %llu\n", currentTerm, config.serverId);
+        myState = ServerState::LEADER;
+        setHeartbeatTimeout();
+        // Value of isHeartbeat set to true for first empty append entries requests
+        sendAppendEntriesReqs(true);
     }
 
     void RaftServer::sendAppendEntriesReqs(std::optional<bool> isHeartbeat) {
         RPC_AppendEntries_Request req;
-        printf("[RaftServer.cc]: About to send AppendEntries, term: %d\n", currentTerm);
+        printf("[RaftServer.cc]: About to send AppendEntries, term: %llu\n", currentTerm);
         for (auto& [raftServerId, raftServerAddrs]: config.clusterMap) {
             // NOTE: sendMessage only requires an addr, port, string
 
@@ -219,6 +238,7 @@ namespace Raft {
             req.set_prevlogindex(serverInfo.nextIndex - 1);
             uint64_t term;
             std::string entry;
+            // TODO fix this for when there's no log
             if(!storage.getLogEntry(serverInfo.nextIndex - 1, term, entry)) {
                 std::cerr << "[RaftServer.cc]: Error while reading log for sendAppendEntries." << std::endl;
                 exit(EXIT_FAILURE);
@@ -228,7 +248,7 @@ namespace Raft {
             // TODO: this needs to append multiple entries if need
             // Wondering if we do a local cache or always access memory
             RPC_AppendEntries_Request_Entry nullEntry;
-            if (isHeartbeat.value()) {
+            if (isHeartbeat.has_value()) {
                 *(req.add_entries()) = nullEntry;
             } else {
                 // Some for loop with the same logic as above

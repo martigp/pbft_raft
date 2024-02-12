@@ -22,6 +22,7 @@ namespace Common {
     }
 
     bool KeyValueStorage::set(std::string key, std::string value) {
+        file.clear();
         file.seekp(getLinePosition(key));
         std::ostringstream liness;
         // Lines are padded and right justified 
@@ -42,6 +43,7 @@ namespace Common {
     }
 
     bool KeyValueStorage::get(std::string key, std::string& value) {
+        file.clear();
         file.seekp(getLinePosition(key));
         // unable to find the key
         if (file.peek() == EOF) {
@@ -83,6 +85,7 @@ namespace Common {
             }
             ret += MAX_LINE_LEN;
         }
+        file.clear();
         return ret;
     }
 }

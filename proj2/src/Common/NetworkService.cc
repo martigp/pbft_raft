@@ -19,6 +19,8 @@ namespace Common {
           msg(""),
           payloadBytesNeeded(UNKNOWN_NUM_BYTES) {}
 
+    // TODO: does anything need to get cleaned up?
+    NetworkService::ConnectionState::~ConnectionState() {}
 
     void 
     NetworkService::populateSockAddr(const std::string &addr,
@@ -77,6 +79,9 @@ namespace Common {
             throw std::runtime_error(errorMsg + std::strerror(errno));
         }
     }
+
+    // TODO: does anything need to get cleaned up
+    NetworkService::~NetworkService() {}
 
     void 
     NetworkService::sendMessage(const std::string& sendToAddr,

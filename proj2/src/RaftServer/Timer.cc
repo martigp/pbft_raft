@@ -14,9 +14,9 @@ namespace Raft {
     // TODO: How do I destruct?
     Timer::~Timer() {}
 
-    void Timer::resetTimer(std::optional<uint64_t> newTimeout) {
+    void Timer::resetTimer(const std::optional<uint64_t>& newTimeout) {
         std::unique_lock<std::mutex> lock(resetTimerMutex);
-        if (newTimeout) {
+        if (newTimeout.has_value()) {
             timerTimeout = newTimeout.value();
         }
         timerReset = true;

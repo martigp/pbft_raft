@@ -1,6 +1,7 @@
 // Simple main function to implement a shell command line
 #include <stdio.h>
 #include <iostream>
+#include <string>
 #include "RaftClient/RaftClient.hh"
 
 int main() {

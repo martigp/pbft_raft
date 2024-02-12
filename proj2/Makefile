@@ -12,14 +12,15 @@ OBJECTS=$(patsubst %.c, %.o, $(SOURCES))
 CFLAGS += -Wall -Werror -std=c++20
 
 CFLAGS += $(shell export PKG_CONFIG_PATH=../install/lib/pkgconfig; \
-			 pkg-config --cflags protobuf libconfig)
+			 pkg-config --cflags protobuf libconfig++)
 
-
+# this was ++ in project 1?
 LIBS := $(shell export PKG_CONFIG_PATH=../install/lib/pkgconfig; \
-		  pkg-config --cflags --libs protobuf libconfig)
+		  pkg-config --cflags --libs protobuf libconfig++)
 
 # -o specifies the output fiule
-all: proto_middleman server client
+#all: proto_middleman server client
+all: proto_middleman server
 
 proto_middleman: $(PROTO_DIR)/*.proto
 	protoc -I $(PROTO_DIR) --cpp_out=$(PROTO_DIR) $^

@@ -7,9 +7,10 @@
 
 namespace Raft {
     ServerStorage::ServerStorage(uint64_t serverID, bool firstServerBoot) {
+        printf("value of first server boot: %d", firstServerBoot);
         storageDirectory = DIRECTORY_PREFIX + std::to_string(serverID);
         if (std::filesystem::exists(storageDirectory) == false) {
-            if (firstServerBoot) {
+            if (firstServerBoot == true) {
                 if (!std::filesystem::create_directory(storageDirectory.c_str())) {
                     std::string errorMsg = "[ServerStorage.cc] Unable to create persistence directory for server " + std::to_string(serverID) + ": ";
                     throw std::runtime_error(errorMsg + std::strerror(errno));

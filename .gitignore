@@ -4,3 +4,4 @@ libconfig/
 install/
 protobuf/
 install/*
+proj2/persistence*
