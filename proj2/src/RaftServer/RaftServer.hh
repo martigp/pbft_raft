@@ -44,7 +44,7 @@ namespace Raft {
         std::optional<std::string> msg = std::nullopt;
         /* If type is STATE_MACHINE_APPLIED, these fields will be set*/
         std::optional<uint64_t> logIndex = std::nullopt;
-        std::optional<std::string> stateMachineResult = std::nullopt;
+        std::optional<std::string *> stateMachineResult = std::nullopt;
     };
 
     class RaftServer : public Common::NetworkUser {
@@ -93,7 +93,7 @@ namespace Raft {
              * to the State Machine
             */
             void notifyRaftOfStateMachineApplied(uint64_t logIndex,
-                                                 const std::string stateMachineResult);
+                                                 std::string* stateMachineResult);
 
         
         private:
@@ -242,7 +242,7 @@ namespace Raft {
              * the RaftServer will send the response.
             */
             void handleAppliedLogEntry(uint64_t appliedIndex,
-                                       const std::string& result);
+                                       std::string* result);
 
             /**
              * @brief Given an IP Address and string message:
@@ -257,7 +257,7 @@ namespace Raft {
              * Sends back a response
              * Follows bottom left box in Figure 2
             */
-            void processAppendEntriesReq(uint64_t serverId, 
+            void processAppendEntriesReq(const std::string& senderAddr, 
                                          const RPC_AppendEntries_Request& req); 
 
             /**
@@ -265,7 +265,7 @@ namespace Raft {
              * Process the response received(term, success)
              * Follows bottom left box in Figure 2
             */
-            void processAppendEntriesResp(uint64_t serverId,
+            void processAppendEntriesResp(const std::string& senderAddr,
                                           const RPC_AppendEntries_Response& resp);
 
             /**
@@ -273,7 +273,7 @@ namespace Raft {
              * Sends back a response
              * Follows upper right box in Figure 2
             */
-            void processRequestVoteReq(uint64_t serverId,
+            void processRequestVoteReq(const std::string& senderAddr,
                                        const RPC_RequestVote_Request& req); 
 
             /**
@@ -281,7 +281,7 @@ namespace Raft {
              * Process the response received(term, voteGranted)
              * Follows upper right box in Figure 2
             */
-            void processRequestVoteResp(uint64_t serverId,
+            void processRequestVoteResp(const std::string& senderAddr,
                                         const RPC_RequestVote_Response& resp);
 
             /**

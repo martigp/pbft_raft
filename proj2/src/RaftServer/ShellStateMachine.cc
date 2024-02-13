@@ -6,7 +6,7 @@ namespace Raft {
     
     // TODO: get correct values for commit index and last applied from
     // the server, may not be in constructor.
-    ShellStateMachine::ShellStateMachine(std::function<void(uint64_t, const std::string)> callbackFn)
+    ShellStateMachine::ShellStateMachine(std::function<void(uint64_t, std::string* )> callbackFn)
         : callbackRaftServer(callbackFn)
         , stateMachineUpdatesCV()
         , commandQueueMutex()
@@ -39,7 +39,7 @@ namespace Raft {
             printf("[Log State Machine]: Popped RaftClient command: %s", cmd.second.c_str());
 
             try {
-                std::string ret = applyCmd(cmd.second);
+                std::string* ret = applyCmd(cmd.second);
                 printf("[Log State Machine]: Loge entry %llu applied", cmd.first);
                 callbackRaftServer(cmd.first, ret);
             }
@@ -52,15 +52,15 @@ namespace Raft {
         }
     }
 
-    std::string ShellStateMachine::applyCmd(const std::string& cmd) {
-        std::string ret;
+    std::string* ShellStateMachine::applyCmd(const std::string& cmd) {
+        std::string *ret = new std::string();
         const char *c = cmd.c_str();
         FILE *pipe = popen(c, "r");
         if (pipe) { 
             char buffer[256]; 
             while (!feof(pipe)) { 
                 if (fgets(buffer, sizeof(buffer), pipe) != nullptr) { 
-                    ret.append(std::string(buffer));
+                    ret->append(std::string(buffer));
                 } 
             } 
             pclose(pipe); 

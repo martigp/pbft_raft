@@ -81,16 +81,20 @@ namespace Common {
     }
 
     // TODO: does anything need to get cleaned up
-    NetworkService::~NetworkService() {}
+    NetworkService::~NetworkService() {
+        if (close(pollFd) < 0)
+        {
+            std::cerr << "[Network] In desctructor error closing kqueue: " 
+            << std::strerror(errno) << std::endl;
+        }
+    }
 
     void 
     NetworkService::sendMessage(const std::string& sendToAddr,
                                 const std::string& msg,
-                                bool createConnection,
-                                const std::string& sendFromAddr) {
-
-        std::thread sendMessageThread([&] {
-            connectionStateMapLock.lock();                         
+                                bool createConnection) {
+        std::thread sendMessageThread([&, msg, createConnection] {
+            connectionStateMapLock.lock();
 
             // Should only be one entry in map for each address, if this
             // count is greater than 0, we are already connected to this address
@@ -105,35 +109,37 @@ namespace Common {
                 
                 int sendSocketFd = socket(AF_INET, SOCK_STREAM, 0);
                 if (sendSocketFd  < 0) {
+                    std::cerr << "Couldn't create socket for new connection with" <<
+                    sendToAddr << " with error " << std::strerror(errno) << std::endl;
+                    return;
+                }
+
+                // TODO: This may not be necessary for a client socket
+                int opt = 1;
+                if (setsockopt(sendSocketFd, SOL_SOCKET, SO_REUSEADDR, &opt,
+                            sizeof(opt))) {
+                    std::cerr << "Failed to setsockopt to reuse local addresses"
+                                "for the new connection with: " + sendToAddr + 
+                                "with error " << std::strerror(errno) << std::endl;
                     return;
                 }
 
                 struct sockaddr_in sendToSockAddr;
                 try {
-                    // A send address was specified so bind the socket to this
-                    // address.
-                    if (sendFromAddr != "") {
-                        struct sockaddr_in sendFromSockAddr;
-                        populateSockAddr(sendFromAddr, &sendFromSockAddr);
-
-                        if (bind(sendSocketFd,
-                                 (struct sockaddr *)&sendFromAddr,
-                                 sizeof(sendFromSockAddr) < 0)) {
-                            throw std::runtime_error(
-                                "Failed to bind specified send address" + 
-                                sendFromAddr + "to socket");
-                        }
-
-                    }
                     populateSockAddr(sendToAddr, &sendToSockAddr);
                 }
-                catch(std::exception e) {
+                catch(std::runtime_error e) {
+                    std::cerr << e.what() << ": closing socket to addr " 
+                              << sendToAddr << std::endl;
                     close (sendSocketFd);
                     return;
                 }
 
                 if (connect(sendSocketFd,(struct sockaddr *)&(sendToSockAddr), 
                     sizeof(sendToSockAddr)) < 0) {
+                    std::cout << "[Network] Failed to connect with host " 
+                              << sendToAddr << " with error " <<
+                              std::strerror(errno) <<  std::endl;
                     close(sendSocketFd);
                     return;
                 }
@@ -144,6 +150,9 @@ namespace Common {
                 connectionStateMap[sendToAddr] = connectionState;
 
                 monitorSocketForEvents(sendSocketFd);
+
+                std::cout << "[Network] connected to host " << sendToAddr << "Also"
+                " and polling for responses" << std::endl;
             }
             else {
                 connectionStateMapLock.unlock();
@@ -156,18 +165,21 @@ namespace Common {
             // Create the network message prefixing the message with a header
             // of how many bytes the payload is.
             uint64_t payloadLength = htonll(msg.size());
-            char buf[HEADER_SIZE + payloadLength];
+            char buf[HEADER_SIZE + msg.size()];
             memcpy(buf, &payloadLength, HEADER_SIZE);
-            memcpy(buf + HEADER_SIZE, msg.c_str(), payloadLength);
+            memcpy(buf + HEADER_SIZE, msg.c_str(), msg.size());
 
 
             connectionState->lock.lock();
 
             if (send(connectionState->socketFd, buf, sizeof(buf), 0) == -1) {
                 connectionState->lock.unlock();
-                removeHost(sendToAddr);
+                removeConnection(sendToAddr);
                 return;
             }
+
+            std::cout << "[Network] Successfully sent message to " << sendToAddr
+                      << " with payload size " << msg.size() <<std::endl;
             
             connectionState->lock.unlock();
         });
@@ -194,17 +206,18 @@ namespace Common {
     }
 
     void 
-    NetworkService::removeHost(const std::string& hostAddr) {
+    NetworkService::removeConnection(const std::string& hostAddr) {
 
+        std::cout << "[Network] Trying to remove host " << hostAddr << std::endl;
         connectionStateMapLock.lock();
         auto hostInfoPair = connectionStateMap.find(hostAddr);
 
         if (hostInfoPair != connectionStateMap.cend()) {
-            // Remove from map
-            hostInfoPair = connectionStateMap.erase(hostInfoPair);
+            // Remove from map but still have the shared pointer
+            auto removedMapEntry = connectionStateMap.extract(hostInfoPair);
             connectionStateMapLock.unlock();
 
-            auto connectionState = hostInfoPair->second;
+            auto connectionState = removedMapEntry.mapped();
 
             // Closing the socket removes it from the kqueue as well
             // Someone may have gotten the entry from the map already, make
@@ -214,8 +227,14 @@ namespace Common {
             connectionState->socketFd = INVALID_SOCKET_FD;
             connectionState->lock.unlock();
         } else {
+            // This is OK but still print message
+            std::cerr << "[Network] Attempted to remove connection to " 
+            << hostAddr << " but connection did not exists"
+                      << std::endl;
             connectionStateMapLock.unlock();
         }
+        std::cout << "[Network] All state of host " << hostAddr <<
+                     " successfully removed." << std::endl;
     }
 
     void
@@ -243,8 +262,8 @@ namespace Common {
             // Obtain the string version of the host IP address and port so
             // it can be added to the addrToHostInfo Map.
             char hostIp[INET_ADDRSTRLEN];
-            if (inet_ntop(AF_INET, &(hostSockAddr.sin_addr), hostIp,
-                      INET_ADDRSTRLEN) ) {
+            if (inet_ntop(AF_INET, &(hostSockAddr.sin_addr.s_addr), hostIp,
+                      INET_ADDRSTRLEN) == NULL) {
                 close(hostSocketFd);
                 errorMsg = "Failed to parse an incoming host connection"
                            "request's ip with inet_ntop: %s", 
@@ -254,11 +273,17 @@ namespace Common {
 
             uint16_t hostPort = ntohs(hostSockAddr.sin_port);
 
-            const std::string hostAddr = hostIp + std::to_string(hostPort);
+            const std::string hostAddr = 
+                std::string(hostIp) + ':' + std::to_string(hostPort);
             
             const std::lock_guard<std::mutex> lg(connectionStateMapLock);
             connectionStateMap[hostAddr] = 
                 std::make_shared<ConnectionState>(hostSocketFd);
+
+            monitorSocketForEvents(hostSocketFd);
+            
+            std::cout << "[Network] Added successfully accepted connection"
+            "request from " << hostAddr << std::endl;
             
             return;
         } // ListenSocket Event
@@ -274,34 +299,52 @@ namespace Common {
         connectionStateMapLock.unlock();
 
 
-        // This is to read the prefix of a network message which is the
-        // number of bytes in the payload
+        // Read in all availabile bytes
         while (totalBytesRead < socketBytesAvailable) {
-            // Read attempt to read header size bytes
+            std::cout << "[Network] Total Bytes Read: " << totalBytesRead <<
+            ". Bytes available to read: " << socketBytesAvailable << " Payload "
+            "bytes needed " << connectionState->payloadBytesNeeded << 
+            " Current Message bytes " << connectionState->msg.size() << std::endl;
+            // Read the header of a network message which is the
+            // number of bytes in the payload
             if (connectionState->msg.size() < HEADER_SIZE) {
                 // Only read in header bytes worth
                 size_t headerBytesToRead = HEADER_SIZE - totalBytesRead;
-                char buf [headerBytesToRead];
+                char buf [HEADER_SIZE];
 
                 ssize_t headerBytesRead = 
                     recv(receiveSocketFd, buf, headerBytesToRead, MSG_DONTWAIT);
                 
                 if (headerBytesRead == -1) {
+                    std::cerr << "[Network] Error reading header bytes: " << 
+                    std::strerror(errno) << ". Header bytes Needed: " 
+                    << headerBytesRead << " bytes. Bytes Available: " 
+                    << socketBytesAvailable - totalBytesRead << std::endl;
                     break;
                 }
 
                 totalBytesRead += headerBytesRead;
-                connectionState->msg += buf;                
+                connectionState->msg.append(buf, headerBytesRead);                
             }
-            // Read in complete header but have not parsed the header yet since
-            // the payloadBytesNeeded is still its default value.
-            if (connectionState->msg.size() == HEADER_SIZE &&
-                connectionState->payloadBytesNeeded == UNKNOWN_NUM_BYTES) {
+            // If payload bytes has this default value, we still need to read
+            // in its value from the header. Since we know we've received a full
+            // header at this point
+            if (connectionState->payloadBytesNeeded == UNKNOWN_NUM_BYTES ) {
+                if (connectionState->msg.size() == HEADER_SIZE) {
+                    std::cout << "[Network] Received full header " << connectionState->msg << std::endl;
+                    // Convert bytes to uint64_t and convert to correct ordering
+                    // for network message
+                    
+                    // Nasty conversion but std::stoull was throwing errors.
+                    uint64_t networkOrderedPayloadLen;
+                    memcpy(&networkOrderedPayloadLen, connectionState->msg.c_str(), HEADER_SIZE);
 
-                // Convert bytes to uint64_t and convert to correct ordering
-                // for network message
-                uint64_t networkOrderedPayloadLen = std::stoull(connectionState->msg);
-                connectionState->payloadBytesNeeded = ntohll(networkOrderedPayloadLen);
+                    connectionState->payloadBytesNeeded =
+                        ntohll(networkOrderedPayloadLen);
+   
+                } else {
+                    continue;
+                }
             }
 
             size_t payloadBytesToRead = connectionState->payloadBytesNeeded;
@@ -311,11 +354,13 @@ namespace Common {
                     recv(receiveSocketFd, buf, payloadBytesToRead, MSG_DONTWAIT);
                 
             if (payloadBytesRead == -1) {
+                std::cerr << "[Network] Error reading payload bytes: "
+                << std::strerror(errno) << std::endl;
                 break;
             }
 
             totalBytesRead += payloadBytesRead;
-            connectionState->msg += buf;
+            connectionState->msg.append(buf, payloadBytesRead);
             connectionState->payloadBytesNeeded -= payloadBytesRead;
 
             if (connectionState->payloadBytesNeeded == 0) {
@@ -323,6 +368,8 @@ namespace Common {
                 const std::string payload = 
                     connectionState->msg.substr(HEADER_SIZE, payloadSize);
 
+                std::cout << "[Network] Passing complete message from " 
+                << hostAddr << " to the Raft server" << std::endl;
                 userCallbackFunction(hostAddr, payload);
 
                 connectionState->msg = "";
@@ -330,15 +377,21 @@ namespace Common {
                     UNKNOWN_NUM_BYTES;
             }
         }
-
-        removeHost(hostAddr);
+        // Intetinoally broke from the loop because of an error - remove the
+        // connection
+        if (totalBytesRead != socketBytesAvailable) {
+            removeConnection(hostAddr);
+        }
     }
 
     int
     NetworkService::createListenSocket(const std::string& listenAddr) {
+        printf("[Network Service] Establishing listening socket on address %s\n",
+                listenAddr.c_str());
+        
         std::string errorMsg;
-
         int listenSocketFd = socket(AF_INET, SOCK_STREAM, 0);
+
 
         // Creating socket file descriptor
         if (listenSocketFd < 0) {
@@ -411,8 +464,14 @@ namespace Common {
                 bool isListenSocket = socketFd == listenSocketFd;
 
                 if (!isListenSocket) {
-                    const std::lock_guard<std::mutex> lg(connectionStateMapLock);
-                    hostAddr = getAddrFromSocketFd(socketFd);
+                    try {
+                        const std::lock_guard<std::mutex> lg(connectionStateMapLock);
+                        hostAddr = getAddrFromSocketFd(socketFd);
+                        std::cout << "[Network] Polled event from host " << hostAddr << std::endl;
+                    }
+                    catch (std::runtime_error e) {
+                        continue;
+                    }
                 }
 
                 if (ev.fflags & EV_ERROR) {
@@ -432,11 +491,14 @@ namespace Common {
                 }
                 // An event we registered occured on the socket occured
                 else if (ev.filter == EVFILT_READ) {
-                    handleReceiveEvent(socketFd, ev.data, isListenSocket);
-                    continue;
+                    // Sending 0 bytes indicates closed connection
+                    if (ev.data != 0) {
+                        handleReceiveEvent(socketFd, ev.data, isListenSocket);
+                        continue;
+                    }
                 }
                 // If wasn't a normal read event we want to remove the host.
-                removeHost(hostAddr);
+                removeConnection(hostAddr);
             }
         }
     }

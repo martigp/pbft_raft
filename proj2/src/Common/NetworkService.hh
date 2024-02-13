@@ -61,14 +61,11 @@ namespace Common {
              * @param msg The message to be sent to the peer
              * @param createConnection TRUE if user wants to create connection
              * with the sendToAddr if one does not exist. By default FALSE
-             * @param sendFromAddr An address to send the message from. By
-             * default this is unused.
              * 
              */
             void sendMessage(const std::string& sendToAddr,
                              const std::string& msg,
-                             bool createConnection = false,
-                             const std::string& sendFromAddr = "");
+                             bool createConnection = false);
 
             /**
              * @brief Method called to start the network service listening
@@ -96,7 +93,7 @@ namespace Common {
              * 
              * @param hostAddr The host address in form ip:port
              */
-            void removeHost(const std::string& hostAddr);
+            void removeConnection(const std::string& hostAddr);
 
             /**
              * @brief Handles the event that there is data available to read

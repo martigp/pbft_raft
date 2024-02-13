@@ -25,7 +25,7 @@ namespace Raft {
              * 
              * TODO: make sure this gets lastApplied on reboot
              */
-            ShellStateMachine(std::function<void(uint64_t, const std::string)> callbackFn);
+            ShellStateMachine(std::function<void(uint64_t, std::string *)> callbackFn);
 
             /* Destructor */
             ~ShellStateMachine();
@@ -64,13 +64,13 @@ namespace Raft {
              * @param command Command to executed
              * @return std::string The shell response from running the command
              */
-            std::string applyCmd(const std::string& cmd);
+            std::string* applyCmd(const std::string& cmd);
 
             /**
              * @brief Function provided by RaftServer that will accept as arguments a
              * log index and a result once they have been applied
             */
-            std::function<void(uint64_t, const std::string)> callbackRaftServer;
+            std::function<void(uint64_t, std::string*)> callbackRaftServer;
 
             /**
              * @brief StateMachine Updates CV 

@@ -9,38 +9,48 @@ namespace Common {
     ServerConfig::ServerConfig( std::string configPath ) {
         libconfig::Config cfg;
 
-        cfg.readFile(configPath);
+        try {
+            cfg.readFile(configPath);
 
-        std::string cfgListenAddr = cfg.lookup("clientAddress");
-        clientAddr = cfgListenAddr;
 
-        std::string cfgServerAddr = cfg.lookup("serverAddress");
-        serverAddr = cfgServerAddr;
+            std::string cfgServerAddr = cfg.lookup("serverAddress");
+            std::cout << "[ServerConfig] Read serverAddr " << cfgServerAddr
+                    << " from config." << std::endl;
+            serverAddr = cfgServerAddr;
 
-        serverId = cfg.lookup("serverId");
+            serverId = cfg.lookup("serverId");
 
-        std::string cfgPersistentStoragePath = 
-                            cfg.lookup("persistentStoragePath");
-        
-        persistentStoragePath = cfgPersistentStoragePath;
+            std::string cfgPersistentStoragePath = 
+                                cfg.lookup("persistentStoragePath");
+            
+            persistentStoragePath = cfgPersistentStoragePath;
 
-        const libconfig::Setting& root = cfg.getRoot();
-        const libconfig::Setting& servers = root["servers"];
+            const libconfig::Setting& root = cfg.getRoot();
+            const libconfig::Setting& servers = root["servers"];
 
-        // Extract information about the servers in the Raft cluster
-        for (int i = 0; i < servers.getLength(); i++) {
-            const libconfig::Setting &server = servers[i];
-            uint64_t serverId = server.lookup("id");
-            std::string clientAddr = server.lookup("clientAddress");
-            std::string serverAddr = server.lookup("serverAddress");
+            // Extract information about the servers in the Raft cluster
+            for (int i = 0; i < servers.getLength(); i++) {
+                const libconfig::Setting &server = servers[i];
+                uint64_t serverId = server.lookup("id");
+                std::string serverAddr = server.lookup("serverAddress");
 
-            // Might need to be a non stack allocated string?
-            clusterMap[serverId] = 
-                std::make_pair(clientAddr, serverAddr);
+                // Might need to be a non stack allocated string?
+                clusterMap[serverId] = serverAddr;
+            }
+
+            // Number of servers including
+            numClusterServers = servers.getLength() + 1;
         }
-
-        // Number of servers including
-        numClusterServers = servers.getLength() + 1;
+        catch (libconfig::FileIOException e) {
+            std::cerr << "[ServerConfig] Bad path " << configPath << " provided"
+                         "in command line." << std::endl;
+            throw e;
+        }
+        catch (libconfig::SettingNotFoundException e) {
+            std::cerr << "[ServerConfig] Setting not found: " << e.what()
+                      << std::endl;
+            throw e;
+        }
 
     }
 

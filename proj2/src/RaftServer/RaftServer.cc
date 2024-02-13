@@ -86,6 +86,8 @@ namespace Raft {
         newEvent.type = EventType::MESSAGE_RECEIVED;
         newEvent.addr = sendAddr;
         newEvent.msg = msg;
+        std::cout << "[Raft server]: New network event received from " << 
+        newEvent.addr.value() << std::endl;
         
         {
             std::lock_guard<std::mutex> lg(eventQueueMutex);
@@ -111,7 +113,7 @@ namespace Raft {
 
     void RaftServer::notifyRaftOfStateMachineApplied(
                                          uint64_t logIndex,
-                                         const std::string stateMachineResult) {
+                                         std::string* stateMachineResult) {
         RaftServerEvent newEvent;
         newEvent.type = EventType::STATE_MACHINE_APPLIED;
         newEvent.logIndex = logIndex;
@@ -135,6 +137,7 @@ namespace Raft {
             case ServerState::FOLLOWER:
                 printf("[RaftServer.cc]: Called timeout as follower\n");
                 myState = ServerState::CANDIDATE;
+                printf("[RaftServer.cc]: Converted to candidate\n");
                 startNewElection();
                 break;
             case ServerState::CANDIDATE:
@@ -149,14 +152,18 @@ namespace Raft {
     }
 
     void RaftServer::handleAppliedLogEntry(uint64_t appliedIndex,
-                                           const std::string& result) {
+                                           std::string* result) {
         // Update highest applied index
         // TODO: should we check this?
         lastApplied = appliedIndex;
 
         auto clientAddrEntry = logToClientAddrMap.find(appliedIndex);
         if (clientAddrEntry != logToClientAddrMap.cend()) {
-            network.sendMessage(clientAddrEntry->second, result);
+            RPC_StateMachineCmd_Response *resp = new RPC_StateMachineCmd_Response();
+            resp->set_allocated_msg(result);
+            RPC rpc;
+            rpc.set_allocated_statemachinecmdresp(resp);
+            network.sendMessage(clientAddrEntry->second, rpc.SerializeAsString());
             return;
         }
         //TODO: Need error handling here, what is the correct behaviour, does
@@ -194,18 +201,30 @@ namespace Raft {
         myVotes.insert(config.serverId);
         numVotesReceived = 1;
         timer->resetTimer();
+        
+        RPC_RequestVote_Request* req = new RPC_RequestVote_Request();
+        req->set_term(currentTerm);
+        req->set_candidateid(config.serverId);
+        req->set_lastlogindex(0);
+        req->set_lastlogterm(0);
 
-        RPC_RequestVote_Request req;
-        req.set_term(currentTerm);
-        req.set_candidateid(config.serverId);
-        req.set_lastlogindex(0);
-        req.set_lastlogterm(0);
-        std::string reqString = req.SerializeAsString();
+        RPC rpc;
+        rpc.set_allocated_requestvotereq(req);
+
+        std::string rpcString;
+        
+        if (!rpc.SerializeToString(&rpcString)) {
+            std::cerr << "[Raft Server] Unable to serialize the Request Vote Request. " << std::endl;
+            return;
+        }
+
 
         // TODO: turn RPC's into strings for Network
-        printf("[RaftServer.cc]: About to send RequestVote, term: %llu, serverId: %llu\n", currentTerm, config.serverId);
-        for (auto& [_, raftServerAddrs]: config.clusterMap) {
-            network.sendMessage(raftServerAddrs.first, reqString);
+        printf("[RaftServer.cc]: About to send RequestVote: term: %llu,"
+               "serverId: %llu\n", currentTerm, config.serverId);
+        for (auto& [_, serverAddr]: config.clusterMap) {
+            network.sendMessage(serverAddr, rpcString,
+                                CREATE_CONNECTION);
         }
     }
 
@@ -216,7 +235,7 @@ namespace Raft {
     }
 
     void RaftServer::convertToLeader() {
-        printf("[RaftServer.cc]: Converting to follower, term: %llu, serverId: %llu\n", currentTerm, config.serverId);
+        printf("[RaftServer.cc]: Converting to leader, term: %llu, serverId: %llu\n", currentTerm, config.serverId);
         myState = ServerState::LEADER;
         setHeartbeatTimeout();
         // Value of isHeartbeat set to true for first empty append entries requests
@@ -224,20 +243,17 @@ namespace Raft {
     }
 
     void RaftServer::sendAppendEntriesReqs(std::optional<bool> isHeartbeat) {
-        RPC_AppendEntries_Request req;
+        RPC_AppendEntries_Request * req = new RPC_AppendEntries_Request();
         printf("[RaftServer.cc]: About to send AppendEntries, term: %llu\n", currentTerm);
-        for (auto& [raftServerId, raftServerAddrs]: config.clusterMap) {
+        for (auto& [raftServerId, sendToAddr]: config.clusterMap) {
             // NOTE: sendMessage only requires an addr, port, string
-
-            // Send request to the RaftServer server address.
-            const std::string sendToAddr = raftServerAddrs.second;
 
             struct RaftServerVolatileState& serverInfo = 
                 volatileServerInfo[raftServerId];
 
-            req.set_term(currentTerm);
-            req.set_leaderid(config.serverId);
-            req.set_prevlogindex(serverInfo.nextIndex - 1);
+            req->set_term(currentTerm);
+            req->set_leaderid(config.serverId);
+            req->set_prevlogindex(serverInfo.nextIndex - 1);
             uint64_t term;
             std::string entry;
             // TODO fix this for when there's no log
@@ -245,27 +261,35 @@ namespace Raft {
                 std::cerr << "[RaftServer.cc]: Error while reading log for sendAppendEntries." << std::endl;
                 exit(EXIT_FAILURE);
             }
-            req.set_prevlogterm(term);
+            req->set_prevlogterm(term);
 
             // TODO: this needs to append multiple entries if need
             // Wondering if we do a local cache or always access memory
             RPC_AppendEntries_Request_Entry nullEntry;
             if (isHeartbeat.has_value()) {
-                *(req.add_entries()) = nullEntry;
+                *(req->add_entries()) = nullEntry;
             } else {
                 // Some for loop with the same logic as above
-                *(req.add_entries()) = nullEntry;
+                *(req->add_entries()) = nullEntry;
             }
 
             // TODO: go over the most recent request_id stuff
             // Check that getting this refernce actually workss
             serverInfo.mostRecentRequestId++;
 
-            req.set_requestid(serverInfo.mostRecentRequestId);
+            req->set_requestid(serverInfo.mostRecentRequestId);
 
-            std::string reqString = req.SerializeAsString();
-            network.sendMessage(sendToAddr, reqString, CREATE_CONNECTION,
-                                config.clientAddr);
+            RPC rpc;
+            rpc.set_allocated_appendentriesreq(req);
+
+            std::string rpcString;
+            if (!rpc.SerializeToString(&rpcString)) {
+                std::cerr << "[Raft Server] Unable to serialize the Append"
+                " Entries Request to " << sendToAddr << std::endl;
+                return;
+            }
+            
+            network.sendMessage(sendToAddr, rpcString, CREATE_CONNECTION);
         }
     }
 
@@ -274,52 +298,37 @@ namespace Raft {
         // Check it is a well formed Raft Message
         RPC rpc;
         if (!rpc.ParseFromString(msg)) {
+            std::cerr << "[Server] Unable to parse message" << msg <<  
+                         " from host " << senderAddr << std::endl;
             return;
         }
         RPC::MsgCase msgType = rpc.msg_case();
 
-        // Option 1: Message is a Raft Server, or use a .find method idk
-        for (auto& [raftServerId, raftServerAddrs]: config.clusterMap) {
-            // First is the address for the connection where the Raft Server
-            // acts as a client i.e. the message should be a request
-            if (raftServerAddrs.first == senderAddr) {
-                 // TODO: figure out how we will parse strings with one of
-                switch (msgType) {
-                    case RPC::kAppendEntriesReq:
-                        processAppendEntriesReq(raftServerId,
-                                                rpc.appendentriesreq());
-                        return;
-                    case RPC::kRequestVoteReq:
-                        processRequestVoteReq(raftServerId,
-                                              rpc.requestvotereq());
-                        return;
-                    default:
-                        return;
-                }
-            }
-            // Second address is where the Raft Server acts as a server i.e.
-            // the message should be a response.
-            else if (raftServerAddrs.second == senderAddr) {
-                switch(msgType) {
-                    case RPC::kAppendEntriesResp:
-                        processAppendEntriesResp(raftServerId,
-                                                 rpc.appendentriesresp());
-                        return;
-                    case RPC::kRequestVoteResp:
-                        processRequestVoteResp(raftServerId,
-                                               rpc.requestvoteresp());
-                        return;
-                    default:
-                        return;
-                    
-                }
-            }
-        }
-
-        // Option 2: Did not find a raftServer matching address, check that
-        // the message is a State Machine Command Request. Do nothing if not.
-        if (msgType == RPC::kStateMachineCmdReq) {
-            processClientRequest(senderAddr, rpc.statemachinecmdreq());
+        switch(msgType) {
+            case RPC::kAppendEntriesReq:
+                processAppendEntriesReq(senderAddr,
+                                        rpc.appendentriesreq());
+                return;
+            case RPC::kAppendEntriesResp:
+                processAppendEntriesResp(senderAddr,
+                                         rpc.appendentriesresp());
+                return;
+            case RPC::kRequestVoteReq:
+                processRequestVoteReq(senderAddr,
+                                      rpc.requestvotereq());
+                return;
+            case RPC::kRequestVoteResp:
+                processRequestVoteResp(senderAddr,
+                                       rpc.requestvoteresp());
+                return;
+            case RPC::kStateMachineCmdReq:
+                processClientRequest(senderAddr, rpc.statemachinecmdreq());
+                return;
+            default:
+                std::cerr << "[Server] Incorrectly received message of"
+                << " type " << msgType << "from address " << senderAddr
+                << std::endl;
+                return;
         }
     }
 
@@ -340,10 +349,10 @@ namespace Raft {
         // Receipt of responses will let us know when indices are committed. 
     }
 
-    void RaftServer::processAppendEntriesReq(uint64_t serverId, 
+    void RaftServer::processAppendEntriesReq(const std::string& senderAddr, 
                                              const RPC_AppendEntries_Request& req) {
         printf("[RaftServer.cc]: Received Append Entries\n");
-        RPC_AppendEntries_Response resp;
+        RPC_AppendEntries_Response* resp = new RPC_AppendEntries_Response();
         // If out of date, convert to follower before continuing
         if (req.term() > currentTerm) {
             currentTerm = req.term();
@@ -357,11 +366,11 @@ namespace Raft {
         }
 
         // Include requestID in response for RPC pairing
-        resp.set_term(currentTerm);
-        resp.set_requestid(req.requestid());
+        resp->set_term(currentTerm);
+        resp->set_requestid(req.requestid());
         
         if (req.term() < currentTerm) {
-            resp.set_success(false);
+            resp->set_success(false);
         } else {
             // At this point, we must be talking to the currentLeader, resetTimer as specified in Rules for Follower
             timer->resetTimer();
@@ -373,18 +382,35 @@ namespace Raft {
              * Dropping soon in Project 2 :P
              * Leaving some space here as a mental marker :)
             */
-            resp.set_success(true);
+            resp->set_success(true);
         }
 
-        const std::string respString = resp.SerializeAsString();
+        RPC rpc;
+        rpc.set_allocated_appendentriesresp(resp);
 
-        auto serverAddrs = config.clusterMap[serverId];
-        network.sendMessage(serverAddrs.first, respString);
+        const std::string rpcString = rpc.SerializeAsString();
+        network.sendMessage(senderAddr, rpcString);
     }
 
-    void RaftServer::processAppendEntriesResp(uint64_t serverId,
+    void RaftServer::processAppendEntriesResp(const std::string& senderAddr,
                                               const RPC_AppendEntries_Response& resp) {
         printf("[RaftServer.cc]: Process Append Entries Response\n");
+
+        // Obtain the ServerID from our map
+        uint64_t rpcSenderId = 0;
+        for (auto& [serverId, serverAddr] : config.clusterMap) {
+            if (senderAddr == serverAddr) {
+                rpcSenderId = serverId;
+            }
+        }
+
+        if (rpcSenderId == 0) {
+            std::cerr << "[Raft Server] Received an AppendEntries RPC response"
+            "from addr " << senderAddr << " not associatd with a raft server"
+            << std::endl;
+            return;
+        }
+
         // If out of date, convert to follower before continuing
         if (resp.term() > currentTerm) {
             currentTerm = resp.term();
@@ -394,7 +420,7 @@ namespace Raft {
         /* Do we do anything here for project 1? */
         // ignore if it is not the response to our msot recent request
         uint64_t serverMostRecentRequestId = 
-            volatileServerInfo[serverId].mostRecentRequestId;
+            volatileServerInfo[rpcSenderId].mostRecentRequestId;
         if (resp.requestid() != serverMostRecentRequestId) {
             return;
         }
@@ -405,10 +431,10 @@ namespace Raft {
         */
     }
 
-    void RaftServer::processRequestVoteReq(uint64_t serverId,
+    void RaftServer::processRequestVoteReq(const std::string& senderAddr,
                                            const RPC_RequestVote_Request& req) {
         printf("[RaftServer.cc]: Received Request Vote\n");
-        RPC::RequestVote::Response resp;
+        RPC_RequestVote_Response* resp = new RPC_RequestVote_Response();
 
         // If out of date, convert to follower before continuing
         if (req.term() > currentTerm) {
@@ -416,27 +442,47 @@ namespace Raft {
             votedFor = 0; // no vote casted in new term
             convertToFollower(); 
         }
-
-        resp.set_term(currentTerm);
+        resp->set_term(currentTerm);
         if (req.term() < currentTerm) {
-            resp.set_votegranted(false);
+            resp->set_votegranted(false);
         } else if (votedFor == 0 || votedFor == req.candidateid()) {
+            std::cout << "[Raft Server] Voting for candidate " << 
+            req.candidateid() << std::endl;
+            
             votedFor = req.candidateid();
-            resp.set_votegranted(true);
+            resp->set_votegranted(true);
             timer->resetTimer();
         } else {
-            resp.set_votegranted(false);
+            resp->set_votegranted(false);
         }
-        // TODO: send the string not the RPC
-        std::string respString = resp.SerializeAsString();
 
-        auto serverAddrs = config.clusterMap[serverId];
-        network.sendMessage(serverAddrs.first, respString);
+        RPC rpc;
+        rpc.set_allocated_requestvoteresp(resp);
+        // TODO: send the string not the RPC
+        std::string rpcString = rpc.SerializeAsString();
+
+        network.sendMessage(senderAddr, rpcString);
     }
 
-    void RaftServer::processRequestVoteResp(uint64_t serverId,
+    void RaftServer::processRequestVoteResp(const std::string& senderAddr,
                                             const RPC_RequestVote_Response& resp) {
-        printf("[RaftServer.cc]: Process Request Vote Response\n");
+        std::cout << "[RaftServer.cc]: Process Request Vote Response with term "
+        << resp.term() << " my term is " << currentTerm << std::endl;
+
+        uint64_t rpcSenderId = 0;
+        for (auto& [serverId, serverAddr] : config.clusterMap) {
+            if (senderAddr == serverAddr) {
+                rpcSenderId = serverId;
+            }
+        }
+
+        if (rpcSenderId == 0) {
+            std::cerr << "[Raft Server] Received a Request Vote RPC response"
+            "from addr " << senderAddr << " not associatd with a raft server"
+            << std::endl;
+            return;
+        }
+
         // If out of date, convert to follower and return
         // TODO: can't happen here though?
         if (resp.term() > currentTerm) {
@@ -445,10 +491,15 @@ namespace Raft {
             convertToFollower();
             return;
         }
+
         if (resp.term() == currentTerm && myState == ServerState::CANDIDATE) {
-            if (resp.votegranted() == true && myVotes.find(serverId) == myVotes.end()) {
+            if (resp.votegranted() == true && myVotes.find(rpcSenderId) == myVotes.end()) {
                 numVotesReceived += 1;
-                myVotes.insert(serverId);
+                myVotes.insert(rpcSenderId);
+                std::cout << "[RaftServer] Received new valid vote num votes=" 
+                << numVotesReceived << "threshold=" 
+                << config.numClusterServers / 2 << std::endl;
+
                 if (numVotesReceived > (config.clusterMap.size() / 2)) {
                     convertToLeader();
                 }

@@ -47,8 +47,7 @@ namespace Common {
              * and the second address is the address to send RPC Responses to
              * for that server.
              */
-            std::unordered_map<uint64_t,
-                               std::pair<std::string,std::string>> clusterMap;
+            std::unordered_map<uint64_t, std::string> clusterMap;
 
 
             /**

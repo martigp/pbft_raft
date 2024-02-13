@@ -1,4 +1,9 @@
 #include <iostream>
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include "RaftServer/RaftServer.hh"
 
 using namespace Raft;
@@ -20,7 +25,7 @@ int main(int argc, char *argv[])
     int opt;
     bool firstServerBoot = false;
 
-    while((opt = getopt(argc, argv, "hn") != -1)) {
+    while((opt = getopt(argc, argv, "hn")) != -1) {
         switch(opt) {
             case 'h':
                 std::cout << "Got h" << std::endl;
@@ -29,11 +34,17 @@ int main(int argc, char *argv[])
             case 'n':
                 std::cout << "Got n" << std::endl;
                 firstServerBoot = true;
+                break;
+            default:
+                std::cerr << "Received erroneous option with value " << (char) optopt
+                          << std::endl;
+                return 1;
         }
     }
 
     if (optind != argc - 1) {
-        std::cout << "Too many arguments" << std::endl;
+        std::cout << "Optind is " << optind << std::endl;
+        std::cout << "Too is too many arguments" << std::endl;
         printUsage();
         return 1;
     }
