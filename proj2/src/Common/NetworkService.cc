@@ -106,7 +106,7 @@ namespace Common {
             }
             else if (createConnection) {
                 connectionStateMapLock.unlock();
-                
+
                 int sendSocketFd = socket(AF_INET, SOCK_STREAM, 0);
                 if (sendSocketFd  < 0) {
                     std::cerr << "Couldn't create socket for new connection with" <<
@@ -168,7 +168,6 @@ namespace Common {
             char buf[HEADER_SIZE + msg.size()];
             memcpy(buf, &payloadLength, HEADER_SIZE);
             memcpy(buf + HEADER_SIZE, msg.c_str(), msg.size());
-
 
             connectionState->lock.lock();
 

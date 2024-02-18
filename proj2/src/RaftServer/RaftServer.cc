@@ -249,14 +249,13 @@ namespace Raft {
     }
 
     void RaftServer::sendAppendEntriesReqs(std::optional<bool> isHeartbeat) {
-        RPC_AppendEntries_Request * req = new RPC_AppendEntries_Request();
         printf("[RaftServer.cc]: About to send AppendEntries, term: %llu\n", storage.getCurrentTermValue());
         for (auto& [raftServerId, sendToAddr]: config.clusterMap) {
-            // NOTE: sendMessage only requires an addr, port, string
 
             struct RaftServerVolatileState& serverInfo = 
                 volatileServerInfo[raftServerId];
 
+            RPC_AppendEntries_Request * req = new RPC_AppendEntries_Request();
             req->set_term(storage.getCurrentTermValue());
             req->set_leaderid(config.serverId);
             req->set_prevlogindex(serverInfo.nextIndex - 1);
@@ -279,23 +278,22 @@ namespace Raft {
             // *(req->add_entries()) = nullEntry;
             
             // avoid underflow of uint log indices by checking first if there's anythign to append
-            if (!isHeartbeat.has_value() && serverInfo.nextIndex <= storage.getLogLength()) {
-                for (uint64_t i = 0; i <= storage.getLogLength() - serverInfo.nextIndex; i++) {
-                    RPC_AppendEntries_Request_Entry* entry = req->add_entries();
-                    uint64_t term;
-                    std::string entryCmd;
-                    if(!storage.getLogEntry(serverInfo.nextIndex + i, term, entryCmd)) {
-                        std::cerr << "[RaftServer.cc]: Error while reading log for sendAppendEntries at index " << std::to_string(serverInfo.nextIndex + i) << std::endl;
-                        exit(EXIT_FAILURE);
-                    }
-                    entry->set_cmd(entryCmd);
-                }
-            }
+            // if (!isHeartbeat.has_value() && serverInfo.nextIndex <= storage.getLogLength()) {
+            //     for (uint64_t i = 0; i <= storage.getLogLength() - serverInfo.nextIndex; i++) {
+            //         RPC_AppendEntries_Request_Entry* entry = req->add_entries();
+            //         uint64_t term;
+            //         std::string entryCmd;
+            //         if(!storage.getLogEntry(serverInfo.nextIndex + i, term, entryCmd)) {
+            //             std::cerr << "[RaftServer.cc]: Error while reading log for sendAppendEntries at index " << std::to_string(serverInfo.nextIndex + i) << std::endl;
+            //             exit(EXIT_FAILURE);
+            //         }
+            //         entry->set_cmd(entryCmd);
+            //     }
+            // }
 
-            // TODO: go over the most recent request_id stuff
-            // Check that getting this refernce actually workss
+            req->set_leadercommit(commitIndex);
+
             serverInfo.mostRecentRequestId++;
-
             req->set_requestid(serverInfo.mostRecentRequestId);
 
             RPC rpc;
@@ -307,7 +305,8 @@ namespace Raft {
                 " Entries Request to " << sendToAddr << std::endl;
                 return;
             }
-            
+            printf("[RaftServer.cc]: Successfully serialized Append Entries Request to %s\n", sendToAddr.c_str());
+
             network.sendMessage(sendToAddr, rpcString, CREATE_CONNECTION);
         }
     }
@@ -477,7 +476,7 @@ namespace Raft {
 
         RPC rpc;
         rpc.set_allocated_requestvoteresp(resp);
-        // TODO: send the string not the RPC
+
         std::string rpcString = rpc.SerializeAsString();
 
         network.sendMessage(senderAddr, rpcString);
