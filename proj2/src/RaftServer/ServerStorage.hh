@@ -36,7 +36,10 @@ namespace Raft {
             bool setCurrentTermValue(uint64_t term);
 
             /**
-             * @brief Get the value for currentTerm
+             * @brief Get the value for currentTerm:
+             * 
+             * The latest term server has seen 
+             * - initialized to 0 on first boot, increases monotonically
              * 
              * @returns Value of the currentTerm
             */
@@ -50,7 +53,10 @@ namespace Raft {
             bool setVotedForValue(uint64_t votedFor);
 
             /**
-             * @brief Get the value for votedFor
+             * @brief Get the value for votedFor:
+             * 
+             * candidateID that received vote in current term 
+             * - or 0 if none
              * 
              * @returns Value of the votedFor
             */
@@ -71,7 +77,10 @@ namespace Raft {
             bool setLastAppliedValue(uint64_t index);
 
             /**
-             * @brief Get the value for lastApplied log index
+             * @brief Get the value for lastApplied log index:
+             * 
+             * Index of highest log entry applied to state machine
+             * - initialized to 0, increases monotonically
              * 
              * @returns Value of the lastApplied
             */
@@ -120,11 +129,15 @@ namespace Raft {
             */
             std::string storageDirectory;
 
-            /**
-             * Locally stored variables for read without accessing ServerStorage
-            */
+            /*************************************
+             * Persistent state on all servers, 
+             * locally stored for speed
+            **************************************/
+
             uint64_t currentTerm = 0;
+
             uint64_t votedFor = 0;
+
             uint64_t lastApplied = 0;
 
             /**

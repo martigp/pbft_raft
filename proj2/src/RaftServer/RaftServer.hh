@@ -106,6 +106,15 @@ namespace Raft {
              */
             Common::ServerConfig config;
 
+            /**
+             * @brief Handles all persistent state as specified by Raft Figure 2.
+             * 
+             * Includes:
+             *  - currentTerm
+             *  - votedFor
+             *  - lastApplied
+             *  - log
+             */
             Raft::ServerStorage storage;
 
             std::unique_ptr<Raft::ShellStateMachine> shellSM;
@@ -165,27 +174,6 @@ namespace Raft {
             */
             ServerState myState;
 
-            /*************************************
-             * Persistent state on all servers
-            **************************************/
-
-            /**
-             * @brief The latest term server has seen 
-             * - initialized to 0 on first boot, increases monotonically
-            */
-            uint64_t currentTerm;
-
-            /**
-             * @brief candidateID that received vote in current term 
-             * - or 0 if none
-            */
-            uint64_t votedFor;
-
-            /**
-             * @brief Index of highest log entry applied to state machine
-             * - initialized to 0, increases monotonically
-            */
-            uint64_t lastApplied;
             
             /*************************************
              * Volatile state on all servers

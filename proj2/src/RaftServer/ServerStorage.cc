@@ -72,6 +72,7 @@ namespace Raft {
     }
 
     uint64_t ServerStorage::getLogLength() {
+        // printf("[ServerStorage.cc]: Got log length of %zu", logEntries.size());
         return logEntries.size();
     }
 
@@ -96,6 +97,7 @@ namespace Raft {
 
     bool ServerStorage::getLogEntry(uint64_t index, uint64_t &term, std::string &entry) {
         if (index > getLogLength()) {
+            printf("[ServerStorage.cc]: Cannot get log entry with index %llu, log length %llu", index, getLogLength());
             return false;
         }
         // TODO: error checking here

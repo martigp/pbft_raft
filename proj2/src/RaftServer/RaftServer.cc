@@ -21,9 +21,6 @@ namespace Raft {
         , eventQueueCV()
         , eventQueue()
         , myState ( RaftServer::ServerState::FOLLOWER )
-        , currentTerm ( 0 )
-        , votedFor ( 0 )
-        , lastApplied ( 0 )
         , commitIndex ( 0 )
         , leaderId ( 0 )
         , volatileServerInfo()
@@ -155,7 +152,7 @@ namespace Raft {
                                            std::string* result) {
         // Update highest applied index
         // TODO: should we check this?
-        lastApplied = appliedIndex;
+        storage.setLastAppliedValue(appliedIndex);
 
         auto clientAddrEntry = logToClientAddrMap.find(appliedIndex);
         if (clientAddrEntry != logToClientAddrMap.cend()) {
@@ -187,13 +184,11 @@ namespace Raft {
 
     void RaftServer::startNewElection() {
         printf("[RaftServer.cc]: Start New Election\n");
-        currentTerm += 1;
-        votedFor = config.serverId;
-        if (!storage.setCurrentTermValue(currentTerm)) {
-            std::cerr << "[RaftServer.cc]: Error while writing current term value." << std::endl;
+        if (!storage.setCurrentTermValue(storage.getCurrentTermValue() + 1)) {
+            std::cerr << "[RaftServer.cc]: Error while incrementing and writing current term value." << std::endl;
             exit(EXIT_FAILURE);
         }
-        if (!storage.setVotedForValue(votedFor)) {
+        if (!storage.setVotedForValue(config.serverId)) {
             std::cerr << "[RaftServer.cc]: Error while writing votedFor value." << std::endl;
             exit(EXIT_FAILURE);
         }
@@ -203,7 +198,7 @@ namespace Raft {
         timer->resetTimer();
         
         RPC_RequestVote_Request* req = new RPC_RequestVote_Request();
-        req->set_term(currentTerm);
+        req->set_term(storage.getCurrentTermValue());
         req->set_candidateid(config.serverId);
         req->set_lastlogindex(0);
         req->set_lastlogterm(0);
@@ -221,7 +216,7 @@ namespace Raft {
 
         // TODO: turn RPC's into strings for Network
         printf("[RaftServer.cc]: About to send RequestVote: term: %llu,"
-               "serverId: %llu\n", currentTerm, config.serverId);
+               "serverId: %llu\n", storage.getCurrentTermValue(), config.serverId);
         for (auto& [_, serverAddr]: config.clusterMap) {
             network.sendMessage(serverAddr, rpcString,
                                 CREATE_CONNECTION);
@@ -229,48 +224,72 @@ namespace Raft {
     }
 
     void RaftServer::convertToFollower() {
-        printf("[RaftServer.cc]: Converting to follower, term: %llu, serverId: %llu\n", currentTerm, config.serverId);
+        printf("[RaftServer.cc]: Converting to follower, term: %llu, serverId: %llu\n", storage.getCurrentTermValue(), config.serverId);
         myState = ServerState::FOLLOWER;
         setRandomElectionTimeout();
     }
 
     void RaftServer::convertToLeader() {
-        printf("[RaftServer.cc]: Converting to leader, term: %llu, serverId: %llu\n", currentTerm, config.serverId);
+        printf("[RaftServer.cc]: Converting to leader, term: %llu, serverId: %llu\n", storage.getCurrentTermValue(), config.serverId);
         myState = ServerState::LEADER;
         setHeartbeatTimeout();
+        // Reinitialize volatile state for leader
+        for (auto& [raftServerId, sendToAddr]: config.clusterMap) {
+            volatileServerInfo[raftServerId] = RaftServerVolatileState();
+            /* Index of the next log entry to send to that server,
+               initialized to last log index + 1*/
+            volatileServerInfo[raftServerId].nextIndex = storage.getLogLength() + 1;
+            /* Index of highest log entry known to be replicated on server,
+               initialized to 0, increases monotonically*/
+            volatileServerInfo[raftServerId].matchIndex = 0;
+        }
+        
         // Value of isHeartbeat set to true for first empty append entries requests
         sendAppendEntriesReqs(true);
     }
 
     void RaftServer::sendAppendEntriesReqs(std::optional<bool> isHeartbeat) {
         RPC_AppendEntries_Request * req = new RPC_AppendEntries_Request();
-        printf("[RaftServer.cc]: About to send AppendEntries, term: %llu\n", currentTerm);
+        printf("[RaftServer.cc]: About to send AppendEntries, term: %llu\n", storage.getCurrentTermValue());
         for (auto& [raftServerId, sendToAddr]: config.clusterMap) {
             // NOTE: sendMessage only requires an addr, port, string
 
             struct RaftServerVolatileState& serverInfo = 
                 volatileServerInfo[raftServerId];
 
-            req->set_term(currentTerm);
+            req->set_term(storage.getCurrentTermValue());
             req->set_leaderid(config.serverId);
             req->set_prevlogindex(serverInfo.nextIndex - 1);
             uint64_t term;
             std::string entry;
-            // TODO fix this for when there's no log
-            if(!storage.getLogEntry(serverInfo.nextIndex - 1, term, entry)) {
-                std::cerr << "[RaftServer.cc]: Error while reading log for sendAppendEntries." << std::endl;
+
+            if (serverInfo.nextIndex == 1) {
+                req->set_prevlogterm(0); // TODO: if last index is 0(empty log), is 0 here ok?
+            } else {
+                if(!storage.getLogEntry(serverInfo.nextIndex - 1, term, entry)) {
+                std::cerr << "[RaftServer.cc]: Error while reading log for sendAppendEntries at index " << std::to_string(serverInfo.nextIndex - 1) << std::endl;
                 exit(EXIT_FAILURE);
-            }
-            req->set_prevlogterm(term);
+                }
+                req->set_prevlogterm(term);
+            } 
 
             // TODO: this needs to append multiple entries if need
             // Wondering if we do a local cache or always access memory
-            RPC_AppendEntries_Request_Entry nullEntry;
-            if (isHeartbeat.has_value()) {
-                *(req->add_entries()) = nullEntry;
-            } else {
-                // Some for loop with the same logic as above
-                *(req->add_entries()) = nullEntry;
+            // RPC_AppendEntries_Request_Entry nullEntry;
+            // *(req->add_entries()) = nullEntry;
+            
+            // avoid underflow of uint log indices by checking first if there's anythign to append
+            if (!isHeartbeat.has_value() && serverInfo.nextIndex <= storage.getLogLength()) {
+                for (uint64_t i = 0; i <= storage.getLogLength() - serverInfo.nextIndex; i++) {
+                    RPC_AppendEntries_Request_Entry* entry = req->add_entries();
+                    uint64_t term;
+                    std::string entryCmd;
+                    if(!storage.getLogEntry(serverInfo.nextIndex + i, term, entryCmd)) {
+                        std::cerr << "[RaftServer.cc]: Error while reading log for sendAppendEntries at index " << std::to_string(serverInfo.nextIndex + i) << std::endl;
+                        exit(EXIT_FAILURE);
+                    }
+                    entry->set_cmd(entryCmd);
+                }
             }
 
             // TODO: go over the most recent request_id stuff
@@ -337,7 +356,7 @@ namespace Raft {
         // Step 1: Append string cmd to log, get log index
         uint64_t nextLogIndex = storage.getLogLength() + 1;
         std::string entry;
-        if (!storage.setLogEntry(nextLogIndex, currentTerm, entry)) {
+        if (!storage.setLogEntry(nextLogIndex, storage.getCurrentTermValue(), entry)) {
             std::cerr << "[RaftServer.cc]: Error while writing entry to log." << std::endl;
             exit(EXIT_FAILURE);
         }
@@ -354,22 +373,22 @@ namespace Raft {
         printf("[RaftServer.cc]: Received Append Entries\n");
         RPC_AppendEntries_Response* resp = new RPC_AppendEntries_Response();
         // If out of date, convert to follower before continuing
-        if (req.term() > currentTerm) {
-            currentTerm = req.term();
-            votedFor = 0; // no vote casted in new term
+        if (req.term() > storage.getCurrentTermValue()) {
+            storage.setCurrentTermValue(req.term());
+            storage.setVotedForValue(0); // no vote casted in new term
             convertToFollower();
         }
 
         // Currently running an election, AppendEntries from new term leader, convert to follower and continue
-        if (myState == ServerState::CANDIDATE && req.term() == currentTerm) {
+        if (myState == ServerState::CANDIDATE && req.term() == storage.getCurrentTermValue()) {
             convertToFollower(); 
         }
 
         // Include requestID in response for RPC pairing
-        resp->set_term(currentTerm);
+        resp->set_term(storage.getCurrentTermValue());
         resp->set_requestid(req.requestid());
         
-        if (req.term() < currentTerm) {
+        if (req.term() < storage.getCurrentTermValue()) {
             resp->set_success(false);
         } else {
             // At this point, we must be talking to the currentLeader, resetTimer as specified in Rules for Follower
@@ -412,13 +431,13 @@ namespace Raft {
         }
 
         // If out of date, convert to follower before continuing
-        if (resp.term() > currentTerm) {
-            currentTerm = resp.term();
-            votedFor = 0; // no vote casted in new term
+        if (resp.term() > storage.getCurrentTermValue()) {
+            storage.setCurrentTermValue(resp.term());
+            storage.setVotedForValue(0); // no vote casted in new term
             convertToFollower();
         }
-        /* Do we do anything here for project 1? */
-        // ignore if it is not the response to our msot recent request
+
+        // ignore if it is not the response to our most recent request
         uint64_t serverMostRecentRequestId = 
             volatileServerInfo[rpcSenderId].mostRecentRequestId;
         if (resp.requestid() != serverMostRecentRequestId) {
@@ -437,19 +456,19 @@ namespace Raft {
         RPC_RequestVote_Response* resp = new RPC_RequestVote_Response();
 
         // If out of date, convert to follower before continuing
-        if (req.term() > currentTerm) {
-            currentTerm = req.term();
-            votedFor = 0; // no vote casted in new term
+        if (req.term() > storage.getCurrentTermValue()) {
+            storage.setCurrentTermValue(req.term());
+            storage.setVotedForValue(0); // no vote casted in new term
             convertToFollower(); 
         }
-        resp->set_term(currentTerm);
-        if (req.term() < currentTerm) {
+        resp->set_term(storage.getCurrentTermValue());
+        if (req.term() < storage.getCurrentTermValue()) {
             resp->set_votegranted(false);
-        } else if (votedFor == 0 || votedFor == req.candidateid()) {
+        } else if (storage.getVotedForValue() == 0 || storage.getVotedForValue() == req.candidateid()) {
             std::cout << "[Raft Server] Voting for candidate " << 
             req.candidateid() << std::endl;
             
-            votedFor = req.candidateid();
+            storage.setVotedForValue(req.candidateid());
             resp->set_votegranted(true);
             timer->resetTimer();
         } else {
@@ -467,7 +486,7 @@ namespace Raft {
     void RaftServer::processRequestVoteResp(const std::string& senderAddr,
                                             const RPC_RequestVote_Response& resp) {
         std::cout << "[RaftServer.cc]: Process Request Vote Response with term "
-        << resp.term() << " my term is " << currentTerm << std::endl;
+        << resp.term() << " my term is " << storage.getCurrentTermValue() << std::endl;
 
         uint64_t rpcSenderId = 0;
         for (auto& [serverId, serverAddr] : config.clusterMap) {
@@ -485,14 +504,14 @@ namespace Raft {
 
         // If out of date, convert to follower and return
         // TODO: can't happen here though?
-        if (resp.term() > currentTerm) {
-            currentTerm = resp.term();
-            votedFor = 0; // no vote casted in new term
+        if (resp.term() > storage.getCurrentTermValue()) {
+            storage.setCurrentTermValue(resp.term());
+            storage.setVotedForValue(0); // no vote casted in new term
             convertToFollower();
             return;
         }
 
-        if (resp.term() == currentTerm && myState == ServerState::CANDIDATE) {
+        if (resp.term() == storage.getCurrentTermValue() && myState == ServerState::CANDIDATE) {
             if (resp.votegranted() == true && myVotes.find(rpcSenderId) == myVotes.end()) {
                 numVotesReceived += 1;
                 myVotes.insert(rpcSenderId);
