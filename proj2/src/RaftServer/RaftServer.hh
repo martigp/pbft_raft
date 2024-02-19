@@ -11,7 +11,7 @@
 #include <utility>
 #include <libconfig.h++>
 #include <unordered_map>
-#include "Common/ServerConfig.hh"
+#include "Common/RaftConfig.hh"
 #include "RaftServer/ShellStateMachine.hh"
 #include "RaftServer/Timer.hh"
 #include "RaftServer/ServerStorage.hh"
@@ -104,7 +104,7 @@ namespace Raft {
              * @brief The configuration class that stores all of a Raft Server's
              * configuration information. 
              */
-            Common::ServerConfig config;
+            Common::RaftConfig config;
 
             /**
              * @brief Handles all persistent state as specified by Raft Figure 2.

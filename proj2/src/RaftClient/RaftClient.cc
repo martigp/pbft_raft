@@ -12,7 +12,6 @@
 #include <mutex>
 #include <iostream>
 #include "Protobuf/RaftRPC.pb.h"
-#include "Common/RPC.hh"
 #include "RaftClient.hh"
 
 namespace Raft {

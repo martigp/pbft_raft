@@ -1,29 +1,28 @@
 #include <string>
-#include <netinet/in.h>
 #include <libconfig.h++>
 #include <iostream>
-#include <arpa/inet.h>
-#include "ServerConfig.hh"
+#include "RaftConfig.hh"
 
 namespace Common {
-    ServerConfig::ServerConfig( std::string configPath ) {
+    RaftConfig::RaftConfig( std::string configPath, RaftHostType type) {
         libconfig::Config cfg;
 
         try {
             cfg.readFile(configPath);
 
+            if (type == SERVER) {
+                std::string cfgServerAddr = cfg.lookup("serverAddress");
+                std::cout << "[ServerConfig] Read serverAddr " << cfgServerAddr
+                        << " from config." << std::endl;
+                serverAddr = cfgServerAddr;
 
-            std::string cfgServerAddr = cfg.lookup("serverAddress");
-            std::cout << "[ServerConfig] Read serverAddr " << cfgServerAddr
-                    << " from config." << std::endl;
-            serverAddr = cfgServerAddr;
+                serverId = cfg.lookup("serverId");
 
-            serverId = cfg.lookup("serverId");
-
-            std::string cfgPersistentStoragePath = 
-                                cfg.lookup("persistentStoragePath");
-            
-            persistentStoragePath = cfgPersistentStoragePath;
+                std::string cfgPersistentStoragePath = 
+                                    cfg.lookup("persistentStoragePath");
+                
+                persistentStoragePath = cfgPersistentStoragePath;
+            }
 
             const libconfig::Setting& root = cfg.getRoot();
             const libconfig::Setting& servers = root["servers"];
@@ -54,7 +53,7 @@ namespace Common {
 
     }
 
-    ServerConfig::~ServerConfig()
+    RaftConfig::~RaftConfig()
     {
     }
 }

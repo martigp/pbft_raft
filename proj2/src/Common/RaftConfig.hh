@@ -1,27 +1,27 @@
-#ifndef COMMON_SERVERCONFIG_H
-#define COMMON_SERVERCONFIG_H
+#ifndef COMMON_RAFTCONFIG_H
+#define COMMON_RAFTCONFIG_H
 
 #include <string>
-#include <netinet/in.h>
 
 namespace Common {
-    class ServerConfig {
+
+    enum RaftHostType {
+        CLIENT,
+        SERVER
+    };
+
+    class RaftConfig {
         public:
+
             /**
              * @brief Constructor
-             * @param configPath path to file with all Raft Server configuation
+             * @param configPath path to file with all Raft configuation
              * information.
              */
-            ServerConfig(std::string configPath);
+            RaftConfig(std::string configPath, RaftHostType type);
 
             /* Destructor */
-            ~ServerConfig();
-
-            /**
-             * @brief Address for RaftServer to send RPC requests from and 
-             * receive corresponding RPC responses on. Addr in form ip:port
-             */
-            std::string clientAddr;
+            ~RaftConfig();
 
             /**
              * @brief Address for RaftServer to listen for RPC requests on and 
@@ -55,7 +55,7 @@ namespace Common {
              */
             std::string persistentStoragePath;
 
-    }; // class ServerConfig
+    }; // class RaftConfig
 } // namespace Common
 
-#endif /* COMMON_SERVERCONFIG_H */
+#endif /* COMMON_RAFTCONFIG_H */

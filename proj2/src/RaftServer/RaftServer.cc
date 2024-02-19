@@ -14,7 +14,7 @@
 namespace Raft {
     
     RaftServer::RaftServer( const std::string& configPath, bool firstServerBoot)
-        : config ( configPath )
+        : config ( configPath, Common::RaftHostType::SERVER )
         , storage( config.serverId, firstServerBoot )
         , network( *this )
         , eventQueueMutex()
@@ -318,7 +318,7 @@ namespace Raft {
             " Entries Request to " << serverAddr << std::endl;
             return;
         }
-
+        
         network.sendMessage(serverAddr, rpcString, CREATE_CONNECTION);
     }
 
@@ -606,7 +606,7 @@ namespace Raft {
             }
 
             if ((myLastTerm > candLastTerm) || 
-                (myLastTerm == candLastTerm) && (storage.getLogLength() > req.lastlogindex())) {
+                ((myLastTerm == candLastTerm) && (storage.getLogLength() > req.lastlogindex()))) {
                     std::cout << "[Raft Server] Log more up to date, rejecting vote for candidate " 
                               << req.candidateid() << std::endl;
                     resp->set_votegranted(false);

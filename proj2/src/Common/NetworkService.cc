@@ -93,7 +93,7 @@ namespace Common {
     NetworkService::sendMessage(const std::string& sendToAddr,
                                 const std::string& msg,
                                 bool createConnection) {
-        std::thread sendMessageThread([&, msg, createConnection] {
+        std::thread sendMessageThread([&, sendToAddr, msg, createConnection] {
             connectionStateMapLock.lock();
 
             // Should only be one entry in map for each address, if this
