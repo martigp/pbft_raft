@@ -273,9 +273,11 @@ namespace Raft {
                                         const RPC_RequestVote_Response& resp);
 
             /**
-             * @brief Mapping of log index to client addr.
-            */
-            std::map<uint64_t, std::string> logToClientAddrMap;
+             * @brief Mapping of log index to information about the corresponding
+             * request - requestId and requesting address ip:port
+             */
+            std::map<uint64_t, 
+                     std::pair<uint64_t, std::string>> logToClientRequestMap;
 
             /**
              * @brief Receipt of new shell command from client

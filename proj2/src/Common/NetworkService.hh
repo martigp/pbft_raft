@@ -63,8 +63,8 @@ namespace Common {
              * with the sendToAddr if one does not exist. By default FALSE
              * 
              */
-            void sendMessage(const std::string& sendToAddr,
-                             const std::string& msg,
+            void sendMessage(const std::string sendToAddr,
+                             const std::string msg,
                              bool createConnection = false);
 
             /**

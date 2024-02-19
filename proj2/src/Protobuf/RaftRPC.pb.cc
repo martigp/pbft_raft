@@ -27,6 +27,7 @@ inline constexpr RPC_StateMachineCmd_Response::Impl_::Impl_(
       : msg_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        requestid_{::uint64_t{0u}},
         leaderid_{::uint64_t{0u}},
         success_{false},
         _cached_size_{0} {}
@@ -50,6 +51,7 @@ inline constexpr RPC_StateMachineCmd_Request::Impl_::Impl_(
       : cmd_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        requestid_{::uint64_t{0u}},
         _cached_size_{0} {}
 
 template <typename>
@@ -321,6 +323,7 @@ const ::uint32_t
         ~0u,  // no _inlined_string_donated_
         ~0u,  // no _split_
         ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::RPC_StateMachineCmd_Request, _impl_.requestid_),
         PROTOBUF_FIELD_OFFSET(::RPC_StateMachineCmd_Request, _impl_.cmd_),
         ~0u,  // no _has_bits_
         PROTOBUF_FIELD_OFFSET(::RPC_StateMachineCmd_Response, _internal_metadata_),
@@ -330,6 +333,7 @@ const ::uint32_t
         ~0u,  // no _inlined_string_donated_
         ~0u,  // no _split_
         ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::RPC_StateMachineCmd_Response, _impl_.requestid_),
         PROTOBUF_FIELD_OFFSET(::RPC_StateMachineCmd_Response, _impl_.success_),
         PROTOBUF_FIELD_OFFSET(::RPC_StateMachineCmd_Response, _impl_.leaderid_),
         PROTOBUF_FIELD_OFFSET(::RPC_StateMachineCmd_Response, _impl_.msg_),
@@ -368,9 +372,9 @@ static const ::_pbi::MigrationSchema
         {56, -1, -1, sizeof(::RPC_RequestVote_Response)},
         {66, -1, -1, sizeof(::RPC_RequestVote)},
         {74, -1, -1, sizeof(::RPC_StateMachineCmd_Request)},
-        {83, -1, -1, sizeof(::RPC_StateMachineCmd_Response)},
-        {94, -1, -1, sizeof(::RPC_StateMachineCmd)},
-        {102, -1, -1, sizeof(::RPC)},
+        {84, -1, -1, sizeof(::RPC_StateMachineCmd_Response)},
+        {96, -1, -1, sizeof(::RPC_StateMachineCmd)},
+        {104, -1, -1, sizeof(::RPC)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::_RPC_AppendEntries_Request_Entry_default_instance_._instance,
@@ -387,7 +391,7 @@ static const ::_pb::Message* const file_default_instances[] = {
 };
 const char descriptor_table_protodef_RaftRPC_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
-    "\n\rRaftRPC.proto\"\210\007\n\003RPC\0226\n\020appendEntries"
+    "\n\rRaftRPC.proto\"\257\007\n\003RPC\0226\n\020appendEntries"
     "Req\030\001 \001(\0132\032.RPC.AppendEntries.RequestH\000\022"
     "8\n\021appendEntriesResp\030\002 \001(\0132\033.RPC.AppendE"
     "ntries.ResponseH\000\0222\n\016requestVoteReq\030\003 \001("
@@ -407,16 +411,17 @@ const char descriptor_table_protodef_RaftRPC_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "Request\022\014\n\004term\030\001 \001(\004\022\023\n\013candidateId\030\002 \001"
     "(\004\022\024\n\014lastLogIndex\030\003 \001(\004\022\023\n\013lastLogTerm\030"
     "\004 \001(\004\032-\n\010Response\022\014\n\004term\030\001 \001(\004\022\023\n\013voteG"
-    "ranted\030\002 \001(\010\032e\n\017StateMachineCmd\032\026\n\007Reque"
-    "st\022\013\n\003cmd\030\001 \001(\014\032:\n\010Response\022\017\n\007success\030\001"
-    " \001(\010\022\020\n\010leaderId\030\002 \001(\004\022\013\n\003msg\030\003 \001(\014B\005\n\003m"
-    "sgb\006proto3"
+    "ranted\030\002 \001(\010\032\213\001\n\017StateMachineCmd\032)\n\007Requ"
+    "est\022\021\n\trequestId\030\001 \001(\004\022\013\n\003cmd\030\002 \001(\014\032M\n\010R"
+    "esponse\022\021\n\trequestId\030\001 \001(\004\022\017\n\007success\030\002 "
+    "\001(\010\022\020\n\010leaderId\030\003 \001(\004\022\013\n\003msg\030\004 \001(\014B\005\n\003ms"
+    "gb\006proto3"
 };
 static ::absl::once_flag descriptor_table_RaftRPC_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_RaftRPC_2eproto = {
     false,
     false,
-    930,
+    969,
     descriptor_table_protodef_RaftRPC_2eproto,
     "RaftRPC.proto",
     &descriptor_table_RaftRPC_2eproto_once,
@@ -1804,6 +1809,7 @@ RPC_StateMachineCmd_Request::RPC_StateMachineCmd_Request(
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  _impl_.requestid_ = from._impl_.requestid_;
 
   // @@protoc_insertion_point(copy_constructor:RPC.StateMachineCmd.Request)
 }
@@ -1815,6 +1821,7 @@ inline PROTOBUF_NDEBUG_INLINE RPC_StateMachineCmd_Request::Impl_::Impl_(
 
 inline void RPC_StateMachineCmd_Request::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.requestid_ = {};
 }
 RPC_StateMachineCmd_Request::~RPC_StateMachineCmd_Request() {
   // @@protoc_insertion_point(destructor:RPC.StateMachineCmd.Request)
@@ -1849,6 +1856,7 @@ PROTOBUF_NOINLINE void RPC_StateMachineCmd_Request::Clear() {
   (void) cached_has_bits;
 
   _impl_.cmd_.ClearToEmpty();
+  _impl_.requestid_ = ::uint64_t{0u};
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
 
@@ -1860,15 +1868,15 @@ const char* RPC_StateMachineCmd_Request::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 1, 0, 0, 2> RPC_StateMachineCmd_Request::_table_ = {
+const ::_pbi::TcParseTable<1, 2, 0, 0, 2> RPC_StateMachineCmd_Request::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    1, 0,  // max_field_number, fast_idx_mask
+    2, 8,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967294,  // skipmap
+    4294967292,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    1,  // num_field_entries
+    2,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_RPC_StateMachineCmd_Request_default_instance_._instance,
@@ -1877,13 +1885,19 @@ const ::_pbi::TcParseTable<0, 1, 0, 0, 2> RPC_StateMachineCmd_Request::_table_ =
     ::_pbi::TcParser::GetTable<::RPC_StateMachineCmd_Request>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // bytes cmd = 1;
+    // bytes cmd = 2;
     {::_pbi::TcParser::FastBS1,
-     {10, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Request, _impl_.cmd_)}},
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Request, _impl_.cmd_)}},
+    // uint64 requestId = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(RPC_StateMachineCmd_Request, _impl_.requestid_), 63>(),
+     {8, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Request, _impl_.requestid_)}},
   }}, {{
     65535, 65535
   }}, {{
-    // bytes cmd = 1;
+    // uint64 requestId = 1;
+    {PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Request, _impl_.requestid_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // bytes cmd = 2;
     {PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Request, _impl_.cmd_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBytes | ::_fl::kRepAString)},
   }},
@@ -1899,10 +1913,17 @@ const ::_pbi::TcParseTable<0, 1, 0, 0, 2> RPC_StateMachineCmd_Request::_table_ =
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
-  // bytes cmd = 1;
+  // uint64 requestId = 1;
+  if (this->_internal_requestid() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        1, this->_internal_requestid(), target);
+  }
+
+  // bytes cmd = 2;
   if (!this->_internal_cmd().empty()) {
     const std::string& _s = this->_internal_cmd();
-    target = stream->WriteBytesMaybeAliased(1, _s, target);
+    target = stream->WriteBytesMaybeAliased(2, _s, target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -1922,10 +1943,16 @@ const ::_pbi::TcParseTable<0, 1, 0, 0, 2> RPC_StateMachineCmd_Request::_table_ =
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // bytes cmd = 1;
+  // bytes cmd = 2;
   if (!this->_internal_cmd().empty()) {
     total_size += 1 + ::google::protobuf::internal::WireFormatLite::BytesSize(
                                     this->_internal_cmd());
+  }
+
+  // uint64 requestId = 1;
+  if (this->_internal_requestid() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_requestid());
   }
 
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
@@ -1942,6 +1969,9 @@ void RPC_StateMachineCmd_Request::MergeImpl(::google::protobuf::MessageLite& to_
 
   if (!from._internal_cmd().empty()) {
     _this->_internal_set_cmd(from._internal_cmd());
+  }
+  if (from._internal_requestid() != 0) {
+    _this->_impl_.requestid_ = from._impl_.requestid_;
   }
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
 }
@@ -1963,6 +1993,7 @@ void RPC_StateMachineCmd_Request::InternalSwap(RPC_StateMachineCmd_Request* PROT
   ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.cmd_, &other->_impl_.cmd_, arena);
+        swap(_impl_.requestid_, other->_impl_.requestid_);
 }
 
 ::google::protobuf::Metadata RPC_StateMachineCmd_Request::GetMetadata() const {
@@ -1997,11 +2028,11 @@ RPC_StateMachineCmd_Response::RPC_StateMachineCmd_Response(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
   ::memcpy(reinterpret_cast<char *>(&_impl_) +
-               offsetof(Impl_, leaderid_),
+               offsetof(Impl_, requestid_),
            reinterpret_cast<const char *>(&from._impl_) +
-               offsetof(Impl_, leaderid_),
+               offsetof(Impl_, requestid_),
            offsetof(Impl_, success_) -
-               offsetof(Impl_, leaderid_) +
+               offsetof(Impl_, requestid_) +
                sizeof(Impl_::success_));
 
   // @@protoc_insertion_point(copy_constructor:RPC.StateMachineCmd.Response)
@@ -2015,10 +2046,10 @@ inline PROTOBUF_NDEBUG_INLINE RPC_StateMachineCmd_Response::Impl_::Impl_(
 inline void RPC_StateMachineCmd_Response::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char *>(&_impl_) +
-               offsetof(Impl_, leaderid_),
+               offsetof(Impl_, requestid_),
            0,
            offsetof(Impl_, success_) -
-               offsetof(Impl_, leaderid_) +
+               offsetof(Impl_, requestid_) +
                sizeof(Impl_::success_));
 }
 RPC_StateMachineCmd_Response::~RPC_StateMachineCmd_Response() {
@@ -2054,9 +2085,9 @@ PROTOBUF_NOINLINE void RPC_StateMachineCmd_Response::Clear() {
   (void) cached_has_bits;
 
   _impl_.msg_.ClearToEmpty();
-  ::memset(&_impl_.leaderid_, 0, static_cast<::size_t>(
+  ::memset(&_impl_.requestid_, 0, static_cast<::size_t>(
       reinterpret_cast<char*>(&_impl_.success_) -
-      reinterpret_cast<char*>(&_impl_.leaderid_)) + sizeof(_impl_.success_));
+      reinterpret_cast<char*>(&_impl_.requestid_)) + sizeof(_impl_.success_));
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
 
@@ -2068,15 +2099,15 @@ const char* RPC_StateMachineCmd_Response::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 3, 0, 0, 2> RPC_StateMachineCmd_Response::_table_ = {
+const ::_pbi::TcParseTable<2, 4, 0, 0, 2> RPC_StateMachineCmd_Response::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    3, 24,  // max_field_number, fast_idx_mask
+    4, 24,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967288,  // skipmap
+    4294967280,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    3,  // num_field_entries
+    4,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_RPC_StateMachineCmd_Response_default_instance_._instance,
@@ -2085,26 +2116,31 @@ const ::_pbi::TcParseTable<2, 3, 0, 0, 2> RPC_StateMachineCmd_Response::_table_ 
     ::_pbi::TcParser::GetTable<::RPC_StateMachineCmd_Response>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    {::_pbi::TcParser::MiniParse, {}},
-    // bool success = 1;
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(RPC_StateMachineCmd_Response, _impl_.success_), 63>(),
-     {8, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.success_)}},
-    // uint64 leaderId = 2;
-    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(RPC_StateMachineCmd_Response, _impl_.leaderid_), 63>(),
-     {16, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.leaderid_)}},
-    // bytes msg = 3;
+    // bytes msg = 4;
     {::_pbi::TcParser::FastBS1,
-     {26, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.msg_)}},
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.msg_)}},
+    // uint64 requestId = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(RPC_StateMachineCmd_Response, _impl_.requestid_), 63>(),
+     {8, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.requestid_)}},
+    // bool success = 2;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(RPC_StateMachineCmd_Response, _impl_.success_), 63>(),
+     {16, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.success_)}},
+    // uint64 leaderId = 3;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(RPC_StateMachineCmd_Response, _impl_.leaderid_), 63>(),
+     {24, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.leaderid_)}},
   }}, {{
     65535, 65535
   }}, {{
-    // bool success = 1;
+    // uint64 requestId = 1;
+    {PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.requestid_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // bool success = 2;
     {PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.success_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBool)},
-    // uint64 leaderId = 2;
+    // uint64 leaderId = 3;
     {PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.leaderid_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
-    // bytes msg = 3;
+    // bytes msg = 4;
     {PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.msg_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBytes | ::_fl::kRepAString)},
   }},
@@ -2120,24 +2156,31 @@ const ::_pbi::TcParseTable<2, 3, 0, 0, 2> RPC_StateMachineCmd_Response::_table_ 
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
-  // bool success = 1;
+  // uint64 requestId = 1;
+  if (this->_internal_requestid() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        1, this->_internal_requestid(), target);
+  }
+
+  // bool success = 2;
   if (this->_internal_success() != 0) {
     target = stream->EnsureSpace(target);
     target = ::_pbi::WireFormatLite::WriteBoolToArray(
-        1, this->_internal_success(), target);
+        2, this->_internal_success(), target);
   }
 
-  // uint64 leaderId = 2;
+  // uint64 leaderId = 3;
   if (this->_internal_leaderid() != 0) {
     target = stream->EnsureSpace(target);
     target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
-        2, this->_internal_leaderid(), target);
+        3, this->_internal_leaderid(), target);
   }
 
-  // bytes msg = 3;
+  // bytes msg = 4;
   if (!this->_internal_msg().empty()) {
     const std::string& _s = this->_internal_msg();
-    target = stream->WriteBytesMaybeAliased(3, _s, target);
+    target = stream->WriteBytesMaybeAliased(4, _s, target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -2157,19 +2200,25 @@ const ::_pbi::TcParseTable<2, 3, 0, 0, 2> RPC_StateMachineCmd_Response::_table_ 
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  // bytes msg = 3;
+  // bytes msg = 4;
   if (!this->_internal_msg().empty()) {
     total_size += 1 + ::google::protobuf::internal::WireFormatLite::BytesSize(
                                     this->_internal_msg());
   }
 
-  // uint64 leaderId = 2;
+  // uint64 requestId = 1;
+  if (this->_internal_requestid() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_requestid());
+  }
+
+  // uint64 leaderId = 3;
   if (this->_internal_leaderid() != 0) {
     total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
         this->_internal_leaderid());
   }
 
-  // bool success = 1;
+  // bool success = 2;
   if (this->_internal_success() != 0) {
     total_size += 2;
   }
@@ -2188,6 +2237,9 @@ void RPC_StateMachineCmd_Response::MergeImpl(::google::protobuf::MessageLite& to
 
   if (!from._internal_msg().empty()) {
     _this->_internal_set_msg(from._internal_msg());
+  }
+  if (from._internal_requestid() != 0) {
+    _this->_impl_.requestid_ = from._impl_.requestid_;
   }
   if (from._internal_leaderid() != 0) {
     _this->_impl_.leaderid_ = from._impl_.leaderid_;
@@ -2218,9 +2270,9 @@ void RPC_StateMachineCmd_Response::InternalSwap(RPC_StateMachineCmd_Response* PR
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.success_)
       + sizeof(RPC_StateMachineCmd_Response::_impl_.success_)
-      - PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.leaderid_)>(
-          reinterpret_cast<char*>(&_impl_.leaderid_),
-          reinterpret_cast<char*>(&other->_impl_.leaderid_));
+      - PROTOBUF_FIELD_OFFSET(RPC_StateMachineCmd_Response, _impl_.requestid_)>(
+          reinterpret_cast<char*>(&_impl_.requestid_),
+          reinterpret_cast<char*>(&other->_impl_.requestid_));
 }
 
 ::google::protobuf::Metadata RPC_StateMachineCmd_Response::GetMetadata() const {

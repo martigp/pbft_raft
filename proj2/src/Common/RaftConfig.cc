@@ -31,7 +31,7 @@ namespace Common {
             for (int i = 0; i < servers.getLength(); i++) {
                 const libconfig::Setting &server = servers[i];
                 uint64_t serverId = server.lookup("id");
-                std::string serverAddr = server.lookup("serverAddress");
+                std::string serverAddr = server.lookup("address");
 
                 // Might need to be a non stack allocated string?
                 clusterMap[serverId] = serverAddr;

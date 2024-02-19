@@ -219,11 +219,12 @@ class RPC_StateMachineCmd_Response final : public ::google::protobuf::Message
 
   // accessors -------------------------------------------------------
   enum : int {
-    kMsgFieldNumber = 3,
-    kLeaderIdFieldNumber = 2,
-    kSuccessFieldNumber = 1,
+    kMsgFieldNumber = 4,
+    kRequestIdFieldNumber = 1,
+    kLeaderIdFieldNumber = 3,
+    kSuccessFieldNumber = 2,
   };
-  // bytes msg = 3;
+  // bytes msg = 4;
   void clear_msg() ;
   const std::string& msg() const;
   template <typename Arg_ = const std::string&, typename... Args_>
@@ -239,7 +240,17 @@ class RPC_StateMachineCmd_Response final : public ::google::protobuf::Message
   std::string* _internal_mutable_msg();
 
   public:
-  // uint64 leaderId = 2;
+  // uint64 requestId = 1;
+  void clear_requestid() ;
+  ::uint64_t requestid() const;
+  void set_requestid(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_requestid() const;
+  void _internal_set_requestid(::uint64_t value);
+
+  public:
+  // uint64 leaderId = 3;
   void clear_leaderid() ;
   ::uint64_t leaderid() const;
   void set_leaderid(::uint64_t value);
@@ -249,7 +260,7 @@ class RPC_StateMachineCmd_Response final : public ::google::protobuf::Message
   void _internal_set_leaderid(::uint64_t value);
 
   public:
-  // bool success = 1;
+  // bool success = 2;
   void clear_success() ;
   bool success() const;
   void set_success(bool value);
@@ -264,7 +275,7 @@ class RPC_StateMachineCmd_Response final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 3, 0,
+      2, 4, 0,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -281,6 +292,7 @@ class RPC_StateMachineCmd_Response final : public ::google::protobuf::Message
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr msg_;
+    ::uint64_t requestid_;
     ::uint64_t leaderid_;
     bool success_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
@@ -416,9 +428,10 @@ class RPC_StateMachineCmd_Request final : public ::google::protobuf::Message
 
   // accessors -------------------------------------------------------
   enum : int {
-    kCmdFieldNumber = 1,
+    kCmdFieldNumber = 2,
+    kRequestIdFieldNumber = 1,
   };
-  // bytes cmd = 1;
+  // bytes cmd = 2;
   void clear_cmd() ;
   const std::string& cmd() const;
   template <typename Arg_ = const std::string&, typename... Args_>
@@ -434,12 +447,22 @@ class RPC_StateMachineCmd_Request final : public ::google::protobuf::Message
   std::string* _internal_mutable_cmd();
 
   public:
+  // uint64 requestId = 1;
+  void clear_requestid() ;
+  ::uint64_t requestid() const;
+  void set_requestid(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_requestid() const;
+  void _internal_set_requestid(::uint64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:RPC.StateMachineCmd.Request)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 1, 0,
+      1, 2, 0,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -456,6 +479,7 @@ class RPC_StateMachineCmd_Request final : public ::google::protobuf::Message
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr cmd_;
+    ::uint64_t requestid_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -2661,7 +2685,29 @@ inline void RPC_RequestVote_Response::_internal_set_votegranted(bool value) {
 
 // RPC_StateMachineCmd_Request
 
-// bytes cmd = 1;
+// uint64 requestId = 1;
+inline void RPC_StateMachineCmd_Request::clear_requestid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requestid_ = ::uint64_t{0u};
+}
+inline ::uint64_t RPC_StateMachineCmd_Request::requestid() const {
+  // @@protoc_insertion_point(field_get:RPC.StateMachineCmd.Request.requestId)
+  return _internal_requestid();
+}
+inline void RPC_StateMachineCmd_Request::set_requestid(::uint64_t value) {
+  _internal_set_requestid(value);
+  // @@protoc_insertion_point(field_set:RPC.StateMachineCmd.Request.requestId)
+}
+inline ::uint64_t RPC_StateMachineCmd_Request::_internal_requestid() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.requestid_;
+}
+inline void RPC_StateMachineCmd_Request::_internal_set_requestid(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requestid_ = value;
+}
+
+// bytes cmd = 2;
 inline void RPC_StateMachineCmd_Request::clear_cmd() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.cmd_.ClearToEmpty();
@@ -2715,7 +2761,29 @@ inline void RPC_StateMachineCmd_Request::set_allocated_cmd(std::string* value) {
 
 // RPC_StateMachineCmd_Response
 
-// bool success = 1;
+// uint64 requestId = 1;
+inline void RPC_StateMachineCmd_Response::clear_requestid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requestid_ = ::uint64_t{0u};
+}
+inline ::uint64_t RPC_StateMachineCmd_Response::requestid() const {
+  // @@protoc_insertion_point(field_get:RPC.StateMachineCmd.Response.requestId)
+  return _internal_requestid();
+}
+inline void RPC_StateMachineCmd_Response::set_requestid(::uint64_t value) {
+  _internal_set_requestid(value);
+  // @@protoc_insertion_point(field_set:RPC.StateMachineCmd.Response.requestId)
+}
+inline ::uint64_t RPC_StateMachineCmd_Response::_internal_requestid() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.requestid_;
+}
+inline void RPC_StateMachineCmd_Response::_internal_set_requestid(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requestid_ = value;
+}
+
+// bool success = 2;
 inline void RPC_StateMachineCmd_Response::clear_success() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.success_ = false;
@@ -2737,7 +2805,7 @@ inline void RPC_StateMachineCmd_Response::_internal_set_success(bool value) {
   _impl_.success_ = value;
 }
 
-// uint64 leaderId = 2;
+// uint64 leaderId = 3;
 inline void RPC_StateMachineCmd_Response::clear_leaderid() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.leaderid_ = ::uint64_t{0u};
@@ -2759,7 +2827,7 @@ inline void RPC_StateMachineCmd_Response::_internal_set_leaderid(::uint64_t valu
   _impl_.leaderid_ = value;
 }
 
-// bytes msg = 3;
+// bytes msg = 4;
 inline void RPC_StateMachineCmd_Response::clear_msg() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.msg_.ClearToEmpty();

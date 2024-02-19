@@ -24,7 +24,7 @@ namespace Raft {
         , commitIndex ( 0 )
         , leaderId ( 0 )
         , volatileServerInfo()
-        , logToClientAddrMap( )
+        , logToClientRequestMap( )
         , numVotesReceived ( 0 )
         , myVotes ( {} )
     {   
@@ -157,13 +157,18 @@ namespace Raft {
         // TODO: should we check this?
         storage.setLastAppliedValue(appliedIndex);
 
-        auto clientAddrEntry = logToClientAddrMap.find(appliedIndex);
-        if (clientAddrEntry != logToClientAddrMap.cend()) {
+        auto clientRequestEntry = logToClientRequestMap.find(appliedIndex);
+        if (clientRequestEntry != logToClientRequestMap.cend()) {
             RPC_StateMachineCmd_Response *resp = new RPC_StateMachineCmd_Response();
+
+            uint64_t requestId = clientRequestEntry->second.first;
+            resp->set_requestid(requestId);
             resp->set_allocated_msg(result);
             RPC rpc;
             rpc.set_allocated_statemachinecmdresp(resp);
-            network.sendMessage(clientAddrEntry->second, rpc.SerializeAsString());
+            
+            std::string clientAddr = clientRequestEntry->second.second;
+            network.sendMessage(clientAddr, rpc.SerializeAsString());
             return;
         }
         //TODO: Need error handling here, what is the correct behaviour, does
@@ -364,6 +369,7 @@ namespace Raft {
     void RaftServer::processClientRequest(const std::string& clientAddr, 
                                           const RPC_StateMachineCmd_Request& req) {
         // Step 1: Append string cmd to log, get log index
+        std::cout << "[RaftServer] Received Client Request " << req.cmd() << std::endl;
         uint64_t nextLogIndex = storage.getLogLength() + 1;
         std::string entry;
         if (!storage.setLogEntry(nextLogIndex, storage.getCurrentTermValue(), entry)) {
@@ -371,8 +377,9 @@ namespace Raft {
             exit(EXIT_FAILURE);
         }
 
-        // Step 2: Associate log index with addr to respond to
-        logToClientAddrMap[nextLogIndex] = clientAddr;
+        // Step 2: Associate log index with request information to allow response
+        logToClientRequestMap[nextLogIndex] = 
+            std::make_pair(req.requestid(), clientAddr);
 
         // This should be it?, now the AppendEntriesRPC calls will try to propogate the whole log
         // Receipt of responses will let us know when indices are committed. 

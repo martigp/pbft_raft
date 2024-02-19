@@ -90,8 +90,8 @@ namespace Common {
     }
 
     void 
-    NetworkService::sendMessage(const std::string& sendToAddr,
-                                const std::string& msg,
+    NetworkService::sendMessage(const std::string sendToAddr,
+                                const std::string msg,
                                 bool createConnection) {
         std::thread sendMessageThread([&, sendToAddr, msg, createConnection] {
             connectionStateMapLock.lock();
@@ -104,6 +104,7 @@ namespace Common {
             if (connectedToRecipient) {
                 connectionState = connectionStateMap[sendToAddr];
             }
+
             else if (createConnection) {
                 connectionStateMapLock.unlock();
 
