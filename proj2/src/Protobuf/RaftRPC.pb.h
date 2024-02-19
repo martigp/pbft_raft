@@ -1423,6 +1423,7 @@ class RPC_AppendEntries_Request_Entry final : public ::google::protobuf::Message
   // accessors -------------------------------------------------------
   enum : int {
     kCmdFieldNumber = 1,
+    kTermFieldNumber = 2,
   };
   // bytes cmd = 1;
   void clear_cmd() ;
@@ -1440,12 +1441,22 @@ class RPC_AppendEntries_Request_Entry final : public ::google::protobuf::Message
   std::string* _internal_mutable_cmd();
 
   public:
+  // uint64 term = 2;
+  void clear_term() ;
+  ::uint64_t term() const;
+  void set_term(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_term() const;
+  void _internal_set_term(::uint64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:RPC.AppendEntries.Request.Entry)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 1, 0,
+      1, 2, 0,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -1462,6 +1473,7 @@ class RPC_AppendEntries_Request_Entry final : public ::google::protobuf::Message
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr cmd_;
+    ::uint64_t term_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -2218,6 +2230,28 @@ inline void RPC_AppendEntries_Request_Entry::set_allocated_cmd(std::string* valu
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:RPC.AppendEntries.Request.Entry.cmd)
+}
+
+// uint64 term = 2;
+inline void RPC_AppendEntries_Request_Entry::clear_term() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.term_ = ::uint64_t{0u};
+}
+inline ::uint64_t RPC_AppendEntries_Request_Entry::term() const {
+  // @@protoc_insertion_point(field_get:RPC.AppendEntries.Request.Entry.term)
+  return _internal_term();
+}
+inline void RPC_AppendEntries_Request_Entry::set_term(::uint64_t value) {
+  _internal_set_term(value);
+  // @@protoc_insertion_point(field_set:RPC.AppendEntries.Request.Entry.term)
+}
+inline ::uint64_t RPC_AppendEntries_Request_Entry::_internal_term() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.term_;
+}
+inline void RPC_AppendEntries_Request_Entry::_internal_set_term(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.term_ = value;
 }
 
 // -------------------------------------------------------------------

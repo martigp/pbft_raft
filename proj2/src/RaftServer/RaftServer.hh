@@ -322,13 +322,10 @@ namespace Raft {
             std::unordered_set<int> myVotes;
 
             /**
-             * @brief Format and attempts to send AppendEntries Requests to all
-             * servers asynchronously. Fails silently.
-             * 
-             * @param isHeartbeat Optional bool to indicate that 
-             * the entries field should be left empty
+             * @brief Format and attempts to send AppendEntries Requests to a single server. 
+             * Fails silently.
             */
-            void sendAppendEntriesReqs(std::optional<bool> isHeartbeat = std::nullopt);
+            void sendAppendEntriesReq(uint64_t serverId, std::string serverAddr);
 
             /**
              * @brief After updating term, conversion to follow state

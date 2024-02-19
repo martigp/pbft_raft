@@ -32,16 +32,12 @@ namespace Raft {
 
             /**
              * @brief Method used by RaftServer to indicate to the State Machine that
-             * commitIndex has been updated
+             * commitIndex has been updated, along with new entries
              * 
              * Does not return success or failure, as RaftServer will eventually 
              * indicate future, monotonically increasing commit indices
             */
-            void newCommitIndex(uint64_t commitIndex);
-
-
-            void pushCmd(std::pair<uint64_t, std::string> cmd);
-
+            void pushCmd(uint64_t index, std::string cmd);
 
         private:
             /**
@@ -85,10 +81,28 @@ namespace Raft {
             std::mutex commandQueueMutex;
 
             /**
-             * @brief 
-             * 
+             * @brief Queue of outstanding indices and entries to commit
+             * Min heap sorted by index. Index ensures we apply in order and only once.
              */
-            std::queue<std::pair<uint64_t, std::string>> commandQueue;
+            struct StateMachineCommand {
+                uint64_t index;
+                std::string command;
+            };
+
+            struct CompareIndex {
+                bool operator()(StateMachineCommand const& c1, StateMachineCommand const& c2)
+                {
+                    return c1.index > c2.index;
+                }
+            };
+
+            std::priority_queue<StateMachineCommand, std::vector<StateMachineCommand>, CompareIndex> commandQueue;
+
+            /**
+             * @brief Store of last applied index to ensure entries are
+             * applied in order and only once. Increases monotonically.
+            */
+            uint64_t lastApplied = 0;
 
     }; // class ShellStateMachine
 } // namespace Raft

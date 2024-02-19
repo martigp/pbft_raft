@@ -103,7 +103,7 @@ namespace Raft {
             /**
              * @brief Get a log entry at a specified index
              * 
-             * @param index Index in the log
+             * @param index Index in the log, must be greater than or equal to 1
              * 
              * @param term Term of the entry, pass out by reference
              * 
@@ -112,6 +112,17 @@ namespace Raft {
              * @returns boolean indicating success or failure
             */
             bool getLogEntry(uint64_t index, uint64_t &term, std::string &entry);
+
+            /**
+             * @brief Get a log entry at a specified index, just access term
+             * 
+             * @param index Index in the log, must be greater than or equal to 1
+             * 
+             * @param term Term of the entry, pass out by reference
+             *              
+             * @returns boolean indicating success or failure
+            */
+            bool getLogEntry(uint64_t index, uint64_t &term);
 
             /**
              * @brief Truncate log entries starting at specified index

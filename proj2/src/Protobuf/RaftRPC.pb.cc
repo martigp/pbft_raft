@@ -158,6 +158,7 @@ inline constexpr RPC_AppendEntries_Request_Entry::Impl_::Impl_(
       : cmd_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        term_{::uint64_t{0u}},
         _cached_size_{0} {}
 
 template <typename>
@@ -247,6 +248,7 @@ const ::uint32_t
         ~0u,  // no _split_
         ~0u,  // no sizeof(Split)
         PROTOBUF_FIELD_OFFSET(::RPC_AppendEntries_Request_Entry, _impl_.cmd_),
+        PROTOBUF_FIELD_OFFSET(::RPC_AppendEntries_Request_Entry, _impl_.term_),
         ~0u,  // no _has_bits_
         PROTOBUF_FIELD_OFFSET(::RPC_AppendEntries_Request, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -359,16 +361,16 @@ const ::uint32_t
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, -1, -1, sizeof(::RPC_AppendEntries_Request_Entry)},
-        {9, -1, -1, sizeof(::RPC_AppendEntries_Request)},
-        {24, -1, -1, sizeof(::RPC_AppendEntries_Response)},
-        {35, -1, -1, sizeof(::RPC_AppendEntries)},
-        {43, -1, -1, sizeof(::RPC_RequestVote_Request)},
-        {55, -1, -1, sizeof(::RPC_RequestVote_Response)},
-        {65, -1, -1, sizeof(::RPC_RequestVote)},
-        {73, -1, -1, sizeof(::RPC_StateMachineCmd_Request)},
-        {82, -1, -1, sizeof(::RPC_StateMachineCmd_Response)},
-        {93, -1, -1, sizeof(::RPC_StateMachineCmd)},
-        {101, -1, -1, sizeof(::RPC)},
+        {10, -1, -1, sizeof(::RPC_AppendEntries_Request)},
+        {25, -1, -1, sizeof(::RPC_AppendEntries_Response)},
+        {36, -1, -1, sizeof(::RPC_AppendEntries)},
+        {44, -1, -1, sizeof(::RPC_RequestVote_Request)},
+        {56, -1, -1, sizeof(::RPC_RequestVote_Response)},
+        {66, -1, -1, sizeof(::RPC_RequestVote)},
+        {74, -1, -1, sizeof(::RPC_StateMachineCmd_Request)},
+        {83, -1, -1, sizeof(::RPC_StateMachineCmd_Response)},
+        {94, -1, -1, sizeof(::RPC_StateMachineCmd)},
+        {102, -1, -1, sizeof(::RPC)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::_RPC_AppendEntries_Request_Entry_default_instance_._instance,
@@ -385,7 +387,7 @@ static const ::_pb::Message* const file_default_instances[] = {
 };
 const char descriptor_table_protodef_RaftRPC_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
-    "\n\rRaftRPC.proto\"\372\006\n\003RPC\0226\n\020appendEntries"
+    "\n\rRaftRPC.proto\"\210\007\n\003RPC\0226\n\020appendEntries"
     "Req\030\001 \001(\0132\032.RPC.AppendEntries.RequestH\000\022"
     "8\n\021appendEntriesResp\030\002 \001(\0132\033.RPC.AppendE"
     "ntries.ResponseH\000\0222\n\016requestVoteReq\030\003 \001("
@@ -394,26 +396,27 @@ const char descriptor_table_protodef_RaftRPC_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "eH\000\022:\n\022stateMachineCmdReq\030\005 \001(\0132\034.RPC.St"
     "ateMachineCmd.RequestH\000\022<\n\023stateMachineC"
     "mdResp\030\006 \001(\0132\035.RPC.StateMachineCmd.Respo"
-    "nseH\000\032\226\002\n\rAppendEntries\032\306\001\n\007Request\022\014\n\004t"
+    "nseH\000\032\244\002\n\rAppendEntries\032\324\001\n\007Request\022\014\n\004t"
     "erm\030\001 \001(\004\022\020\n\010leaderId\030\002 \001(\004\022\024\n\014prevLogIn"
     "dex\030\003 \001(\004\022\023\n\013prevLogTerm\030\004 \001(\004\0221\n\007entrie"
     "s\030\005 \003(\0132 .RPC.AppendEntries.Request.Entr"
     "y\022\024\n\014leaderCommit\030\006 \001(\004\022\021\n\trequestID\030\007 \001"
-    "(\004\032\024\n\005Entry\022\013\n\003cmd\030\001 \001(\014\032<\n\010Response\022\014\n\004"
-    "term\030\001 \001(\004\022\017\n\007success\030\002 \001(\010\022\021\n\trequestID"
-    "\030\003 \001(\004\032\225\001\n\013RequestVote\032W\n\007Request\022\014\n\004ter"
-    "m\030\001 \001(\004\022\023\n\013candidateId\030\002 \001(\004\022\024\n\014lastLogI"
-    "ndex\030\003 \001(\004\022\023\n\013lastLogTerm\030\004 \001(\004\032-\n\010Respo"
-    "nse\022\014\n\004term\030\001 \001(\004\022\023\n\013voteGranted\030\002 \001(\010\032e"
-    "\n\017StateMachineCmd\032\026\n\007Request\022\013\n\003cmd\030\001 \001("
-    "\014\032:\n\010Response\022\017\n\007success\030\001 \001(\010\022\020\n\010leader"
-    "Id\030\002 \001(\004\022\013\n\003msg\030\003 \001(\014B\005\n\003msgb\006proto3"
+    "(\004\032\"\n\005Entry\022\013\n\003cmd\030\001 \001(\014\022\014\n\004term\030\002 \001(\004\032<"
+    "\n\010Response\022\014\n\004term\030\001 \001(\004\022\017\n\007success\030\002 \001("
+    "\010\022\021\n\trequestID\030\003 \001(\004\032\225\001\n\013RequestVote\032W\n\007"
+    "Request\022\014\n\004term\030\001 \001(\004\022\023\n\013candidateId\030\002 \001"
+    "(\004\022\024\n\014lastLogIndex\030\003 \001(\004\022\023\n\013lastLogTerm\030"
+    "\004 \001(\004\032-\n\010Response\022\014\n\004term\030\001 \001(\004\022\023\n\013voteG"
+    "ranted\030\002 \001(\010\032e\n\017StateMachineCmd\032\026\n\007Reque"
+    "st\022\013\n\003cmd\030\001 \001(\014\032:\n\010Response\022\017\n\007success\030\001"
+    " \001(\010\022\020\n\010leaderId\030\002 \001(\004\022\013\n\003msg\030\003 \001(\014B\005\n\003m"
+    "sgb\006proto3"
 };
 static ::absl::once_flag descriptor_table_RaftRPC_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_RaftRPC_2eproto = {
     false,
     false,
-    916,
+    930,
     descriptor_table_protodef_RaftRPC_2eproto,
     "RaftRPC.proto",
     &descriptor_table_RaftRPC_2eproto_once,
@@ -468,6 +471,7 @@ RPC_AppendEntries_Request_Entry::RPC_AppendEntries_Request_Entry(
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  _impl_.term_ = from._impl_.term_;
 
   // @@protoc_insertion_point(copy_constructor:RPC.AppendEntries.Request.Entry)
 }
@@ -479,6 +483,7 @@ inline PROTOBUF_NDEBUG_INLINE RPC_AppendEntries_Request_Entry::Impl_::Impl_(
 
 inline void RPC_AppendEntries_Request_Entry::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.term_ = {};
 }
 RPC_AppendEntries_Request_Entry::~RPC_AppendEntries_Request_Entry() {
   // @@protoc_insertion_point(destructor:RPC.AppendEntries.Request.Entry)
@@ -513,6 +518,7 @@ PROTOBUF_NOINLINE void RPC_AppendEntries_Request_Entry::Clear() {
   (void) cached_has_bits;
 
   _impl_.cmd_.ClearToEmpty();
+  _impl_.term_ = ::uint64_t{0u};
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
 
@@ -524,15 +530,15 @@ const char* RPC_AppendEntries_Request_Entry::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 1, 0, 0, 2> RPC_AppendEntries_Request_Entry::_table_ = {
+const ::_pbi::TcParseTable<1, 2, 0, 0, 2> RPC_AppendEntries_Request_Entry::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    1, 0,  // max_field_number, fast_idx_mask
+    2, 8,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967294,  // skipmap
+    4294967292,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    1,  // num_field_entries
+    2,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_RPC_AppendEntries_Request_Entry_default_instance_._instance,
@@ -541,6 +547,9 @@ const ::_pbi::TcParseTable<0, 1, 0, 0, 2> RPC_AppendEntries_Request_Entry::_tabl
     ::_pbi::TcParser::GetTable<::RPC_AppendEntries_Request_Entry>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
+    // uint64 term = 2;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(RPC_AppendEntries_Request_Entry, _impl_.term_), 63>(),
+     {16, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_AppendEntries_Request_Entry, _impl_.term_)}},
     // bytes cmd = 1;
     {::_pbi::TcParser::FastBS1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(RPC_AppendEntries_Request_Entry, _impl_.cmd_)}},
@@ -550,6 +559,9 @@ const ::_pbi::TcParseTable<0, 1, 0, 0, 2> RPC_AppendEntries_Request_Entry::_tabl
     // bytes cmd = 1;
     {PROTOBUF_FIELD_OFFSET(RPC_AppendEntries_Request_Entry, _impl_.cmd_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBytes | ::_fl::kRepAString)},
+    // uint64 term = 2;
+    {PROTOBUF_FIELD_OFFSET(RPC_AppendEntries_Request_Entry, _impl_.term_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
   }},
   // no aux_entries
   {{
@@ -567,6 +579,13 @@ const ::_pbi::TcParseTable<0, 1, 0, 0, 2> RPC_AppendEntries_Request_Entry::_tabl
   if (!this->_internal_cmd().empty()) {
     const std::string& _s = this->_internal_cmd();
     target = stream->WriteBytesMaybeAliased(1, _s, target);
+  }
+
+  // uint64 term = 2;
+  if (this->_internal_term() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        2, this->_internal_term(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -592,6 +611,12 @@ const ::_pbi::TcParseTable<0, 1, 0, 0, 2> RPC_AppendEntries_Request_Entry::_tabl
                                     this->_internal_cmd());
   }
 
+  // uint64 term = 2;
+  if (this->_internal_term() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_term());
+  }
+
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -606,6 +631,9 @@ void RPC_AppendEntries_Request_Entry::MergeImpl(::google::protobuf::MessageLite&
 
   if (!from._internal_cmd().empty()) {
     _this->_internal_set_cmd(from._internal_cmd());
+  }
+  if (from._internal_term() != 0) {
+    _this->_impl_.term_ = from._impl_.term_;
   }
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
 }
@@ -627,6 +655,7 @@ void RPC_AppendEntries_Request_Entry::InternalSwap(RPC_AppendEntries_Request_Ent
   ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.cmd_, &other->_impl_.cmd_, arena);
+        swap(_impl_.term_, other->_impl_.term_);
 }
 
 ::google::protobuf::Metadata RPC_AppendEntries_Request_Entry::GetMetadata() const {

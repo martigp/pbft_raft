@@ -97,11 +97,26 @@ namespace Raft {
 
     bool ServerStorage::getLogEntry(uint64_t index, uint64_t &term, std::string &entry) {
         if (index > getLogLength()) {
-            printf("[ServerStorage.cc]: Cannot get log entry with index %llu, log length %llu", index, getLogLength());
+            printf("[ServerStorage.cc]: Cannot get log entry with index %llu, log length %llu\n", index, getLogLength());
             return false;
         }
-        // TODO: error checking here
+        if (index == 0) {
+            printf("[ServerStorage.cc]: Cannot get log entry with index 0\n");
+            return false;
+        }
         return logEntries[index - 1]->get("term", term) && logEntries[index - 1]->get("entry", entry);
+    }
+
+    bool ServerStorage::getLogEntry(uint64_t index, uint64_t &term) {
+        if (index > getLogLength()) {
+            printf("[ServerStorage.cc]: Cannot get log entry with index %llu, log length %llu\n", index, getLogLength());
+            return false;
+        }
+        if (index == 0) {
+            printf("[ServerStorage.cc]: Cannot get log entry with index 0\n");
+            return false;
+        }
+        return logEntries[index - 1]->get("term", term);
     }
 
     bool ServerStorage::truncateLog(uint64_t index) {

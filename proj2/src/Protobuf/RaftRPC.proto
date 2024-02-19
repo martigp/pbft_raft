@@ -22,6 +22,11 @@ message RPC {
                 * Command to be executed by raft cluster state machine.
                 */
                 bytes cmd = 1;
+
+                /**
+                * Term when log entry was received by leader.
+                */
+                uint64 term = 2;
             }
 
             /* Log entries to store, empty for heartbeat. */

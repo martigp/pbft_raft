@@ -19,9 +19,9 @@ namespace Raft {
     {
     }
 
-    void ShellStateMachine::pushCmd(std::pair<uint64_t, std::string> cmd) {
+    void ShellStateMachine::pushCmd(uint64_t index, std::string cmd) {
         std::unique_lock<std::mutex> lock(commandQueueMutex);
-        commandQueue.push(cmd);
+        commandQueue.push(StateMachineCommand{index, cmd});
         stateMachineUpdatesCV.notify_all();
     }
 
@@ -32,19 +32,25 @@ namespace Raft {
                 stateMachineUpdatesCV.wait(lock);
             }
 
-            std::pair<uint64_t, std::string> cmd = commandQueue.front();
+            StateMachineCommand smCmd = commandQueue.top();
             commandQueue.pop();
             lock.unlock();
 
-            printf("[Log State Machine]: Popped RaftClient command: %s", cmd.second.c_str());
+            if (smCmd.index != lastApplied + 1) {
+                printf("[Log State Machine]: Popped RaftClient command at index %llu, but last applied index is %llu\n", smCmd.index, lastApplied);
+                // TODO: think about these edge cases more
+            }
+
+            printf("[Log State Machine]: Popped RaftClient command: %s", smCmd.command.c_str());
 
             try {
-                std::string* ret = applyCmd(cmd.second);
-                printf("[Log State Machine]: Loge entry %llu applied", cmd.first);
-                callbackRaftServer(cmd.first, ret);
+                std::string* ret = applyCmd(smCmd.command);
+                printf("[Log State Machine]: Log entry %llu applied\n", smCmd.index);
+                callbackRaftServer(smCmd.index, ret);
+                lastApplied = smCmd.index;
             }
             catch(std::exception e) {
-                std::cerr << "Failed to apply log entry " << cmd.first 
+                std::cerr << "Failed to apply log entry " << smCmd.index
                           << std::endl;
             }
 
