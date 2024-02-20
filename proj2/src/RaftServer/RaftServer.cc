@@ -11,6 +11,9 @@
 #include <functional>
 #include <filesystem>
 
+// Appropriate value chosen based off of Raft paper specifications
+#define HEARTBEAT_TIMEOUT 1000
+
 namespace Raft {
     
     RaftServer::RaftServer( const std::string& configPath, bool firstServerBoot)
@@ -57,13 +60,13 @@ namespace Raft {
             lock.unlock();
             printf("[RaftServer.cc]: Popped new event, queue length %zu\n", eventQueue.size());
             switch (nextEvent.type) {
-                case EventType::TIMER_FIRED:
+                case RaftServerEvent::TIMER_FIRED:
                     timeoutHandler();
                     break;
-                case EventType::MESSAGE_RECEIVED:
+                case RaftServerEvent::MESSAGE_RECEIVED:
                     processNetworkMessage(nextEvent.addr.value(), nextEvent.msg.value());
                     break;
-                case EventType::STATE_MACHINE_APPLIED:
+                case RaftServerEvent::STATE_MACHINE_APPLIED:
                     handleAppliedLogEntry(nextEvent.logIndex.value(), nextEvent.stateMachineResult.value());
                     break;
             }
@@ -80,7 +83,7 @@ namespace Raft {
                                           const std::string& msg) {
 
         RaftServerEvent newEvent;
-        newEvent.type = EventType::MESSAGE_RECEIVED;
+        newEvent.type = RaftServerEvent::MESSAGE_RECEIVED;
         newEvent.addr = sendAddr;
         newEvent.msg = msg;
         std::cout << "[Raft server]: New network event received from " << 
@@ -97,7 +100,7 @@ namespace Raft {
 
     void RaftServer::notifyRaftOfTimerEvent() {
         RaftServerEvent newEvent;
-        newEvent.type = EventType::TIMER_FIRED;
+        newEvent.type = RaftServerEvent::TIMER_FIRED;
 
         {
             std::unique_lock<std::mutex> lock(eventQueueMutex);
@@ -112,7 +115,7 @@ namespace Raft {
                                          uint64_t logIndex,
                                          std::string* stateMachineResult) {
         RaftServerEvent newEvent;
-        newEvent.type = EventType::STATE_MACHINE_APPLIED;
+        newEvent.type = RaftServerEvent::STATE_MACHINE_APPLIED;
         newEvent.logIndex = logIndex;
         newEvent.stateMachineResult = stateMachineResult;
 
@@ -185,7 +188,7 @@ namespace Raft {
     }
 
     void RaftServer::setHeartbeatTimeout() {
-        uint64_t timerTimeout = 1000; // TODO: is it ok if this is hardcoded 
+        uint64_t timerTimeout = HEARTBEAT_TIMEOUT; 
         printf("[RaftServer.cc]: New timer timeout: %llu\n", timerTimeout);
         timer->resetTimer(timerTimeout);
     }
@@ -232,8 +235,6 @@ namespace Raft {
             return;
         }
 
-
-        // TODO: turn RPC's into strings for Network
         printf("[RaftServer.cc]: About to send RequestVote: term: %llu,"
                "serverId: %llu\n", storage.getCurrentTermValue(), config.serverId);
         for (auto& [_, serverAddr]: config.clusterMap) {
@@ -263,7 +264,7 @@ namespace Raft {
             volatileServerInfo[raftServerId].matchIndex = 0;
         }
         
-        // nextIndex is > loglength/lastIndex so no entries will get sent on the first set of requests
+        // nextIndex is > loglength so no entries will get sent on the first set of requests
         printf("[RaftServer.cc]: About to send AppendEntries, term: %llu\n", storage.getCurrentTermValue());
         for (auto& [raftServerId, sendToAddr]: config.clusterMap) {
             sendAppendEntriesReq(raftServerId, sendToAddr);
@@ -282,7 +283,9 @@ namespace Raft {
         std::string entry;
 
         if (serverInfo.nextIndex == 1) {
-            req->set_prevlogterm(0); // TODO: if last index is 0(empty log), is 0 here ok?
+            // When NextIndex is 1, there are no previous log entries
+            // and previous term should be set to 0 without attempting to access the log
+            req->set_prevlogterm(0); 
         } else {
             if(!storage.getLogEntry(serverInfo.nextIndex - 1, term, entry)) {
                 std::cerr << "[RaftServer.cc]: Error while reading log for sendAppendEntries at index " << std::to_string(serverInfo.nextIndex - 1) << std::endl;
@@ -291,8 +294,7 @@ namespace Raft {
             req->set_prevlogterm(term);
         } 
 
-        // TODO: this needs to append multiple entries if need
-        // Wondering if we do a local cache or always access memory
+        // TODO: Wondering if we do a local cache or always access memory
         
         // avoid underflow of uint log indices by checking first if there's anything to append
         if (serverInfo.nextIndex <= storage.getLogLength()) {
@@ -462,8 +464,7 @@ namespace Raft {
                 uint64_t index = req.prevlogindex() + i;
                 if (!storage.setLogEntry(index, req.entries(i-1).term(), req.entries(i-1).cmd())) {
                     std::cerr << "[RaftServer.cc]: Error while setting entry at log index " << index << std::endl;
-                    resp->set_success(false); // TODO: is this the behavior we want? fails to update log entry, will try again? or exit
-                    goto sendAppendRPCResp;
+                    exit(EXIT_FAILURE);
                 }
             }
 
@@ -541,7 +542,6 @@ namespace Raft {
             volatileServerInfo[rpcSenderId].matchIndex = storage.getLogLength();
 
             // Check for commitIndex updates only on success
-            // TODO: could do a running total here? so that we don't have to do this full check every time
             uint64_t threshold = config.numClusterServers / 2;
             for (uint64_t N = commitIndex + 1; N <= storage.getLogLength(); N++) {
                 // Gather running total of servers where matchIndex is >= N
@@ -659,7 +659,6 @@ namespace Raft {
         }
 
         // If out of date, convert to follower and return
-        // TODO: can't happen here though?
         if (resp.term() > storage.getCurrentTermValue()) {
             storage.setCurrentTermValue(resp.term());
             storage.setVotedForValue(0); // no vote casted in new term

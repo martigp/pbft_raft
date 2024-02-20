@@ -11,7 +11,6 @@ namespace Raft {
         t.detach();
     }
 
-    // TODO: How do I destruct?
     Timer::~Timer() {}
 
     void Timer::resetTimer(std::optional<uint64_t> newTimeout) {
