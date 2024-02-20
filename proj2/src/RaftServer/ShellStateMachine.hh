@@ -19,11 +19,14 @@ namespace Raft {
         public:
             /**
              * @brief Construct a new ShellStateMachine that applies log entries
+             * received from the server. Any variation of StateMachine can be 
+             * created that matches the public interface of this ShellStateMachine.
              * 
-             * @param callbackFn The raft server that the shell state machine is
-             * plugged into.
-             * 
-             * TODO: make sure this gets lastApplied on reboot
+             * @param callbackFn Method provided to the shell state machine to 
+             * be invoked when a new entry has been applied. Allows the state machine
+             * communicate the result of applying the entry at a specific index.
+             * CallbackFn requires two arguments: uint64_t index 
+             *                                    std::string result
              */
             ShellStateMachine(std::function<void(uint64_t, std::string *)> callbackFn);
 
@@ -34,8 +37,7 @@ namespace Raft {
              * @brief Method used by RaftServer to indicate to the State Machine that
              * commitIndex has been updated, along with new entries
              * 
-             * Does not return success or failure, as RaftServer will eventually 
-             * indicate future, monotonically increasing commit indices
+             * Returns true on success, as the server is responsible for pushin
             */
             void pushCmd(uint64_t index, std::string cmd);
 

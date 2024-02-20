@@ -12,8 +12,7 @@ namespace Common {
     class KeyValueStorage {
         public:
             /**
-             * Opens the file located at the log path or creates a file if not present
-             * TODO: should there be an in memory copy?
+             * Opens the file located at the log path or creates a file if not present.
             */
             KeyValueStorage(std::string filepath);
 

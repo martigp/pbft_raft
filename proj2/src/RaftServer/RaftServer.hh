@@ -24,12 +24,6 @@ namespace Raft {
     class Timer;
     class ServerStorage;
 
-    enum EventType {
-        TIMER_FIRED,
-        MESSAGE_RECEIVED,
-        STATE_MACHINE_APPLIED
-    };
-
     /**
      * RaftServerEvent is the generic wrapper for all incoming
      * events that will be queued up for the Raft Server to handle.
@@ -38,7 +32,9 @@ namespace Raft {
      * consistent with the Raft paper.
     */
     struct RaftServerEvent {
-        EventType type;
+        enum {TIMER_FIRED,
+              MESSAGE_RECEIVED,
+              STATE_MACHINE_APPLIED} type;
         /* If type is MESSAGE_RECEIVED, this field will be set*/
         std::optional<std::string> addr = std::nullopt;
         std::optional<std::string> msg = std::nullopt;
@@ -117,8 +113,16 @@ namespace Raft {
              */
             Raft::ServerStorage storage;
 
+            /**
+             * @brief State Machine that executes commands that have been committed,
+             * TODO: FIX THIS TO ACCESS PERSISTENT STATE 
+             */
             std::unique_ptr<Raft::ShellStateMachine> shellSM;
 
+            /**
+             * @brief Timer module with generic callback function to Raft Server,
+             * that allows resetting of the timer and it's timeout period.
+            */
             std::unique_ptr<Raft::Timer> timer;
 
             /**
@@ -183,7 +187,7 @@ namespace Raft {
              * @brief Index of highest log entry known to be committed
              * - initialized to 0, increases monotonically
             */
-            [[maybe_unused]] uint64_t commitIndex;
+            uint64_t commitIndex;
 
             /**
              * @brief The Raft Server Id of the current leader.
@@ -195,7 +199,7 @@ namespace Raft {
              * Volatile state about other raft servers needed by the leader.
             **************************************/
            
-           struct RaftServerVolatileState {
+            struct RaftServerVolatileState {
                 /**
                  * @brief The index of the next log entry to send to the server.
                  * Initialized to leader last log index + 1
@@ -214,13 +218,13 @@ namespace Raft {
                  * 
                  */
                 uint64_t mostRecentRequestId;
-           };
+            };
            
-           /**
+            /**
             * @brief Centralized record of all per server volatile state
             * 
             */
-           std::unordered_map<uint64_t, struct RaftServerVolatileState>
+            std::unordered_map<uint64_t, struct RaftServerVolatileState>
                     volatileServerInfo;
 
             /**
@@ -340,6 +344,7 @@ namespace Raft {
             void convertToLeader();
 
     }; // class RaftServer
+
 } // namespace Raft
 
 #endif /* RAFT_RAFTSERVER_H */
