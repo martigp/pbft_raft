@@ -37,8 +37,13 @@ namespace Common {
                 clusterMap[serverId] = serverAddr;
             }
 
-            // Number of servers including
-            numClusterServers = servers.getLength() + 1;
+            // Number of servers in Raft Cluster
+            if (type == CLIENT) {
+                numClusterServers = clusterMap.size();
+            } else {
+                // Include self
+                numClusterServers = clusterMap.size() + 1;
+            }
         }
         catch (libconfig::FileIOException e) {
             std::cerr << "[ServerConfig] Bad path " << configPath << " provided"

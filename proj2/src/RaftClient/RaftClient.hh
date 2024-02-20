@@ -7,7 +7,7 @@
 
 #define CONFIG_PATH "./config_client.cfg"
 
-#define REQUEST_TIMEOUT 5000
+#define REQUEST_TIMEOUT 10000
 #define EMPTY_MSG ""
 
 namespace Raft {

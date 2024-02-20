@@ -36,9 +36,8 @@ namespace Raft {
         receivedMessageCV.notify_all();
     }
 
-    // TODO: properly decompose this
     std::string
-    RaftClient::connectAndSendToServer(std::string *in)
+    RaftClient::connectAndSendToServer(std::string *cmd)
     {   
         // Iterate through each of the servers, send a message and wait on
         // a condition variable which has some timeout. Upon return of the
@@ -47,8 +46,11 @@ namespace Raft {
         while (true) {
 
             RPC_StateMachineCmd_Request * req = new RPC_StateMachineCmd_Request();
-            req->set_allocated_cmd(in);
-            
+
+            std::string* tmpCmd = new std::string(*cmd);
+            req->set_allocated_cmd(cmd);
+            cmd = tmpCmd;
+
             req->set_requestid(mostRecentRequestId);
             mostRecentRequestId++;
 
@@ -58,10 +60,13 @@ namespace Raft {
             std::string rpcString;
             if (!rpc.SerializeToString(&rpcString)) {
                 return std::string("<Error> Failed to serialize malformed state"
-                    " machine command: " + *in + ". Try again");
+                    " machine command: " + *cmd + ". Try again");
             }
 
             std::string serverAddr = config.clusterMap[currentLeaderId];
+            std::cout << "[Client] Sending rpc " << rpc.DebugString()
+                      << " to addr " << serverAddr << std::endl;
+            
             network.sendMessage(serverAddr, rpcString, CREATE_CONNECTION);
 
             std::cout << "<2>" <<  std::endl;
@@ -92,6 +97,7 @@ namespace Raft {
                         break;
                     }
 
+                    delete cmd;
                     return resp.msg();
                 }
                 else {
@@ -99,16 +105,13 @@ namespace Raft {
                     break;
                 }
             }
-            std::cout << "<5>" <<  std::endl;
             lock.unlock();
-            std::cout << "<6>" <<  std::endl;
             if (incrementLeaderId) {
                 // If not hint just increment the currentLeaderId by 1, 
                 // modulus because first leader id is 1
                 currentLeaderId = 
                     (currentLeaderId % config.numClusterServers) + 1;
             }
-            std::cout << "<7>" <<  std::endl;
         }
     }
 }

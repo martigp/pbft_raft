@@ -10,15 +10,15 @@ int main() {
 
     // Step 2: Launch application 
     while (1) {
-        std::string *str = new std::string();
+        std::string *cmd = new std::string();
 		// (a) Prompt client for input
 		std::cout << "Enter shell command:" << std::endl;
 
         // (b) read line from stdin
-        std::getline(std::cin, *str);
+        std::getline(std::cin, *cmd);
 
         // (c) send the command to the cluster leader
-        std::string ret = raftClient.connectAndSendToServer(str);
+        std::string ret = raftClient.connectAndSendToServer(cmd);
 
         // (d) print return value on stdout
         std::cout << ret << std::endl;

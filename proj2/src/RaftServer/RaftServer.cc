@@ -369,7 +369,7 @@ namespace Raft {
     void RaftServer::processClientRequest(const std::string& clientAddr, 
                                           const RPC_StateMachineCmd_Request& req) {
         // Step 1: Append string cmd to log, get log index
-        std::cout << "[RaftServer] Received Client Request " << req.cmd() << std::endl;
+        std::cout << "[RaftServer] Received Client Request " << req.DebugString() << std::endl;
         uint64_t nextLogIndex = storage.getLogLength() + 1;
         std::string entry;
         if (!storage.setLogEntry(nextLogIndex, storage.getCurrentTermValue(), entry)) {
