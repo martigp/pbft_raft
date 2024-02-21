@@ -26,5 +26,6 @@ mkdir -p install/runtime_libs
 cd install/
 cp lib/*.dylib ./runtime_libs/
 export DYLD_LIBRARY_PATH=$(PWD)/runtime_libs
+export PATH=$(PATH):$(PWD)/bin
 
 

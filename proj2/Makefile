@@ -27,11 +27,13 @@ proto_middleman: $(PROTO_DIR)/*.proto
 
 server: $(SRC_DIR)/RaftServer/*.cc $(PROTO_DIR)/RaftRPC.pb.cc \
 		$(SRC_DIR)/Common/*.cc
-	$(CCX) $(CFLAGS) $(LIBS) -I $(SRC_DIR) $^ -o $(BLD_DIR)/$@
+	mkdir -p $(BLD_DIR)
 	export DYLD_LIBRARY_PATH=../install/runtime_libs/
+	$(CCX) $(CFLAGS) $(LIBS) -I $(SRC_DIR) $^ -o $(BLD_DIR)/$@
 
 client: $(PROTO_DIR)/RaftRPC.pb.cc $(SRC_DIR)/RaftClient/*.cc \
 		$(SRC_DIR)/Common/*.cc
+	mkdir -p $(BLD_DIR)
 	$(CCX) $(CFLAGS) $(LIBS) -I $(SRC_DIR) $^ -o $(BLD_DIR)/$@
 
 clean:
