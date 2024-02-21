@@ -115,7 +115,6 @@ namespace Raft {
 
             /**
              * @brief State Machine that executes commands that have been committed,
-             * TODO: FIX THIS TO ACCESS PERSISTENT STATE 
              */
             std::unique_ptr<Raft::ShellStateMachine> shellSM;
 

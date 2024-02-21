@@ -19,9 +19,6 @@ void printUsage() {
 /* Run a Raft Server */
 int main(int argc, char *argv[])
 {   
-    // Pass in server ID specified on command line and optional flag for first boot
-    // TODO: add the optional flag
-
     int opt;
     bool firstServerBoot = false;
 

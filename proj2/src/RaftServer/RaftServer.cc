@@ -301,9 +301,7 @@ namespace Raft {
             }
             req->set_prevlogterm(term);
         } 
-
-        // TODO: Wondering if we do a local cache or always access memory
-        
+                
         // avoid underflow of uint log indices by checking first if there's anything to append
         if (serverInfo.nextIndex <= storage.getLogLength()) {
             for (uint64_t i = 0; i <= storage.getLogLength() - serverInfo.nextIndex; i++) {
