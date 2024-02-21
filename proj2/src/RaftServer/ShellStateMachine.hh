@@ -19,7 +19,10 @@ namespace Raft {
         public:
             /**
              * @brief Construct a new ShellStateMachine that applies log entries
-             * received from the server. Any variation of StateMachine can be 
+             * received from the server. Enforces the property of one command executing
+             * at a time, using a queue and a callback per command.
+             * 
+             * Any variation of StateMachine can be 
              * created that matches the public interface of this ShellStateMachine.
              * 
              * @param callbackFn Method provided to the shell state machine to 
@@ -35,9 +38,9 @@ namespace Raft {
 
             /**
              * @brief Method used by RaftServer to indicate to the State Machine that
-             * commitIndex has been updated, along with new entries
+             * commitIndex has been updated, along with new entries.
              * 
-             * Returns true on success, as the server is responsible for pushin
+             * RaftServer is responsible for pushing commands once and in order.
             */
             void pushCmd(uint64_t index, std::string cmd);
 
@@ -45,14 +48,16 @@ namespace Raft {
             /**
              * @brief State Machine Loop
              * Flow of events:
-             * Notified by RaftServer of a new committed index
-             * Access persistent state to retrieve log entry
-             *      Confirm that the index has not yet been applied(stored in persistent)
+             * Received new entry on the queue
              * Apply the entry
              * Use the callback function to return a result 
              *      NOTE: so that there is only one writer to a file, RaftServer will
              *      write to persistent state to update lastApplied after StateMahcine calls
-             *      back to it 
+             *      back to it. There are two possibilities for point of failure given that 
+             *      linearizability is not within the scope of this project: lastApplied written
+             *      to disk and command fails to complete before crash OR command completes and
+             *      lastApplied fails to be written to disk before crash. Our implementation
+             *      uses the latter.
             */
             void stateMachineLoop();
 
@@ -83,28 +88,14 @@ namespace Raft {
             std::mutex commandQueueMutex;
 
             /**
-             * @brief Queue of outstanding indices and entries to commit
-             * Min heap sorted by index. Index ensures we apply in order and only once.
+             * @brief Queue of outstanding indices and entries to commit.             
              */
             struct StateMachineCommand {
                 uint64_t index;
                 std::string command;
             };
 
-            struct CompareIndex {
-                bool operator()(StateMachineCommand const& c1, StateMachineCommand const& c2)
-                {
-                    return c1.index > c2.index;
-                }
-            };
-
-            std::priority_queue<StateMachineCommand, std::vector<StateMachineCommand>, CompareIndex> commandQueue;
-
-            /**
-             * @brief Store of last applied index to ensure entries are
-             * applied in order and only once. Increases monotonically.
-            */
-            uint64_t lastApplied = 0;
+            std::queue<StateMachineCommand> commandQueue;
 
     }; // class ShellStateMachine
 } // namespace Raft
