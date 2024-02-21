@@ -8,7 +8,7 @@
 #define CONFIG_PATH "./config_client.cfg"
 
 /* Timeout for a Raft Client Request. */
-#define REQUEST_TIMEOUT 60000
+#define REQUEST_TIMEOUT 10000
 /* Default value for receivedMessage to indicate no message received. */
 #define EMPTY_MSG ""
 

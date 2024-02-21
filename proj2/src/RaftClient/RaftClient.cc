@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <iostream>
 #include <chrono>
+#include <thread>
 #include "Protobuf/RaftRPC.pb.h"
 #include "RaftClient.hh"
 
@@ -21,6 +22,8 @@ namespace Raft {
     {
         // Set the current leader to first server in cluster map on startup.
         currentLeaderId = config.clusterMap.begin()->first;
+        std::thread t(&Common::NetworkService::startListening, &network, "");
+        t.detach();
     }
 
     RaftClient::~RaftClient()
@@ -88,14 +91,18 @@ namespace Raft {
                         continue;
                     }
 
-                    if (!resp.success()) {
-                        currentLeaderId = resp.leaderid();
-                        incrementLeaderId = false;
+                    if (resp.success()) {
+                        delete cmd;
+                        return resp.msg();
+                    } 
+                    else {
+                        if (currentLeaderId != 0) {
+                            // Indicates we have a hint
+                            currentLeaderId = resp.leaderid();
+                            incrementLeaderId = false;
+                        }
                         break;
                     }
-
-                    delete cmd;
-                    return resp.msg();
                 }
                 else {
                     break;

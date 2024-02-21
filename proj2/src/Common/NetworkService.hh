@@ -82,8 +82,9 @@ namespace Common {
           * socket.
           * 
           * @param listenAddr The address to listen for incoming requests on.
+          * NULL if don't want to listen (default).
           */
-         void startListening(const std::string& listenAddr);
+         void startListening(const std::string& listenAddr = "");
 
         private:
 

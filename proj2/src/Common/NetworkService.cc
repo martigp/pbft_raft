@@ -173,6 +173,8 @@ namespace Common {
 
             if (send(connectionState->socketFd, buf, sizeof(buf), 0) == -1) {
                 connectionState->lock.unlock();
+                std::cerr << "[Network] Error sending to host " << sendToAddr
+                          << strerror(errno) << std::endl;
                 removeConnection(sendToAddr);
                 return;
             }
@@ -221,13 +223,25 @@ namespace Common {
 
             auto connectionState = removedMapEntry.mapped();
 
-            // Closing the socket removes it from the kqueue as well
-            // Someone may have gotten the entry from the map already, make
-            // sure it is unusable by setting socketFd to invalid.
             connectionState->lock.lock();
-            close(connectionState->socketFd);
-            connectionState->socketFd = INVALID_SOCKET_FD;
+            if (connectionState->socketFd != INVALID_SOCKET_FD) {
+                // Create event that removes socketFd from kqueue, event only
+                // fully removed onced final file descriptor to socket is
+                // closed.
+                struct kevent ev;
+                EV_SET(&ev, connectionState->socketFd, EVFILT_READ, EV_DELETE,
+                    NULL, 0, NULL);
+                if (kevent(pollFd, &ev, 1, NULL, 0, NULL) < 0) {
+                    throw Exception("Failed to remove " + 
+                        std::to_string(connectionState->socketFd) + "from kqueue");
+                }
+                close(connectionState->socketFd);
+                connectionState->socketFd = INVALID_SOCKET_FD;
+            }
             connectionState->lock.unlock();
+
+            std::cout << "[Network] All state of host " << hostAddr <<
+                " successfully removed." << std::endl;
         } else {
             // This is OK but still print message
             std::cerr << "[Network] Attempted to remove connection to " 
@@ -235,8 +249,6 @@ namespace Common {
                       << std::endl;
             connectionStateMapLock.unlock();
         }
-        std::cout << "[Network] All state of host " << hostAddr <<
-                     " successfully removed." << std::endl;
     }
 
     void
@@ -267,11 +279,10 @@ namespace Common {
             if (inet_ntop(AF_INET, &(hostSockAddr.sin_addr.s_addr), hostIp,
                       INET_ADDRSTRLEN) == NULL) {
                 close(hostSocketFd);
-                errorMsg = "Failed to parse an incoming host connection"
-                           "request's ip with inet_ntop: %s", 
-                           std::strerror(errno);
-                throw Exception(errorMsg);
-            }
+                std::cerr << "Failed to parse an incoming host connection"
+                             "request's ip with inet_ntop: "
+                          << std::strerror(errno) << std::endl;
+                }
 
             uint16_t hostPort = ntohs(hostSockAddr.sin_port);
 
@@ -279,13 +290,20 @@ namespace Common {
                 std::string(hostIp) + ':' + std::to_string(hostPort);
             
             const std::lock_guard<std::mutex> lg(connectionStateMapLock);
+            if (connectionStateMap.find(hostAddr) != connectionStateMap.end()) {
+                close(hostSocketFd);
+                std::cerr << "Received duplicate request from host addr "
+                          << hostAddr << ". Ignoring Conneciton request."
+                          << std::endl;
+                return;
+            }
             connectionStateMap[hostAddr] = 
                 std::make_shared<ConnectionState>(hostSocketFd);
 
             monitorSocketForEvents(hostSocketFd);
             
             std::cout << "[Network] Added successfully accepted connection"
-            "request from " << hostAddr << std::endl;
+            "request from " << hostAddr << "on socket " << hostSocketFd <<  std::endl;
             
             return;
         } // ListenSocket Event
@@ -445,7 +463,13 @@ namespace Common {
     void
     NetworkService::startListening(const std::string& listenAddr)
     {
-        int listenSocketFd = createListenSocket(listenAddr);
+        int listenSocketFd;
+        if (listenAddr == "") {
+            listenSocketFd = INVALID_SOCKET_FD;
+        } else {
+            listenSocketFd = createListenSocket(listenAddr);
+        }
+        
         std::string errorMsg;
 
         while (true) {
@@ -462,53 +486,51 @@ namespace Common {
             for (int i = 0; i < numEvents; i++) {
 
                 struct kevent ev = evList[i];
+
                 int socketFd = (int) ev.ident;
-
-                std::string hostAddr;
-
                 bool isListenSocket = socketFd == listenSocketFd;
-
-                if (!isListenSocket) {
-                    // Extract the address associated with connection when not
-                    // the listen socket.
-                    try {
-                        const std::lock_guard<std::mutex> lg(connectionStateMapLock);
-                        hostAddr = getAddrFromSocketFd(socketFd);
-                        std::cout << "[Network] Polled event from host " << hostAddr << std::endl;
-                    }
-                    catch (Exception e) {
-                        std::cerr << "Socket " << socketFd
-                                  << "in process of being removed: ignoring "
-                                  "event on it" << std::endl;
-                        continue;
-                    }
-                }
-
-                if (ev.fflags & EV_ERROR) {
-                    // Error on listen socket is Fatal. Shut down server.
-                    if (isListenSocket) {
-                        errorMsg = 
-                            "Kqueue error when polling the listen socket: %s",
-                            std::strerror(ev.data);
+                
+                if (ev.flags & EV_ERROR) {
+                    errorMsg = 
+                        "Kqueue error when polling the %s event id: %s",
+                        isListenSocket ? "Listen Socket" : std::to_string(socketFd),
+                                                    std::strerror(ev.data);
                         throw Exception(errorMsg);
+                }
+
+                if (ev.filter == EVFILT_READ) {
+                    std::string hostAddr;
+
+                    if (!isListenSocket) {
+                        // Extract the address associated with connection when not
+                        // the listen socket.
+                        try {
+                            const std::lock_guard<std::mutex> lg(connectionStateMapLock);
+                            hostAddr = getAddrFromSocketFd(socketFd);
+                            std::cout << "[Network] Polled event from host " 
+                                      << hostAddr << " on socket" << socketFd << std::endl;
+                        }
+                        catch (Exception e) {
+                            std::cerr << "Socket " << socketFd
+                                    << "not listen socket and not in connection "
+                                        "map." << std::endl;
+                            continue;
+                        }
                     }
-                }
-                else if (ev.fflags & EV_EOF) {
-                    // EV_EOF signifies a host closed the connection.
-                    // This cannot happen on a listen socket.
-                    std::cerr << "Host " << hostAddr << "closed connection."
-                              << std::endl;
-                }
-                else if (ev.filter == EVFILT_READ) {
-                    // An event we registered occured on the socket occured
-                    if (ev.data != 0) {
-                        // Sending 0 bytes indicates closed connection
+
+                    if (ev.data == 0 || ev.flags & EV_EOF) {
+                        // Remove socket from polling by kqueue
+                        removeConnection(hostAddr);
+                    }
+                    else {
+                        // Normal operation
                         handleReceiveEvent(socketFd, ev.data, isListenSocket);
-                        continue;
                     }
+                    continue;
+                } else {
+                    // Event we did not register - this should never happen
+                    throw Exception("Kqueue event with unknown identifier.");
                 }
-                // Any other event is unexpected, remove the connection.
-                removeConnection(hostAddr);
             }
         }
     }
