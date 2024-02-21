@@ -49,12 +49,6 @@ namespace Common {
              */
             std::unordered_map<uint64_t, std::string> clusterMap;
 
-
-            /**
-             * @brief Path of the file used for persistent storage.
-             */
-            std::string persistentStoragePath;
-
     }; // class RaftConfig
 } // namespace Common
 

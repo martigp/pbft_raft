@@ -29,8 +29,9 @@ namespace Common {
         protected:
             /**
              * @brief The callback function into the network service to send
-             * a the message msg to the host at address sendAddr.
-             * 
+             * a message on the network.
+             * @param sendAddr network address to send message to
+             * @param msg message to send
              */
             std::function<void(const std::string& sendAddr,
                                const std::string& msg)> sendMsgFn;

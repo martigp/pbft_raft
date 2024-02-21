@@ -55,7 +55,6 @@ namespace Raft {
             cmd = tmpCmd;
 
             req->set_requestid(mostRecentRequestId);
-            mostRecentRequestId++;
 
             RPC rpc;
             rpc.set_allocated_statemachinecmdreq(req);
@@ -67,8 +66,6 @@ namespace Raft {
             }
 
             std::string serverAddr = config.clusterMap[currentLeaderId];
-            std::cout << "[Client] Sending rpc " << rpc.DebugString()
-                      << " to addr " << serverAddr << std::endl;
             
             network.sendMessage(serverAddr, rpcString, CREATE_CONNECTION);
 
@@ -80,13 +77,26 @@ namespace Raft {
                 if (receivedMessageCV.wait_for(lock, 
                         std::chrono::milliseconds(REQUEST_TIMEOUT), 
                         [&] { return receivedMessage != EMPTY_MSG; })) {
-                    RPC_StateMachineCmd_Response resp;
-                    if (!resp.ParseFromString(receivedMessage))
+                    RPC rpc;
+                    if (!rpc.ParseFromString(receivedMessage))
                         break;
                     
+                    if (rpc.msg_case() != RPC::kStateMachineCmdResp) {
+                        std::cerr << "[Client] RPC received wasn't StateMachine "
+                                "Reponse." << std::endl;
+                        break;
+                    }
+
+                    RPC_StateMachineCmd_Response resp =
+                        rpc.statemachinecmdresp();
+
                     // Response to an old request, wait for more up to date
                     // response.
                     if (resp.requestid() != mostRecentRequestId) {
+                        std::cerr << "[Client] rejecting response because out "
+                                  " of date requestId Expected: "
+                                  << mostRecentRequestId << "Received " 
+                                  << resp.requestid() << std::endl;
                         receivedMessage = EMPTY_MSG;
                         continue;
                     }
@@ -96,6 +106,8 @@ namespace Raft {
                         return resp.msg();
                     } 
                     else {
+                        std::cerr << "[Client] Server " << currentLeaderId
+                                  << " not the leader." << std::endl;
                         if (currentLeaderId != 0) {
                             // Indicates we have a hint
                             currentLeaderId = resp.leaderid();
@@ -115,6 +127,8 @@ namespace Raft {
                 currentLeaderId = 
                     (currentLeaderId % config.numClusterServers) + 1;
             }
+
+            mostRecentRequestId++;
         }
     }
 }

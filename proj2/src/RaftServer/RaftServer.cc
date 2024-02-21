@@ -90,9 +90,9 @@ namespace Raft {
         newEvent.type = RaftServerEvent::MESSAGE_RECEIVED;
         newEvent.addr = sendAddr;
         newEvent.msg = msg;
-        std::cout << "[Raft server]: New network event received from " << 
-        newEvent.addr.value() << std::endl;
-        
+        printf("[Raft server]: New network event received from %s",
+               newEvent.addr.value().c_str());
+
         {
             std::lock_guard<std::mutex> lg(eventQueueMutex);
             eventQueue.push(newEvent);
@@ -172,12 +172,12 @@ namespace Raft {
 
             uint64_t requestId = clientRequestEntry->second.first;
             resp->set_requestid(requestId);
+            resp->set_success(true);
             resp->set_allocated_msg(result);
             RPC rpc;
             rpc.set_allocated_statemachinecmdresp(resp);
             
             std::string clientAddr = clientRequestEntry->second.second;
-            printf("[RaftServer.cc]: Responding to client at address %s\n", clientAddr.c_str());
             network.sendMessage(clientAddr, rpc.SerializeAsString());
             return;
         }
@@ -379,7 +379,7 @@ namespace Raft {
     void RaftServer::processClientRequest(const std::string& clientAddr, 
                                           const RPC_StateMachineCmd_Request& req) {
         // Step 1: Append string cmd to log, get log index
-        std::cout << "[RaftServer] Received Client Request " << req.DebugString() << std::endl;
+        printf("[RaftServer] Received Client Request from %s", clientAddr.c_str());
 
         // Not leader, send StateMachineCommandRespnse with success = FALSE;
         if (raftServerState != ServerState::LEADER) {
@@ -387,6 +387,7 @@ namespace Raft {
                 new RPC_StateMachineCmd_Response();
             resp->set_success(false);
             resp->set_leaderid(leaderId);
+            resp->set_requestid(req.requestid());
 
             RPC rpc;
             rpc.set_allocated_statemachinecmdresp(resp);
@@ -417,7 +418,8 @@ namespace Raft {
 
     void RaftServer::processAppendEntriesReq(const std::string& senderAddr, 
                                              const RPC_AppendEntries_Request& req) {
-        printf("[RaftServer.cc]: Received Append Entries\n");
+        printf("[RaftServer.cc]: Received Append Entries Request\n");
+
         RPC_AppendEntries_Response* resp = new RPC_AppendEntries_Response();
         // If out of date, convert to follower before continuing
         if (req.term() > storage.getCurrentTermValue()) {
@@ -533,7 +535,6 @@ namespace Raft {
     void RaftServer::processAppendEntriesResp(const std::string& senderAddr,
                                               const RPC_AppendEntries_Response& resp) {
         printf("[RaftServer.cc]: Process Append Entries Response\n");
-
         // Obtain the ServerID from our map
         uint64_t rpcSenderId = 0;
         for (auto& [serverId, serverAddr] : config.clusterMap) {
@@ -576,7 +577,7 @@ namespace Raft {
             uint64_t threshold = config.numClusterServers / 2;
             for (uint64_t N = commitIndex + 1; N <= storage.getLogLength(); N++) {
                 // Gather running total of servers where matchIndex is >= N
-                uint64_t matchIndexCount = 0; 
+                uint64_t matchIndexCount = 1; 
                 for (auto& [serverId, serverAddr] : config.clusterMap) {
                     matchIndexCount += (volatileServerInfo[serverId].matchIndex >= N);
                 }
@@ -585,7 +586,9 @@ namespace Raft {
                     std::cerr << "[RaftServer.cc]: Updating commitIndex, error while getting term for log entry at index " << N << std::endl;
                     exit(EXIT_FAILURE);
                 }
-                if (matchIndexCount > threshold && entryTerm == storage.getCurrentTermValue()) {
+
+                if (matchIndexCount > threshold &&
+                    entryTerm == storage.getCurrentTermValue()) {
                     commitIndex = N;
                 }
             }
@@ -597,7 +600,6 @@ namespace Raft {
             // Retry now that nextIndex has been decremented
             sendAppendEntriesReq(rpcSenderId, senderAddr);
         }
-
         // Rules for all servers: if commitIndex is > lastApplied,
         // apply to statemachine
         uint64_t lastApplied = storage.getLastAppliedValue();
@@ -645,20 +647,18 @@ namespace Raft {
 
             if ((myLastTerm > candLastTerm) || 
                 ((myLastTerm == candLastTerm) && (storage.getLogLength() > req.lastlogindex()))) {
-                    std::cout << "[Raft Server] Log more up to date, rejecting vote for candidate " 
+                    std::cerr << "[Raft Server] Log more up to date, rejecting vote for candidate " 
                               << req.candidateid() << std::endl;
                     resp->set_votegranted(false);
             } else {
-                std::cout << "[Raft Server] Voting for candidate " << 
-                req.candidateid() << std::endl;
-                
+                printf("[Raft Server] Voting for candidate %llu\n",
+                       req.candidateid());
+
                 storage.setVotedForValue(req.candidateid());
                 resp->set_votegranted(true);
                 timer->resetTimer();
             }
         } else {
-            std::cout << "[Raft Server] Already voted for " << storage.getVotedForValue() <<
-                         ", rejecting vote for candidate " << req.candidateid() << std::endl;
             resp->set_votegranted(false);
         }
 
@@ -672,8 +672,10 @@ namespace Raft {
 
     void RaftServer::processRequestVoteResp(const std::string& senderAddr,
                                             const RPC_RequestVote_Response& resp) {
-        std::cout << "[RaftServer.cc]: Process Request Vote Response with term "
-        << resp.term() << " my term is " << storage.getCurrentTermValue() << std::endl;
+        printf(
+            "[RaftServer.cc]: Process Request Vote Response with term %llu, my "
+            "term: %llu",
+            resp.term(), storage.getCurrentTermValue());
 
         uint64_t rpcSenderId = 0;
         for (auto& [serverId, serverAddr] : config.clusterMap) {
@@ -701,9 +703,6 @@ namespace Raft {
             if (resp.votegranted() == true && myVotes.find(rpcSenderId) == myVotes.end()) {
                 numVotesReceived += 1;
                 myVotes.insert(rpcSenderId);
-                std::cout << "[RaftServer] Received new valid vote num votes=" 
-                << numVotesReceived << "threshold=" 
-                << config.numClusterServers / 2 << std::endl;
 
                 if (numVotesReceived > (config.clusterMap.size() / 2)) {
                     convertToLeader();

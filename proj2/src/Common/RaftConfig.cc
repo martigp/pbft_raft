@@ -11,17 +11,11 @@ namespace Common {
             cfg.readFile(configPath);
 
             if (type == SERVER) {
+                // Server specific configuation information
                 std::string cfgServerAddr = cfg.lookup("serverAddress");
-                std::cout << "[ServerConfig] Read serverAddr " << cfgServerAddr
-                        << " from config." << std::endl;
                 serverAddr = cfgServerAddr;
 
                 serverId = cfg.lookup("serverId");
-
-                std::string cfgPersistentStoragePath = 
-                                    cfg.lookup("persistentStoragePath");
-                
-                persistentStoragePath = cfgPersistentStoragePath;
             }
 
             const libconfig::Setting& root = cfg.getRoot();
@@ -33,7 +27,6 @@ namespace Common {
                 uint64_t serverId = server.lookup("id");
                 std::string serverAddr = server.lookup("address");
 
-                // Might need to be a non stack allocated string?
                 clusterMap[serverId] = serverAddr;
             }
 
