@@ -14,6 +14,9 @@
 // Appropriate value chosen based off of Raft paper specifications
 #define HEARTBEAT_TIMEOUT 1000
 
+// Value used to indicate unknown leader/no leader
+#define NO_LEADER 0
+
 namespace Raft {
     
     RaftServer::RaftServer( const std::string& configPath, bool firstServerBoot)
@@ -25,7 +28,7 @@ namespace Raft {
         , eventQueue()
         , myState ( RaftServer::ServerState::FOLLOWER )
         , commitIndex ( 0 )
-        , leaderId ( 0 )
+        , leaderId ( NO_LEADER )
         , volatileServerInfo()
         , logToClientRequestMap( )
         , numVotesReceived ( 0 )
@@ -125,7 +128,7 @@ namespace Raft {
         }
 
         eventQueueCV.notify_all();
-        printf("[RaftServer.cc]: SM Applied Handler: eventQueueCV notified, queue length %zu\n", eventQueue.size());
+        printf("[RaftServer.cc]: SM Applied Handler: eventQueueCV notified, index %llu, result %s, queue length %zu\n", logIndex, (*stateMachineResult).c_str(), eventQueue.size());
     }
 
     /*****************************************************
@@ -137,6 +140,7 @@ namespace Raft {
             case ServerState::FOLLOWER:
                 printf("[RaftServer.cc]: Called timeout as follower\n");
                 myState = ServerState::CANDIDATE;
+                leaderId = NO_LEADER;
                 printf("[RaftServer.cc]: Converted to candidate\n");
                 startNewElection();
                 break;
@@ -159,6 +163,7 @@ namespace Raft {
         // Update highest applied index
         // TODO: should we check this?
         storage.setLastAppliedValue(appliedIndex);
+        printf("[RaftServer.cc]: Received result of applied entry at index %llu, result: %s\n", appliedIndex, (*result).c_str());
 
         auto clientRequestEntry = logToClientRequestMap.find(appliedIndex);
         if (clientRequestEntry != logToClientRequestMap.cend()) {
@@ -171,6 +176,7 @@ namespace Raft {
             rpc.set_allocated_statemachinecmdresp(resp);
             
             std::string clientAddr = clientRequestEntry->second.second;
+            printf("[RaftServer.cc]: Responding to client at address %s\n", clientAddr.c_str());
             network.sendMessage(clientAddr, rpc.SerializeAsString());
             return;
         }
@@ -252,6 +258,7 @@ namespace Raft {
     void RaftServer::convertToLeader() {
         printf("[RaftServer.cc]: Converting to leader, term: %llu, serverId: %llu\n", storage.getCurrentTermValue(), config.serverId);
         myState = ServerState::LEADER;
+        leaderId = config.serverId;
         setHeartbeatTimeout();
         // Reinitialize volatile state for leader
         for (auto& [raftServerId, sendToAddr]: config.clusterMap) {
@@ -373,8 +380,7 @@ namespace Raft {
         // Step 1: Append string cmd to log, get log index
         std::cout << "[RaftServer] Received Client Request " << req.DebugString() << std::endl;
         uint64_t nextLogIndex = storage.getLogLength() + 1;
-        std::string entry;
-        if (!storage.setLogEntry(nextLogIndex, storage.getCurrentTermValue(), entry)) {
+        if (!storage.setLogEntry(nextLogIndex, storage.getCurrentTermValue(), req.cmd())) {
             std::cerr << "[RaftServer.cc]: Error while writing entry to log." << std::endl;
             exit(EXIT_FAILURE);
         }
@@ -486,6 +492,8 @@ namespace Raft {
                         std::cerr << "[RaftServer.cc]: Applying to SM in AppendEntries Request, error while getting log entry at index " << (lastApplied + i) << " to apply to state machine."<< std::endl;
                         exit(EXIT_FAILURE);
                     }
+                    // Note, this print needs to be here otherwise the compiler optimizes out the cmd string
+                    printf("[RaftServer.cc]: Sending apply for index %llu, command %s\n", lastApplied + i, cmd.c_str());
                     shellSM->pushCmd(lastApplied + i, cmd);
                 }
             }

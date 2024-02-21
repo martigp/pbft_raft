@@ -45,7 +45,7 @@ namespace Raft {
 
             try {
                 std::string* ret = applyCmd(smCmd.command);
-                printf("[Log State Machine]: Log entry %llu applied\n", smCmd.index);
+                printf("[Log State Machine]: Log entry %llu applied, result: %s\n", smCmd.index, (*ret).c_str());
                 callbackRaftServer(smCmd.index, ret);
                 lastApplied = smCmd.index;
             }
