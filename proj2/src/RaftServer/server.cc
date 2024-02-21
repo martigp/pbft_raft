@@ -28,11 +28,9 @@ int main(int argc, char *argv[])
     while((opt = getopt(argc, argv, "hn")) != -1) {
         switch(opt) {
             case 'h':
-                std::cout << "Got h" << std::endl;
                 printUsage();
                 return 0;
             case 'n':
-                std::cout << "Got n" << std::endl;
                 firstServerBoot = true;
                 break;
             default:
@@ -43,17 +41,11 @@ int main(int argc, char *argv[])
     }
 
     if (optind != argc - 1) {
-        std::cout << "Optind is " << optind << std::endl;
-        std::cout << "Too is too many arguments" << std::endl;
+        std::cout << "Wrong number of arguments: " << std::endl;
         printUsage();
         return 1;
     }
 
-    // Bypass getopt for now
-    firstServerBoot = true;
-
     Raft::RaftServer server(argv[optind], firstServerBoot);
-    std::cout << "[RaftServerMain]: in server.cc" << std::endl;
-
     server.start();
 }

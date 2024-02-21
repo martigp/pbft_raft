@@ -18,7 +18,7 @@ int main() {
         std::getline(std::cin, *cmd);
 
         // (c) send the command to the cluster leader
-        std::string ret = raftClient.connectAndSendToServer(cmd);
+        std::string ret = raftClient.sendToServer(cmd);
 
         // (d) print return value on stdout
         std::cout << ret << std::endl;

@@ -37,7 +37,7 @@ namespace Raft {
     }
 
     std::string
-    RaftClient::connectAndSendToServer(std::string *cmd)
+    RaftClient::sendToServer(std::string *cmd)
     {   
         // Iterate through each of the servers, send a message and wait on
         // a condition variable which has some timeout. Upon return of the
@@ -69,17 +69,14 @@ namespace Raft {
             
             network.sendMessage(serverAddr, rpcString, CREATE_CONNECTION);
 
-            std::cout << "<2>" <<  std::endl;
 
             std::unique_lock<std::mutex> lock(receivedMessageLock);
             bool incrementLeaderId = true;
-            std::cout << "<3>" <<  std::endl;
             while (true) {
                 // If timeout and no received message, try sending again.
                 if (receivedMessageCV.wait_for(lock, 
                         std::chrono::milliseconds(REQUEST_TIMEOUT), 
                         [&] { return receivedMessage != EMPTY_MSG; })) {
-                    std::cout << "<4.1>" <<  std::endl;
                     RPC_StateMachineCmd_Response resp;
                     if (!resp.ParseFromString(receivedMessage))
                         break;
@@ -101,13 +98,12 @@ namespace Raft {
                     return resp.msg();
                 }
                 else {
-                    std::cout << "<4.2>" <<  std::endl;
                     break;
                 }
             }
             lock.unlock();
             if (incrementLeaderId) {
-                // If not hint just increment the currentLeaderId by 1, 
+                // If no hint just increment the currentLeaderId by 1, 
                 // modulus because first leader id is 1
                 currentLeaderId = 
                     (currentLeaderId % config.numClusterServers) + 1;

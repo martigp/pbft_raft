@@ -7,19 +7,16 @@
 
 #define CONFIG_PATH "./config_client.cfg"
 
-#define REQUEST_TIMEOUT 10000
+/* Timeout for a Raft Client Request. */
+#define REQUEST_TIMEOUT 60000
+/* Default value for receivedMessage to indicate no message received. */
 #define EMPTY_MSG ""
 
 namespace Raft {
-    class ClientConfig;
-
     class RaftClient : public Common::NetworkUser {
         public:
             /**
-             * @brief Construct a new RaftClient that is able to connect 
-             * to a Raft Cluster 
-             * Will exit with error if configuration file path specified
-             * above is not found.
+             * @brief Constructor. Throws error upon failure.
              */
             RaftClient();
 
@@ -36,7 +33,7 @@ namespace Raft {
              * Raft Cluster. Either the result of the state machine command being
              * executed or an error message due to bad user input.
              */
-            std::string connectAndSendToServer(std::string *cmd);
+            std::string sendToServer(std::string *cmd);
 
             /**
              * @brief Overriden function that is called by the Network Service

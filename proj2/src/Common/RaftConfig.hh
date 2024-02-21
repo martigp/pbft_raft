@@ -36,7 +36,7 @@ namespace Common {
             uint64_t serverId;
 
             /**
-             * @brief The number of servers INCLUDING the current server.
+             * @brief The number of servers in the Raft Cluster.
              * 
              */
             uint64_t numClusterServers;

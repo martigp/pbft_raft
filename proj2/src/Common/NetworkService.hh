@@ -15,7 +15,7 @@
 #define MAX_CONNECTIONS 16
 /* The maximum number of the kqueue can return. Somewhat arbitrary */
 #define MAX_EVENTS 1
-/* Socket Fd value for ConnectionState if the socket is closed */
+/* Socket Fd value for ConnectionState if the socket has been closed */
 #define INVALID_SOCKET_FD -1
 /* The default value of payloadBytesNeeded member of ConnectionState.
    Indicates a full header has not been read in yet. */
@@ -36,52 +36,62 @@ namespace Common {
      * @brief Service responsible for conducting network communication needed by
      * the Network User.
      */
+
     class NetworkService {
         public:
-            /**
-             * @brief Construct a new Network Service. Runtime error thrown 
-             * there is a error setting up the Network Service that would not 
-             * allow it to provide the service.
-             * 
-             * @param networkUser The user of the network service.
-             * 
-             */
-            NetworkService(NetworkUser& networkUser);
+        /**
+         * @brief Exception defined for the network class.
+         * 
+         */ 
+            class Exception : public std::runtime_error {
+                public:
+                 Exception(const std::string err) : std::runtime_error(err){};
+            };
+         /**
+          * @brief Construct a new Network Service. Runtime error thrown
+          * there is a error setting up the Network Service that would not
+          * allow it to provide the service.
+          *
+          * @param networkUser The user of the network service.
+          *
+          */
+         NetworkService(NetworkUser& networkUser);
 
-            /* Destructor */
-            ~NetworkService();
+         /* Destructor */
+         ~NetworkService();
 
-            /**
-             * @brief API used to send a message a known peer in the network.
-             * This will attempt to send the message asynchronously and fail
-             * silently if the message could not be sent.
-             * 
-             * @param sendToAddr Address the message should be sent to in the
-             * form ip:port
-             * @param msg The message to be sent to the peer
-             * @param createConnection TRUE if user wants to create connection
-             * with the sendToAddr if one does not exist. By default FALSE
-             * 
-             */
-            void sendMessage(const std::string sendToAddr,
-                             const std::string msg,
-                             bool createConnection = false);
+         /**
+          * @brief Send a message to the provided network address.
+          * This will attempt to send the message asynchronously and fail
+          * silently if the message could not be sent.
+          *
+          * @param sendToAddr Address the message should be sent to in the
+          * form ip:port
+          * @param msg The message to be sent to the peer
+          * @param createConnection TRUE if user wants to create connection
+          * with the sendToAddr if one does not exist. By default FALSE.
+          *
+          */
+         void sendMessage(const std::string sendToAddr, const std::string msg,
+                          bool createConnection = false);
 
-            /**
-             * @brief Method called to start the network service listening
-             * on the provided listen address. Throws an error on failure
-             * of setting up the listen socket or an error on the listen
-             * socket.
-             *
-             */
-            void startListening(const std::string& listenAddr);
+         /**
+          * @brief Method called to start the network service listening
+          * for incoming connection requests. Throws an error on failure
+          * of setting up the listen socket or an error on the listen
+          * socket.
+          * 
+          * @param listenAddr The address to listen for incoming requests on.
+          */
+         void startListening(const std::string& listenAddr);
 
         private:
 
             /**
-             * @brief Registers the socket to the kqueue to monitor for read
-             * events. Throws error if unable to register it with string
-             * version of the error returned by the kqueue.
+             * @brief Registers a socket to the Network Service. Throws 
+             * exception if unable to register. Upon return, socket is registerd
+             * and any well-formed data received on this socket is handed to the
+             * associated Network User.
              * 
              * @param socketFd The file descriptor of the socket.
              * 
@@ -89,7 +99,7 @@ namespace Common {
             void monitorSocketForEvents(int socketFd);
             
             /**
-             * @brief Remove any trace of a connected host.
+             * @brief Remove any trace of a connected host from NetworkService.
              * 
              * @param hostAddr The host address in form ip:port
              */
@@ -99,19 +109,19 @@ namespace Common {
              * @brief Handles the event that there is data available to read
              * from the socket. 
              * 
-             * If the isListenSocket is set will attempt to establish new
+             * If the isListenSocket is set, will attempt to establish new
              * connection. Throws exception if an issue and it is a listen
              * socket. 
              * 
-             * If a connectedSocket (not listen socket) will pass on any
-             * complete messages to the user. Fails silently.
+             * If an already connectedSocket (not listen socket) will complete 
+             * messages to the user. Fails silently.
              * 
              * @param receiveSocketFd The file descriptor of the socket on which
              * the event occured.
              * @param eventInformation The information about the event returned
              * by the kqueue.
              * @param isListenSocket True if the event occured on the listen
-             * socket. Used to interpret the eventInformation
+             * socket. False if a socket associated with an existing connection.
              */
             void handleReceiveEvent(int receiveSocketFd,
                                     uint64_t eventInformation,
@@ -129,7 +139,7 @@ namespace Common {
 
             /**
              * @brief Populates the sockaddr with the ip and port provided in
-             * addr. Throws exception if failure to do so.
+             * addr. Throws exception if failure.
              * 
              * @param addr Address in form ip:port
              * @param sockaddr The sockaddr to be populated
@@ -161,7 +171,6 @@ namespace Common {
             /**
              * @brief State associated with a host's connection for reading
              * and writing data to the host.
-             * 
              */
             class ConnectionState {
                 public:
@@ -204,8 +213,7 @@ namespace Common {
             
             /**
              * @brief Maps a host address in form ip:port to state assocaited
-             * with the connection. If the host is not present there is no 
-             * existing connection to that host.
+             * with a connection with that address.
              */
             std::unordered_map<std::string,
                               std::shared_ptr<ConnectionState>> 

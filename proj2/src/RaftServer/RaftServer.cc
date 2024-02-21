@@ -23,7 +23,7 @@ namespace Raft {
         , eventQueueMutex()
         , eventQueueCV()
         , eventQueue()
-        , myState ( RaftServer::ServerState::FOLLOWER )
+        , raftServerState ( RaftServer::ServerState::FOLLOWER )
         , commitIndex ( 0 )
         , leaderId ( 0 )
         , volatileServerInfo()
@@ -133,10 +133,10 @@ namespace Raft {
     ******************************************************/
 
     void RaftServer::timeoutHandler() {
-        switch (myState) {
+        switch (raftServerState) {
             case ServerState::FOLLOWER:
                 printf("[RaftServer.cc]: Called timeout as follower\n");
-                myState = ServerState::CANDIDATE;
+                raftServerState = ServerState::CANDIDATE;
                 printf("[RaftServer.cc]: Converted to candidate\n");
                 startNewElection();
                 break;
@@ -245,13 +245,13 @@ namespace Raft {
 
     void RaftServer::convertToFollower() {
         printf("[RaftServer.cc]: Converting to follower, term: %llu, serverId: %llu\n", storage.getCurrentTermValue(), config.serverId);
-        myState = ServerState::FOLLOWER;
+        raftServerState = ServerState::FOLLOWER;
         setRandomElectionTimeout();
     }
 
     void RaftServer::convertToLeader() {
         printf("[RaftServer.cc]: Converting to leader, term: %llu, serverId: %llu\n", storage.getCurrentTermValue(), config.serverId);
-        myState = ServerState::LEADER;
+        raftServerState = ServerState::LEADER;
         setHeartbeatTimeout();
         // Reinitialize volatile state for leader
         for (auto& [raftServerId, sendToAddr]: config.clusterMap) {
@@ -372,6 +372,27 @@ namespace Raft {
                                           const RPC_StateMachineCmd_Request& req) {
         // Step 1: Append string cmd to log, get log index
         std::cout << "[RaftServer] Received Client Request " << req.DebugString() << std::endl;
+
+        // Not leader, send StateMachineCommandRespnse with success = FALSE;
+        if (raftServerState != ServerState::LEADER) {
+            RPC_StateMachineCmd_Response* resp =
+                new RPC_StateMachineCmd_Response();
+            resp->set_success(false);
+            resp->set_leaderid(leaderId);
+
+            RPC rpc;
+            rpc.set_allocated_statemachinecmdresp(resp);
+            std::string rpcString;
+            if (!rpc.SerializeToString(&rpcString)) {
+                std::cerr << "[RaftServer] Failed to client rpc response to "
+                          << clientAddr << std::endl;
+            }
+            else {
+                network.sendMessage(clientAddr, rpcString);
+            }
+            return;
+        }
+
         uint64_t nextLogIndex = storage.getLogLength() + 1;
         std::string entry;
         if (!storage.setLogEntry(nextLogIndex, storage.getCurrentTermValue(), entry)) {
@@ -399,7 +420,7 @@ namespace Raft {
         }
 
         // Currently running an election, AppendEntries from new term leader, convert to follower and continue
-        if (myState == ServerState::CANDIDATE && req.term() == storage.getCurrentTermValue()) {
+        if (raftServerState == ServerState::CANDIDATE && req.term() == storage.getCurrentTermValue()) {
             convertToFollower(); 
         }
 
@@ -666,7 +687,7 @@ namespace Raft {
             return;
         }
 
-        if (resp.term() == storage.getCurrentTermValue() && myState == ServerState::CANDIDATE) {
+        if (resp.term() == storage.getCurrentTermValue() && raftServerState == ServerState::CANDIDATE) {
             if (resp.votegranted() == true && myVotes.find(rpcSenderId) == myVotes.end()) {
                 numVotesReceived += 1;
                 myVotes.insert(rpcSenderId);

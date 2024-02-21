@@ -176,7 +176,7 @@ namespace Raft {
             /**
              * @brief State of this server
             */
-            ServerState myState;
+            ServerState raftServerState;
 
             
             /*************************************

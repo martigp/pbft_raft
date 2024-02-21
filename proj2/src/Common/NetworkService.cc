@@ -20,7 +20,7 @@ namespace Common {
           payloadBytesNeeded(UNKNOWN_NUM_BYTES) {}
 
     // TODO: does anything need to get cleaned up?
-    NetworkService::ConnectionState::~ConnectionState() {}
+    NetworkService::ConnectionState::~ConnectionState(){};
 
     void 
     NetworkService::populateSockAddr(const std::string &addr,
@@ -39,12 +39,13 @@ namespace Common {
 
         // Copy the ip address to the sockaddr so we can bind the socket
         // to the provided address.
+        // AF_INET
         if (inet_pton(AF_INET, ip.c_str(),
                                 &(sockaddr->sin_addr)) <= 0) {
-            std::string errorMsg = 
-                "Failed to convert provided ip in address " + addr +
-                " to binary form needed for binding: ";
-            throw std::runtime_error(errorMsg + std::strerror(errno));
+            throw Exception("Provided ip in " + addr + " could not be converted"
+                            " to binary form needed for binding " +
+                            std::strerror(errno));
+
         }
     }
     
@@ -56,10 +57,8 @@ namespace Common {
             }
         }
 
-        std::string errorMsg("Socket " + std::to_string(socketFd) + 
-                             "is not associated with a connected host");
-
-        throw std::runtime_error(errorMsg);
+        throw Exception("Socket " + std::to_string(socketFd) + 
+                        "is not associated with a connected host");
     }
 
     NetworkService::NetworkService(NetworkUser& user)
@@ -76,7 +75,7 @@ namespace Common {
         if (pollFd == -1) {
             std::string errorMsg =
                 "Failure to create the kqueue for the NetworkService: ";
-            throw std::runtime_error(errorMsg + std::strerror(errno));
+            throw Exception(errorMsg + std::strerror(errno));
         }
     }
 
@@ -129,7 +128,7 @@ namespace Common {
                 try {
                     populateSockAddr(sendToAddr, &sendToSockAddr);
                 }
-                catch(std::runtime_error e) {
+                catch(Exception e) {
                     std::cerr << e.what() << ": closing socket to addr " 
                               << sendToAddr << std::endl;
                     close (sendSocketFd);
@@ -201,7 +200,10 @@ namespace Common {
 
         // Failed to add throw exception.
         if (kevent(pollFd, &newEv, 1, NULL, 0, NULL) == -1) {
-            throw std::runtime_error(std::strerror(errno));
+            std::string errorMsg =
+                "Failed to register socket " + std::to_string(socketFd) 
+                + "to kqueue ";
+            throw Exception(errorMsg + std::strerror(errno));
         }
     }
 
@@ -256,7 +258,7 @@ namespace Common {
             if (hostSocketFd < 0) {
                 errorMsg = "Failed to accept an incoming connection: ";
 
-                throw std::runtime_error(errorMsg + std::strerror(errno));
+                throw Exception(errorMsg + std::strerror(errno));
             }
 
             // Obtain the string version of the host IP address and port so
@@ -268,7 +270,7 @@ namespace Common {
                 errorMsg = "Failed to parse an incoming host connection"
                            "request's ip with inet_ntop: %s", 
                            std::strerror(errno);
-                throw std::runtime_error(errorMsg);
+                throw Exception(errorMsg);
             }
 
             uint16_t hostPort = ntohs(hostSockAddr.sin_port);
@@ -305,8 +307,8 @@ namespace Common {
             ". Bytes available to read: " << socketBytesAvailable << " Payload "
             "bytes needed " << connectionState->payloadBytesNeeded << 
             " Current Message bytes " << connectionState->msg.size() << std::endl;
-            // Read the header of a network message which is the
-            // number of bytes in the payload
+            // Read the header of a network message first to determine how many
+            // bytes to read for the payload.
             if (connectionState->msg.size() < HEADER_SIZE) {
                 // Only read in header bytes worth
                 size_t headerBytesToRead = HEADER_SIZE - totalBytesRead;
@@ -327,8 +329,8 @@ namespace Common {
                 connectionState->msg.append(buf, headerBytesRead);                
             }
             // If payload bytes has this default value, we still need to read
-            // in its value from the header. Since we know we've received a full
-            // header at this point
+            // in its value from the header. Only do this when a full header
+            // has arrived
             if (connectionState->payloadBytesNeeded == UNKNOWN_NUM_BYTES ) {
                 if (connectionState->msg.size() == HEADER_SIZE) {
                     std::cout << "[Network] Received full header " << connectionState->msg << std::endl;
@@ -347,6 +349,7 @@ namespace Common {
                 }
             }
 
+            // Full Header Received, now read in the payload.
             size_t payloadBytesToRead = connectionState->payloadBytesNeeded;
             char buf [payloadBytesToRead];
 
@@ -363,6 +366,8 @@ namespace Common {
             connectionState->msg.append(buf, payloadBytesRead);
             connectionState->payloadBytesNeeded -= payloadBytesRead;
 
+            // Payload fully arrived, forward only the payload to the 
+            // Network User
             if (connectionState->payloadBytesNeeded == 0) {
                 size_t payloadSize = connectionState->msg.size() - HEADER_SIZE;
                 const std::string payload = 
@@ -396,7 +401,7 @@ namespace Common {
         // Creating socket file descriptor
         if (listenSocketFd < 0) {
             errorMsg = "Failed to create socket to listen on: ";
-            throw std::runtime_error(errorMsg + std::strerror(errno));
+            throw Exception(errorMsg + std::strerror(errno));
         }
 
         // Allowing the re-use of local addresses by other sockets
@@ -405,7 +410,7 @@ namespace Common {
                     sizeof(opt))) {
             errorMsg = "Failed to setsockopt to reuse local addresses"
                         "for the listen socket: ";
-            throw std::runtime_error(
+            throw Exception(
                 errorMsg + std::strerror(errno));
         }
 
@@ -417,21 +422,21 @@ namespace Common {
             < 0) {
             errorMsg = "Failed to bind provided listen address " 
                         + listenAddr + " to the created listen socket: ";
-            throw std::runtime_error(
+            throw Exception(
                 errorMsg + std::strerror(errno));
         }
 
         if (listen(listenSocketFd, MAX_CONNECTIONS) < 0) {
             errorMsg = "Failure to listen on the bound listen socket: ";
-            throw std::runtime_error(errorMsg + std::strerror(errno));
+            throw Exception(errorMsg + std::strerror(errno));
         }
         try {
             monitorSocketForEvents(listenSocketFd);
         }
-        catch(std::runtime_error err) {
+        catch(Exception err) {
             errorMsg = "Failure to register the listen socket to the"
                         "kqueue: %s", err.what();
-            throw std::runtime_error(errorMsg);
+            throw Exception(errorMsg);
         }
         
         return listenSocketFd;
@@ -451,7 +456,7 @@ namespace Common {
 
             if (numEvents == -1) {
                 errorMsg = "Error polling sockets: ";
-                throw std::runtime_error(errorMsg + std::strerror(errno));
+                throw Exception(errorMsg + std::strerror(errno));
             }
 
             for (int i = 0; i < numEvents; i++) {
@@ -464,12 +469,17 @@ namespace Common {
                 bool isListenSocket = socketFd == listenSocketFd;
 
                 if (!isListenSocket) {
+                    // Extract the address associated with connection when not
+                    // the listen socket.
                     try {
                         const std::lock_guard<std::mutex> lg(connectionStateMapLock);
                         hostAddr = getAddrFromSocketFd(socketFd);
                         std::cout << "[Network] Polled event from host " << hostAddr << std::endl;
                     }
-                    catch (std::runtime_error e) {
+                    catch (Exception e) {
+                        std::cerr << "Socket " << socketFd
+                                  << "in process of being removed: ignoring "
+                                  "event on it" << std::endl;
                         continue;
                     }
                 }
@@ -480,24 +490,24 @@ namespace Common {
                         errorMsg = 
                             "Kqueue error when polling the listen socket: %s",
                             std::strerror(ev.data);
-                        throw std::runtime_error(errorMsg);
+                        throw Exception(errorMsg);
                     }
                 }
-                // EV_EOF signifies a host closed the connection. This cannot
-                // happen on a listen socket.
                 else if (ev.fflags & EV_EOF) {
+                    // EV_EOF signifies a host closed the connection.
+                    // This cannot happen on a listen socket.
                     std::cerr << "Host " << hostAddr << "closed connection."
                               << std::endl;
                 }
-                // An event we registered occured on the socket occured
                 else if (ev.filter == EVFILT_READ) {
-                    // Sending 0 bytes indicates closed connection
+                    // An event we registered occured on the socket occured
                     if (ev.data != 0) {
+                        // Sending 0 bytes indicates closed connection
                         handleReceiveEvent(socketFd, ev.data, isListenSocket);
                         continue;
                     }
                 }
-                // If wasn't a normal read event we want to remove the host.
+                // Any other event is unexpected, remove the connection.
                 removeConnection(hostAddr);
             }
         }
