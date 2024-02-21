@@ -195,6 +195,20 @@ namespace Raft {
              */
             uint64_t leaderId;
 
+            /**
+             * @brief Index of highest log entry known to be sent to
+             * State Machine.
+             * Once entries are committed, they can exist in three states:
+             *      - committed in the RaftServer
+             *      - sent to the State Machine
+             *      - response from State Machine received and lastApplied updated
+             * This value allows us enforce in order and no reexecution property of 
+             * the log entries.
+             * - initialized to the value of lastApplied read from persistent
+             *   state OR 0 on first Server Boot
+            */
+            uint64_t lastSentToStateMachine;
+
             /*************************************
              * Volatile state about other raft servers needed by the leader.
             **************************************/
@@ -277,6 +291,16 @@ namespace Raft {
                                         const RPC_RequestVote_Response& resp);
 
             /**
+             * @brief Method invoked after potential update of the commitIndex
+             * Implements the "Rule for all servers", indicating that when 
+             * commitIndex is > lastApplied, entries from the log should be
+             * applied to State Machine.
+             * This method is also responsible for ensuring in order and only 
+             * once sending of entries to the StateMachine to apply.
+            */
+            void sendNewCommitEntriesToStateMachine();
+
+            /**
              * @brief Mapping of log index to information about the corresponding
              * request - requestId and requesting address ip:port
              */
@@ -285,7 +309,6 @@ namespace Raft {
 
             /**
              * @brief Receipt of new shell command from client
-             * 
             */
             void processClientRequest(const std::string& clientAddr,
                                       const RPC_StateMachineCmd_Request& cmd);

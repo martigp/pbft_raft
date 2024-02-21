@@ -36,8 +36,8 @@ namespace Common {
              *      Returns true for success, false if error occured
              * 
              * Restrictions on values:
-             *      key must not contain whitespace
-             *      length of key and value combined may not exceed 256 chars
+             *      Key must not contain whitespace
+             *      Length of key and value combined may not exceed 256 chars
              * 
             */
 

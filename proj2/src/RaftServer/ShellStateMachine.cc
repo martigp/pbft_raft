@@ -32,14 +32,9 @@ namespace Raft {
                 stateMachineUpdatesCV.wait(lock);
             }
 
-            StateMachineCommand smCmd = commandQueue.top();
+            StateMachineCommand smCmd = commandQueue.front();
             commandQueue.pop();
             lock.unlock();
-
-            if (smCmd.index != lastApplied + 1) {
-                printf("[Log State Machine]: Popped RaftClient command at index %llu, but last applied index is %llu\n", smCmd.index, lastApplied);
-                // TODO: think about these edge cases more
-            }
 
             printf("[Log State Machine]: Popped RaftClient command: %s", smCmd.command.c_str());
 
@@ -47,7 +42,6 @@ namespace Raft {
                 std::string* ret = applyCmd(smCmd.command);
                 printf("[Log State Machine]: Log entry %llu applied, result: %s\n", smCmd.index, (*ret).c_str());
                 callbackRaftServer(smCmd.index, ret);
-                lastApplied = smCmd.index;
             }
             catch(std::exception e) {
                 std::cerr << "Failed to apply log entry " << smCmd.index

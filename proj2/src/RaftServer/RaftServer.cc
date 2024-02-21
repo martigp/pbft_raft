@@ -29,6 +29,7 @@ namespace Raft {
         , raftServerState ( RaftServer::ServerState::FOLLOWER )
         , commitIndex ( 0 )
         , leaderId ( NO_LEADER )
+        , lastSentToStateMachine( storage.getLastAppliedValue() )
         , volatileServerInfo()
         , logToClientRequestMap( )
         , numVotesReceived ( 0 )
@@ -160,10 +161,11 @@ namespace Raft {
     void RaftServer::handleAppliedLogEntry(uint64_t appliedIndex,
                                            std::string* result) {
         // Update highest applied index
-        // TODO: should we check this?
         storage.setLastAppliedValue(appliedIndex);
         printf("[RaftServer.cc]: Received result of applied entry at index %llu, result: %s\n", appliedIndex, (*result).c_str());
 
+        // Respond to client if entry was received while this server was leader.
+        // No response required for followers updating their state machines.
         auto clientRequestEntry = logToClientRequestMap.find(appliedIndex);
         if (clientRequestEntry != logToClientRequestMap.cend()) {
             RPC_StateMachineCmd_Response *resp = new RPC_StateMachineCmd_Response();
@@ -179,8 +181,6 @@ namespace Raft {
             network.sendMessage(clientAddr, rpc.SerializeAsString());
             return;
         }
-        //TODO: Need error handling here, what is the correct behaviour, does
-        // this indicate a corruption that is fatal
     }
 
     void RaftServer::setRandomElectionTimeout() {
@@ -503,22 +503,9 @@ namespace Raft {
             if (req.leadercommit() > commitIndex) {
                 commitIndex = std::min(req.leadercommit(), storage.getLogLength());
             }
-            // Rules for all servers: if commitIndex is > lastApplied,
-            // apply to statemachine
-            uint64_t lastApplied = storage.getLastAppliedValue();
-            if (commitIndex > lastApplied) {
-                for (uint64_t i = 1; i <= commitIndex - lastApplied; i++) {
-                    uint64_t term;
-                    std::string cmd;
-                    if (!storage.getLogEntry(lastApplied + i, term, cmd)) {
-                        std::cerr << "[RaftServer.cc]: Applying to SM in AppendEntries Request, error while getting log entry at index " << (lastApplied + i) << " to apply to state machine."<< std::endl;
-                        exit(EXIT_FAILURE);
-                    }
-                    // Note, this print needs to be here otherwise the compiler optimizes out the cmd string
-                    printf("[RaftServer.cc]: Sending apply for index %llu, command %s\n", lastApplied + i, cmd.c_str());
-                    shellSM->pushCmd(lastApplied + i, cmd);
-                }
-            }
+
+            // Rules for all servers: applied new entries when commitIndex > lastApplied
+            sendNewCommitEntriesToStateMachine();
         }
 
         sendAppendRPCResp:
@@ -527,6 +514,20 @@ namespace Raft {
 
         const std::string rpcString = rpc.SerializeAsString();
         network.sendMessage(senderAddr, rpcString);
+    }
+
+    void RaftServer::sendNewCommitEntriesToStateMachine() {
+        for (; lastSentToStateMachine < commitIndex; lastSentToStateMachine++) {
+            uint64_t term;
+            std::string cmd;
+            if (!storage.getLogEntry(lastSentToStateMachine + 1, term, cmd)) {
+                std::cerr << "[RaftServer.cc]: Applying to SM in AppendEntries Request, error while getting log entry at index " << (lastSentToStateMachine + 1) << " to apply to state machine."<< std::endl;
+                exit(EXIT_FAILURE);
+            }
+            // Note, this print needs to be here otherwise the compiler optimizes out the cmd string
+            printf("[RaftServer.cc]: Sending apply for index %llu, command %s\n", lastSentToStateMachine + 1, cmd.c_str());
+            shellSM->pushCmd(lastSentToStateMachine + 1, cmd);
+        }
     }
 
     void RaftServer::processAppendEntriesResp(const std::string& senderAddr,
