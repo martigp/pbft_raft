@@ -117,7 +117,7 @@ std::string RaftClient::sendToServer(std::string* cmd) {
     }
     lock.unlock();
     if (incrementLeaderId) {
-      // If no hint as to which server is currently leader, just increment 
+      // If no hint as to which server is currently leader, just increment
       // the currentLeaderId by 1, modulus because first leader id is 1
       currentLeaderId = (currentLeaderId % config.numClusterServers) + 1;
     }

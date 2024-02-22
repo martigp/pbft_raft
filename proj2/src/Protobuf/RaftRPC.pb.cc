@@ -2737,63 +2737,63 @@ const char* RPC::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
 }
 
 PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const ::_pbi::TcParseTable<0, 6, 6, 0, 2>
-        RPC::_table_ = {
-            {
-                0,     // no _has_bits_
-                0,     // no _extensions_
-                6, 0,  // max_field_number, fast_idx_mask
-                offsetof(decltype(_table_), field_lookup_table),
-                4294967232,  // skipmap
-                offsetof(decltype(_table_), field_entries),
-                6,  // num_field_entries
-                6,  // num_aux_entries
-                offsetof(decltype(_table_), aux_entries),
-                &_RPC_default_instance_._instance,
-                ::_pbi::TcParser::GenericFallback,  // fallback
+PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const ::_pbi::TcParseTable<0, 6, 6, 0, 2>
+    RPC::_table_ = {
+        {
+            0,     // no _has_bits_
+            0,     // no _extensions_
+            6, 0,  // max_field_number, fast_idx_mask
+            offsetof(decltype(_table_), field_lookup_table),
+            4294967232,  // skipmap
+            offsetof(decltype(_table_), field_entries),
+            6,  // num_field_entries
+            6,  // num_aux_entries
+            offsetof(decltype(_table_), aux_entries),
+            &_RPC_default_instance_._instance,
+            ::_pbi::TcParser::GenericFallback,  // fallback
 #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-                ::_pbi::TcParser::GetTable<::RPC>(),  // to_prefetch
+            ::_pbi::TcParser::GetTable<::RPC>(),  // to_prefetch
 #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
-            },
-            {{
-                {::_pbi::TcParser::MiniParse, {}},
-            }},
-            {{65535, 65535}},
-            {{
-                // .RPC.AppendEntries.Request appendEntriesReq = 1;
-                {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.appendentriesreq_),
-                 _Internal::kOneofCaseOffset + 0, 0,
-                 (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
-                // .RPC.AppendEntries.Response appendEntriesResp = 2;
-                {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.appendentriesresp_),
-                 _Internal::kOneofCaseOffset + 0, 1,
-                 (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
-                // .RPC.RequestVote.Request requestVoteReq = 3;
-                {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.requestvotereq_),
-                 _Internal::kOneofCaseOffset + 0, 2,
-                 (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
-                // .RPC.RequestVote.Response requestVoteResp = 4;
-                {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.requestvoteresp_),
-                 _Internal::kOneofCaseOffset + 0, 3,
-                 (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
-                // .RPC.StateMachineCmd.Request stateMachineCmdReq = 5;
-                {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.statemachinecmdreq_),
-                 _Internal::kOneofCaseOffset + 0, 4,
-                 (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
-                // .RPC.StateMachineCmd.Response stateMachineCmdResp = 6;
-                {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.statemachinecmdresp_),
-                 _Internal::kOneofCaseOffset + 0, 5,
-                 (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
-            }},
-            {{
-                {::_pbi::TcParser::GetTable<::RPC_AppendEntries_Request>()},
-                {::_pbi::TcParser::GetTable<::RPC_AppendEntries_Response>()},
-                {::_pbi::TcParser::GetTable<::RPC_RequestVote_Request>()},
-                {::_pbi::TcParser::GetTable<::RPC_RequestVote_Response>()},
-                {::_pbi::TcParser::GetTable<::RPC_StateMachineCmd_Request>()},
-                {::_pbi::TcParser::GetTable<::RPC_StateMachineCmd_Response>()},
-            }},
-            {{}},
+        },
+        {{
+            {::_pbi::TcParser::MiniParse, {}},
+        }},
+        {{65535, 65535}},
+        {{
+            // .RPC.AppendEntries.Request appendEntriesReq = 1;
+            {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.appendentriesreq_),
+             _Internal::kOneofCaseOffset + 0, 0,
+             (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+            // .RPC.AppendEntries.Response appendEntriesResp = 2;
+            {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.appendentriesresp_),
+             _Internal::kOneofCaseOffset + 0, 1,
+             (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+            // .RPC.RequestVote.Request requestVoteReq = 3;
+            {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.requestvotereq_),
+             _Internal::kOneofCaseOffset + 0, 2,
+             (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+            // .RPC.RequestVote.Response requestVoteResp = 4;
+            {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.requestvoteresp_),
+             _Internal::kOneofCaseOffset + 0, 3,
+             (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+            // .RPC.StateMachineCmd.Request stateMachineCmdReq = 5;
+            {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.statemachinecmdreq_),
+             _Internal::kOneofCaseOffset + 0, 4,
+             (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+            // .RPC.StateMachineCmd.Response stateMachineCmdResp = 6;
+            {PROTOBUF_FIELD_OFFSET(RPC, _impl_.msg_.statemachinecmdresp_),
+             _Internal::kOneofCaseOffset + 0, 5,
+             (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+        }},
+        {{
+            {::_pbi::TcParser::GetTable<::RPC_AppendEntries_Request>()},
+            {::_pbi::TcParser::GetTable<::RPC_AppendEntries_Response>()},
+            {::_pbi::TcParser::GetTable<::RPC_RequestVote_Request>()},
+            {::_pbi::TcParser::GetTable<::RPC_RequestVote_Response>()},
+            {::_pbi::TcParser::GetTable<::RPC_StateMachineCmd_Request>()},
+            {::_pbi::TcParser::GetTable<::RPC_StateMachineCmd_Response>()},
+        }},
+        {{}},
 };
 
 ::uint8_t* RPC::_InternalSerialize(

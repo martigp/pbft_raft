@@ -1,4 +1,5 @@
-// Simple main function to implement a replicated shell command line applications
+// Simple main function to implement a replicated shell command line
+// applications
 #include <stdio.h>
 
 #include <iostream>
