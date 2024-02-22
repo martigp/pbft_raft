@@ -2,31 +2,42 @@ Main changes from Project 1 to Project 2:
 
 - New networking class:
     - Previously: 
-        - We were using a kernel event notification based system(kqueue and kevents). However,
-        this model became complicated due to the "socket handler" or "per connection code" 
-        attached to any incoming connections.
-        - Accidental attempt to overload two TCP connections(one for client initiated RPC requests
-        and one for server accepted RPC responses) with the use of a single port.
+        - We separated networking into two classes SocketManagers and Socket
+        Handler. The socket manager was responsible for managing kqueue/epoll
+        calls while the Socket classes were opaque pointers attached to
+        kqueue/events and used to handle these events. This was particularly
+        complicated because there was a lot of information leakage between these
+        classes.
+        - Networking would parse messages into the corresponding protobuf and
+        make RPC specific calls into the main RaftServer module e.g.
+        handleRaftClientRequest(uint64_t uid, protobuf::clientRPC rpc);
     - New method:
-        - Network service abstaction based on a listening port(for incoming requests) and a 
-        BEST EFFORT send message method.
-        - Two ports, one for sending and one for receiving, based on feedback and the Project
-        1 discussion in class.
+        - These two classes merged into a single NetworkService class which has
+        passes on messages received via a userCallbackFunction giving the user
+        the address (ip:port) and message (string).
+        - Users of the NetworkService have to be derived from the virtual class
+        NetworkUser that must implement a handleNetworkMessage (bound to the
+        Network Service's userCallbackFunction).
+        - Single listening address for server interactions (receive reqs, send 
+        resps) and randomly assigned address for client interactions (sending
+        reqs, receive resps).
 
 - New persistent storage:
     - Previously:
-        - Writing of a struct to memory. Method was not generalizable or easily extensible.
+        - Writing of a struct to memory. Method was not generalizable or easily 
+        extensible.
     - New method:
-        - Development of a general purpose key value storage that operates similar to a map
-        in C++, but writes to disk. 
-        - RaftServer specific storage class that manages many instances of the key value 
-        storage for the purposes of a RaftServer. Includes:
+        - Development of a general purpose key value storage that operates 
+        similar to a map in C++, but writes to disk. 
+        - RaftServer specific storage class that manages many instances of the 
+        key value storage for the purposes of a RaftServer. Includes:
             - One key value store for "persistent state"
-            - Many small key value store files for each log entry(based on discussion in class)
+            - Many small key value store different file for each log entry
 
 - New State Machine Application mechanism:
-    - While we already had our State Machine as a separate entity, we had to add new checks 
-    to ensure that log entries get applied in order and only once.
-    - Since log entries can exist in a state between committed and applied, once they have been
-    sent to the State Machince, we decided to place the logic within RaftServer to ensure that
-    log entries get sent only once and in order to the state machine.
+    - While we already had our State Machine as a separate entity, we had to add
+    new checks to ensure that log entries get applied in order and only once.
+    - Since log entries can exist in a state between committed and applied, once
+    they have been sent to the State Machince, we decided to place the logic 
+    within RaftServer to ensure that log entries get sent only once and in order
+    to the state machine.
