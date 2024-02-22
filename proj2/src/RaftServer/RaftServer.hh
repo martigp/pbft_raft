@@ -75,12 +75,13 @@ class RaftServer : public Common::NetworkUser {
                             const std::string& networkMsg);
 
   /**
-   * @brief Raft callback method for the Timer
+   * @brief Callback method for the Timer to invoke when timer fires.
    */
   void notifyRaftOfTimerEvent();
 
   /**
-   * @brief Raft callback method for the State Machine
+   * @brief Callback method for the State Machine to invoke when
+   * it has applied a new log entry.
    *
    * @param index Index of log entry that was applied
    *
@@ -112,13 +113,13 @@ class RaftServer : public Common::NetworkUser {
   Raft::ServerStorage storage;
 
   /**
-   * @brief State Machine that executes commands that have been committed,
+   * @brief State Machine that executes commands that have been committed.
    */
   std::unique_ptr<Raft::ShellStateMachine> shellSM;
 
   /**
-   * @brief Timer module with generic callback function to Raft Server,
-   * that allows resetting of the timer and it's timeout period.
+   * @brief Timer module that allows resetting of the timer and 
+   * it's timeout period.
    */
   std::unique_ptr<Raft::Timer> timer;
 
@@ -167,7 +168,7 @@ class RaftServer : public Common::NetworkUser {
   enum class ServerState { FOLLOWER, CANDIDATE, LEADER };
 
   /**
-   * @brief State of this server
+   * @brief Current state of this server
    */
   ServerState raftServerState;
 
@@ -192,18 +193,23 @@ class RaftServer : public Common::NetworkUser {
    * State Machine.
    * Once entries are committed, they can exist in three states:
    *      - committed in the RaftServer
-   *      - sent to the State Machine
+   *      - sent to the State Machine to execute
    *      - response from State Machine received and lastApplied updated
-   * This value allows us enforce in order and no reexecution property of
-   * the log entries.
-   * - initialized to the value of lastApplied read from persistent
+   * Initialized to the value of lastApplied read from persistent
    *   state OR 0 on first Server Boot
+   * 
+   * Note: Without linearizability, there will always be a possible consistency
+   * failure. This is either that lastApplied gets updated before a failure and 
+   * entries have a chance to be applied OR entries are applied before a failure 
+   * and lastApplied has a chance to be updated. 
+   * Our implementation opts for the latter, ensuring every command gets executed, 
+   * but at the cost of potentially executing twice.
    */
   uint64_t lastSentToStateMachine;
 
-  /*************************************
-   * Volatile state about other raft servers needed by the leader.
-   **************************************/
+  /***************************************************************
+   * Volatile state about each other RaftServer needed by the leader.
+   ***************************************************************/
 
   struct RaftServerVolatileState {
     /**
@@ -233,11 +239,16 @@ class RaftServer : public Common::NetworkUser {
   std::unordered_map<uint64_t, struct RaftServerVolatileState>
       volatileServerInfo;
 
+  /***************************************************************
+   * Methods to handle events in raft server
+   ***************************************************************/
+
   /**
    * @brief Method processes a callback received from the State Machine
    * prompting an update to lastApplied information.
-   * Additionally, if the log index is associated with a Client IPAddr,
-   * the RaftServer will send the response.
+   * Additionally, if the log entry at the specified index was received
+   * while this RaftServer was leader, the RaftServer will send the 
+   * response to the corresponding RaftClient.
    */
   void handleAppliedLogEntry(uint64_t appliedIndex, std::string* result);
 
@@ -245,6 +256,8 @@ class RaftServer : public Common::NetworkUser {
    * @brief Given an IP Address and string message:
    *      Parse message and extract protobuf format
    *      Extract RaftServer ID or RaftClient based on IP
+   * 
+   * Exits on failures with unserialization of protobufs.
    */
   void processNetworkMessage(const std::string& senderAddr,
                              const std::string& networkMsg);
@@ -253,6 +266,8 @@ class RaftServer : public Common::NetworkUser {
    * @brief Receiver Implementation of AppendEntriesRPC
    * Sends back a response
    * Follows bottom left box in Figure 2
+   * 
+   * Exits on failures with persisted state/log.
    */
   void processAppendEntriesReq(const std::string& senderAddr,
                                const RPC_AppendEntries_Request& req);
@@ -261,6 +276,8 @@ class RaftServer : public Common::NetworkUser {
    * @brief Sender Implementation of AppendEntriesRPC
    * Process the response received(term, success)
    * Follows bottom left box in Figure 2
+   * 
+   * Exits on failures with persisted state/log.
    */
   void processAppendEntriesResp(const std::string& senderAddr,
                                 const RPC_AppendEntries_Response& resp);
@@ -269,6 +286,8 @@ class RaftServer : public Common::NetworkUser {
    * @brief Receiver Implementation of RequestVoteRPC
    * Sends back a response
    * Follows upper right box in Figure 2
+   * 
+   * Exits on failures with persisted state/log.
    */
   void processRequestVoteReq(const std::string& senderAddr,
                              const RPC_RequestVote_Request& req);
@@ -286,8 +305,11 @@ class RaftServer : public Common::NetworkUser {
    * Implements the "Rule for all servers", indicating that when
    * commitIndex is > lastApplied, entries from the log should be
    * applied to State Machine.
-   * This method is also responsible for ensuring in order and only
-   * once sending of entries to the StateMachine to apply.
+   * 
+   * This method ensures in order and one time sending of entries 
+   * to the StateMachine to apply.
+   * 
+   * Exits on failures with persisted state/log.
    */
   void sendNewCommitEntriesToStateMachine();
 
@@ -298,13 +320,14 @@ class RaftServer : public Common::NetworkUser {
   std::map<uint64_t, std::pair<uint64_t, std::string>> logToClientRequestMap;
 
   /**
-   * @brief Receipt of new shell command from client
+   * @brief Receipt of new shell command from client.
+   * Exits on failures with protobuf serialization.
    */
   void processClientRequest(const std::string& clientAddr,
                             const RPC_StateMachineCmd_Request& cmd);
 
   /**
-   * @brief Decide action after timeout occurs
+   * @brief Decide action to take after timeout occurs.
    */
   void timeoutHandler();
 
@@ -331,19 +354,20 @@ class RaftServer : public Common::NetworkUser {
 
   /**
    * @brief Private counter for number of votes received when running an
-   * election
+   * election.
    */
   int numVotesReceived;
 
   /**
    * @brief Set for which servers have voted for you in current election
-   * Avoids double counting votes from same server
+   * to avoid double counting votes from same server.
    */
   std::unordered_set<int> myVotes;
 
   /**
    * @brief Format and attempts to send AppendEntries Requests to a single
-   * server. Fails silently.
+   * server. Provides best effort delivery. 
+   * Exits on failures with persisted state/log or protobuf serialization.
    */
   void sendAppendEntriesReq(uint64_t serverId, std::string serverAddr);
 

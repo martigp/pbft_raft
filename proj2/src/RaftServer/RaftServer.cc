@@ -558,7 +558,7 @@ void RaftServer::processAppendEntriesReq(const std::string& senderAddr,
       commitIndex = std::min(req.leadercommit(), storage.getLogLength());
     }
 
-    // Rules for all servers: applied new entries when commitIndex > lastApplied
+    // Rules for all servers: apply new entries when commitIndex > lastApplied
     sendNewCommitEntriesToStateMachine();
   }
 
@@ -660,24 +660,8 @@ void RaftServer::processAppendEntriesResp(
     // Retry now that nextIndex has been decremented
     sendAppendEntriesReq(rpcSenderId, senderAddr);
   }
-  // Rules for all servers: if commitIndex is > lastApplied,
-  // apply to statemachine
-  uint64_t lastApplied = storage.getLastAppliedValue();
-  for (uint64_t idToApply = lastApplied; idToApply <= commitIndex;
-       idToApply++) {
-    uint64_t term;
-    std::string cmd;
-
-    try {
-      storage.getLogEntry(idToApply, term, cmd);
-    } catch (std::runtime_error e) {
-      std::cerr << "Error apply to SM in AppendEntries Resp: " << e.what()
-                << std::endl;
-      exit(EXIT_FAILURE);
-    }
-
-    shellSM->pushCmd(idToApply, cmd);
-  }
+  // Rules for all servers: apply new entries when commitIndex > lastApplied
+  sendNewCommitEntriesToStateMachine();
 }
 
 void RaftServer::processRequestVoteReq(const std::string& senderAddr,

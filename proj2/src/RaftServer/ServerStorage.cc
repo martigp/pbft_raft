@@ -26,6 +26,8 @@ ServerStorage::ServerStorage(uint64_t serverID, bool firstServerBoot) {
     }
   }
 
+  // If server is restarting(not booting for the first time), it must be able to
+  // find it's persistent state file.
   if (firstServerBoot == false &&
       std::filesystem::exists(storageDirectory + PERSISTENT_STATE_FILENAME) ==
           false) {
@@ -36,6 +38,9 @@ ServerStorage::ServerStorage(uint64_t serverID, bool firstServerBoot) {
     throw std::runtime_error(errorMsg + std::strerror(errno));
   }
 
+  /* Using the generic KeyValueStorage mechanism, the RaftServer Storage
+   * manages a KeyValue file for persistent state and for each log entry.
+   */
   persistentState.reset(new Common::KeyValueStorage(storageDirectory +
                                                     PERSISTENT_STATE_FILENAME));
 
@@ -91,7 +96,6 @@ void ServerStorage::setVotedForValue(uint64_t vote) {
 uint64_t ServerStorage::getVotedForValue() { return votedFor; }
 
 uint64_t ServerStorage::getLogLength() {
-  // printf("[ServerStorage.cc]: Got log length of %zu", logEntries.size());
   return logEntries.size();
 }
 
@@ -104,7 +108,9 @@ uint64_t ServerStorage::getLastAppliedValue() { return lastApplied; }
 
 void ServerStorage::setLogEntry(uint64_t index, uint64_t term,
                                 std::string entry) {
-  // allowed to set a new log entry one past the length of the log
+  // Allowed to set a new log entry one past the length of the log
+  // Implementation of Raft Consensus algorithm guarantees this monotonically
+  // increasing property of log entries, thus failures are fatal.
   if (index > getLogLength() + 1) {
     throw std::runtime_error(
         "Error setting log entry, provided index " + std::to_string(index) +
@@ -137,6 +143,9 @@ void ServerStorage::getLogEntry(uint64_t index, uint64_t &term,
   logEntries[index - 1]->get("entry", entry);
 }
 
+// Version of get log entry that only returns the term.
+// Provided for the log term checking required when casting votes and 
+// deciding commit index.
 void ServerStorage::getLogEntry(uint64_t index, uint64_t &term) {
   if (index > getLogLength()) {
     throw Exception("Cannot get log entry with index " + std::to_string(index) +
@@ -154,7 +163,7 @@ void ServerStorage::getLogEntry(uint64_t index, uint64_t &term) {
 void ServerStorage::truncateLog(uint64_t index) {
   uint64_t currLength = getLogLength();
   for (int i = currLength; i >= index; i--) {
-    // remove from vector of files, TODO: does this call the destructor?
+    // remove from vector of files
     logEntries.erase(logEntries.begin() + index - 1);
     // remove file from directory
     try {
