@@ -1,4 +1,4 @@
-#include <RaftServer/ServerStorage.hh>
+#include "RaftServer/ServerStorage.hh"
 
 #define DIRECTORY_PREFIX "./persistence_raftserver_"
 #define PERSISTENT_STATE_FILENAME "/persistent_state.data"
