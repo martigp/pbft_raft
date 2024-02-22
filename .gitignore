@@ -1,0 +1,7 @@
+.vscode/
+protobuf/*
+libconfig/
+install/
+protobuf/
+install/*
+socket_thread_testing
