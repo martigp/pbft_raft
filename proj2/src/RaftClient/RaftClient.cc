@@ -105,7 +105,7 @@ std::string RaftClient::sendToServer(std::string* cmd) {
           std::cerr << "[Client] Server " << currentLeaderId
                     << " not the leader." << std::endl;
           if (currentLeaderId != 0) {
-            // Indicates we have a hint
+            // Indicates we have a hint for which server might be leader
             currentLeaderId = resp.leaderid();
             incrementLeaderId = false;
           }
@@ -117,8 +117,8 @@ std::string RaftClient::sendToServer(std::string* cmd) {
     }
     lock.unlock();
     if (incrementLeaderId) {
-      // If no hint just increment the currentLeaderId by 1,
-      // modulus because first leader id is 1
+      // If no hint as to which server is currently leader, just increment 
+      // the currentLeaderId by 1, modulus because first leader id is 1
       currentLeaderId = (currentLeaderId % config.numClusterServers) + 1;
     }
 
