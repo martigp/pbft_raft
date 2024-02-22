@@ -18,6 +18,7 @@ Once you have done this delete the first four lines of
 `install/lib/pkgconfig/libconfig++.pc`
 
 This will ensure that you can dynamically link libconfig++
+Note that we use the libconfig for easy use of configuration files.
 
 # Running Servers and Clients
 Once you have completed the set-up instructions, run `make` from the `proj2` 
@@ -50,7 +51,7 @@ with the correct port and address numbers as required for your Raft Cluster.
 Run each client from the `proj2` directory in separate terminals by calling the 
 command:
 
-`./build/client config_client.cfg`
+`./build/client`
 
 
 
