@@ -18,6 +18,7 @@ class RaftClient : public Common::NetworkUser {
  public:
   /**
    * @brief Constructor. Throws error upon failure.
+   * Requires config file at path specified by CONFIG_PATH
    */
   RaftClient();
 
@@ -29,7 +30,9 @@ class RaftClient : public Common::NetworkUser {
    * Cluster. Blocks until the command was successfully executed or if
    * the cmd argument could not be serialized before sending to Raft
    * Cluster.
+   * 
    * @param cmd State machine command to execute
+   * 
    * @return std::string Result of attempt to execute command on
    * Raft Cluster. Either the result of the state machine command being
    * executed or an error message due to bad user input.
@@ -37,8 +40,8 @@ class RaftClient : public Common::NetworkUser {
   std::string sendToServer(std::string* cmd);
 
   /**
-   * @brief Overriden function that is called by the Network Service
-   * that the RaftClient is a user of when it has received a message.
+   * @brief Overriden NetworkUser callback function that is called by 
+   * the Network Service when it has received a message.
    *
    * @param sendAddr Host address from which a message was received
    * Formatted: "xx.xx.xx.xx:port"

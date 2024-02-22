@@ -1,4 +1,4 @@
-// Simple main function to implement a shell command line
+// Simple main function to implement a replicated shell command line applications
 #include <stdio.h>
 
 #include <iostream>
@@ -7,8 +7,8 @@
 #include "RaftClient/RaftClient.hh"
 
 int main() {
-  // Step 1: parse configuration file to know what servers I can communicate
-  // with
+  // Step 1: Generate instance of RaftClient
+  //         See RaftClient Interface for required configuration
   Raft::RaftClient raftClient = Raft::RaftClient();
 
   // Step 2: Launch application
