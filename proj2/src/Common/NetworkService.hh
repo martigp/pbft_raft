@@ -151,8 +151,8 @@ class NetworkService {
   /**
    * @brief Returns the address of the host connected to by the
    * socket. Since these operations are generally followed by use
-   * of map THIS IS NOT THREAD SAFE i.e. it assumes that the caller
-   * has the connectionStateMap lock.
+   * of map THIS IS NOT THREAD SAFE i.e. in multithreaded applications you
+   * need to hold the connectionStateMapLock while calling this function.
    *
    * @param socketFd The file descriptor of the socket connected to
    * a host.

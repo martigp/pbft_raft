@@ -42,13 +42,23 @@ ServerStorage::ServerStorage(uint64_t serverID, bool firstServerBoot) {
   // Set all the initialization values in persistent state
   // OR read in values from an already existing file
   if (firstServerBoot) {
-    persistentState->set("currentTerm", 0);
-    persistentState->set("votedFor", 0);
-    persistentState->set("lastApplied", 0);
+    persistentState->set("currentTerm", std::to_string(0));
+    persistentState->set("votedFor", std::to_string(0));
+    persistentState->set("lastApplied", std::to_string(0));
   } else {
-    persistentState->get("currentTerm", currentTerm);
-    persistentState->get("votedFor", votedFor);
-    persistentState->get("lastApplied", lastApplied);
+    // Load from Persistent Storage - requires converting from string then
+    // back into uint64_t
+    std::string currentTermStr = std::to_string(currentTerm);
+    persistentState->get("currentTerm", currentTermStr);
+    currentTerm = std::stoull(currentTermStr);
+
+    std::string votedForStr = std::to_string(votedFor);
+    persistentState->get("votedFor", votedForStr);
+    votedFor = std::stoull(votedForStr);
+
+    std::string lastAppliedStr = std::to_string(lastApplied);
+    persistentState->get("lastApplied", lastAppliedStr);
+    lastApplied = std::stoull(lastAppliedStr);
 
     uint64_t logLength = 0;
     for (auto i : std::filesystem::directory_iterator(storageDirectory)) {
@@ -66,16 +76,16 @@ ServerStorage::ServerStorage(uint64_t serverID, bool firstServerBoot) {
 
 ServerStorage::~ServerStorage() {}
 
-bool ServerStorage::setCurrentTermValue(uint64_t term) {
+void ServerStorage::setCurrentTermValue(uint64_t term) {
   currentTerm = term;
-  return persistentState->set("currentTerm", term);
+  persistentState->set("currentTerm", std::to_string(term));
 }
 
 uint64_t ServerStorage::getCurrentTermValue() { return currentTerm; }
 
-bool ServerStorage::setVotedForValue(uint64_t vote) {
+void ServerStorage::setVotedForValue(uint64_t vote) {
   votedFor = vote;
-  return persistentState->set("votedFor", vote);
+  persistentState->set("votedFor", std::to_string(vote));
 }
 
 uint64_t ServerStorage::getVotedForValue() { return votedFor; }
@@ -85,60 +95,63 @@ uint64_t ServerStorage::getLogLength() {
   return logEntries.size();
 }
 
-bool ServerStorage::setLastAppliedValue(uint64_t index) {
+void ServerStorage::setLastAppliedValue(uint64_t index) {
   lastApplied = index;
-  return persistentState->set("lastApplied", index);
+  persistentState->set("lastApplied", std::to_string(index));
 }
 
 uint64_t ServerStorage::getLastAppliedValue() { return lastApplied; }
 
-bool ServerStorage::setLogEntry(uint64_t index, uint64_t term,
+void ServerStorage::setLogEntry(uint64_t index, uint64_t term,
                                 std::string entry) {
   // allowed to set a new log entry one past the length of the log
   if (index > getLogLength() + 1) {
-    return false;
+    throw std::runtime_error(
+        "Error setting log entry, provided index " + std::to_string(index) +
+        " was greater the next log index" + std::to_string(getLogLength() + 1));
   } else if (index == getLogLength() + 1) {
     logEntries.push_back(
         new Common::KeyValueStorage(storageDirectory + LOG_ENTRY_PREFIX +
                                     std::to_string(index) + LOG_ENTRY_SUFFIX));
   }
-  return logEntries[index - 1]->set("term", term) &&
-         logEntries[index - 1]->set("entry", entry);
+  logEntries[index - 1]->set("term", std::to_string(term));
+
+  logEntries[index - 1]->set("entry", entry);
 }
 
-bool ServerStorage::getLogEntry(uint64_t index, uint64_t &term,
+void ServerStorage::getLogEntry(uint64_t index, uint64_t &term,
                                 std::string &entry) {
   if (index > getLogLength()) {
-    printf(
-        "[ServerStorage.cc]: Cannot get log entry with index %llu, log length "
-        "%llu\n",
-        index, getLogLength());
-    return false;
+    throw Exception("Cannot get log entry with index " + std::to_string(index) +
+                    ", " + std::to_string(getLogLength()));
   }
   if (index == 0) {
-    printf("[ServerStorage.cc]: Cannot get log entry with index 0\n");
-    return false;
+    throw Exception("Cannot get log entry with index " + std::to_string(index) +
+                    ", " + std::to_string(getLogLength()));
   }
-  return logEntries[index - 1]->get("term", term) &&
-         logEntries[index - 1]->get("entry", entry);
+
+  std::string termStr = std::to_string(term);
+  logEntries[index - 1]->get("term", termStr);
+  term = std::stoull(termStr);
+
+  logEntries[index - 1]->get("entry", entry);
 }
 
-bool ServerStorage::getLogEntry(uint64_t index, uint64_t &term) {
+void ServerStorage::getLogEntry(uint64_t index, uint64_t &term) {
   if (index > getLogLength()) {
-    printf(
-        "[ServerStorage.cc]: Cannot get log entry with index %llu, log length "
-        "%llu\n",
-        index, getLogLength());
-    return false;
+    throw Exception("Cannot get log entry with index " + std::to_string(index) +
+                    ", " + std::to_string(getLogLength()));
   }
   if (index == 0) {
-    printf("[ServerStorage.cc]: Cannot get log entry with index 0\n");
-    return false;
+    throw Exception("Cannot get log entry with index 0");
   }
-  return logEntries[index - 1]->get("term", term);
+
+  std::string termStr = std::to_string(term);
+  logEntries[index - 1]->get("term", termStr);
+  term = std::stoull(termStr);
 }
 
-bool ServerStorage::truncateLog(uint64_t index) {
+void ServerStorage::truncateLog(uint64_t index) {
   uint64_t currLength = getLogLength();
   for (int i = currLength; i >= index; i--) {
     // remove from vector of files, TODO: does this call the destructor?
@@ -159,6 +172,5 @@ bool ServerStorage::truncateLog(uint64_t index) {
       throw std::runtime_error(errorMsg + err.what());
     }
   }
-  return true;
 }
 }  // namespace Raft

@@ -14,6 +14,14 @@ namespace Raft {
 class ServerStorage {
  public:
   /**
+   * @brief Exception defined for the Server Storage Class
+   */
+  class Exception : public std::runtime_error {
+   public:
+    Exception(std::string errorMsg) : std::runtime_error(errorMsg){};
+  };
+
+  /**
    * Create a new ServerStorage object for the Raft Consensus Algorithm
    * Using the generic KeyValueStorage mechanism, the RaftServer Storage
    * manages a KeyValue file for persistent state and for each log entry.
@@ -35,7 +43,7 @@ class ServerStorage {
    *
    * @param term Value of the currentTerm
    */
-  bool setCurrentTermValue(uint64_t term);
+  void setCurrentTermValue(uint64_t term);
 
   /**
    * @brief Get the value for currentTerm:
@@ -52,7 +60,7 @@ class ServerStorage {
    *
    * @param votedFor Value of votedFor
    */
-  bool setVotedForValue(uint64_t votedFor);
+  void setVotedForValue(uint64_t votedFor);
 
   /**
    * @brief Get the value for votedFor:
@@ -76,7 +84,7 @@ class ServerStorage {
    *
    * @param index Value of lastApplied
    */
-  bool setLastAppliedValue(uint64_t index);
+  void setLastAppliedValue(uint64_t index);
 
   /**
    * @brief Get the value for lastApplied log index:
@@ -100,7 +108,7 @@ class ServerStorage {
    *
    * @returns boolean indicating success or failure
    */
-  bool setLogEntry(uint64_t index, uint64_t term, std::string entry);
+  void setLogEntry(uint64_t index, uint64_t term, std::string entry);
 
   /**
    * @brief Get a log entry at a specified index
@@ -113,7 +121,7 @@ class ServerStorage {
    *
    * @returns boolean indicating success or failure
    */
-  bool getLogEntry(uint64_t index, uint64_t &term, std::string &entry);
+  void getLogEntry(uint64_t index, uint64_t &term, std::string &entry);
 
   /**
    * @brief Get a log entry at a specified index, just access term
@@ -124,7 +132,7 @@ class ServerStorage {
    *
    * @returns boolean indicating success or failure
    */
-  bool getLogEntry(uint64_t index, uint64_t &term);
+  void getLogEntry(uint64_t index, uint64_t &term);
 
   /**
    * @brief Truncate log entries starting at specified index
@@ -134,7 +142,7 @@ class ServerStorage {
    * @returns boolean indicating success or failure. If index is not
    *          within the log, will return success.
    */
-  bool truncateLog(uint64_t index);
+  void truncateLog(uint64_t index);
 
  private:
   /**

@@ -216,17 +216,21 @@ void RaftServer::startNewElection() {
   printf("[RaftServer.cc]: Start New Election\n");
   leaderId = NO_LEADER;
 
-  if (!storage.setCurrentTermValue(storage.getCurrentTermValue() + 1)) {
-    std::cerr << "[RaftServer.cc]: Error while incrementing and writing "
-                 "current term value."
-              << std::endl;
+  try {
+    storage.setCurrentTermValue(storage.getCurrentTermValue() + 1);
+  } catch (std::runtime_error e) {
+    std::cerr << "Error incrementing or writing current term value: "
+              << e.what() << std::endl;
     exit(EXIT_FAILURE);
   }
-  if (!storage.setVotedForValue(config.serverId)) {
-    std::cerr << "[RaftServer.cc]: Error while writing votedFor value."
-              << std::endl;
+
+  try {
+    storage.setVotedForValue(config.serverId);
+  } catch (std::runtime_error e) {
+    std::cerr << "Error writing voted for value: " << e.what() << std::endl;
     exit(EXIT_FAILURE);
   }
+
   myVotes.clear();
   myVotes.insert(config.serverId);
   numVotesReceived = 1;
@@ -240,12 +244,16 @@ void RaftServer::startNewElection() {
   req->set_lastlogindex(logLen);
   if (logLen != 0) {
     uint64_t term;
-    if (!storage.getLogEntry(logLen, term)) {
-      std::cerr << "[RaftServer.cc]: Starting new election, error while "
-                   "getting term for last log entry."
-                << std::endl;
+
+    try {
+      storage.getLogEntry(logLen, term);
+    } catch (std::runtime_error e) {
+      std::cerr << "Error getting term for last log entry when starting new "
+                   "election: "
+                << e.what() << std::endl;
       exit(EXIT_FAILURE);
     }
+
     req->set_lastlogterm(term);
   } else {
     req->set_lastlogterm(0);
@@ -321,12 +329,14 @@ void RaftServer::sendAppendEntriesReq(uint64_t serverId,
     // and previous term should be set to 0 without attempting to access the log
     req->set_prevlogterm(0);
   } else {
-    if (!storage.getLogEntry(serverInfo.nextIndex - 1, term, entry)) {
-      std::cerr << "[RaftServer.cc]: Error while reading log for "
-                   "sendAppendEntries at index "
-                << std::to_string(serverInfo.nextIndex - 1) << std::endl;
+    try {
+      storage.getLogEntry(serverInfo.nextIndex - 1, term, entry);
+    } catch (std::runtime_error e) {
+      std::cerr << "[RaftServer.cc]: Error reading log for sendAppendEntries: "
+                << e.what() << std::endl;
       exit(EXIT_FAILURE);
     }
+
     req->set_prevlogterm(term);
   }
 
@@ -338,12 +348,16 @@ void RaftServer::sendAppendEntriesReq(uint64_t serverId,
       RPC_AppendEntries_Request_Entry* entry = req->add_entries();
       uint64_t term;
       std::string entryCmd;
-      if (!storage.getLogEntry(serverInfo.nextIndex + i, term, entryCmd)) {
-        std::cerr << "[RaftServer.cc]: Error while reading log for "
-                     "sendAppendEntries at index "
-                  << std::to_string(serverInfo.nextIndex + i) << std::endl;
+
+      try {
+        storage.getLogEntry(serverInfo.nextIndex + i, term, entryCmd);
+      } catch (std::runtime_error e) {
+        std::cerr
+            << "[RaftServer.cc]: Error reading log for sendAppendEntries: "
+            << e.what() << std::endl;
         exit(EXIT_FAILURE);
       }
+
       entry->set_cmd(entryCmd);
       entry->set_term(term);
     }
@@ -428,10 +442,11 @@ void RaftServer::processClientRequest(const std::string& clientAddr,
   }
 
   uint64_t nextLogIndex = storage.getLogLength() + 1;
-  if (!storage.setLogEntry(nextLogIndex, storage.getCurrentTermValue(),
-                           req.cmd())) {
-    std::cerr << "[RaftServer.cc]: Error while writing entry to log."
-              << std::endl;
+
+  try {
+    storage.setLogEntry(nextLogIndex, storage.getCurrentTermValue(), req.cmd());
+  } catch (std::runtime_error e) {
+    std::cerr << "Error writing entry to log: " << e.what() << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -483,11 +498,11 @@ void RaftServer::processAppendEntriesReq(const std::string& senderAddr,
     if (req.prevlogindex() != 0) {
       if (storage.getLogLength() >= req.prevlogindex()) {
         uint64_t termAtIndex;
-        if (!storage.getLogEntry(req.prevlogindex(), termAtIndex)) {
-          std::cerr << "[RaftServer.cc]: Checking prevLogIndex in "
-                       "AppendEntriesRequest, error while getting term for log "
-                       "entry at index "
-                    << req.prevlogindex() << std::endl;
+        try {
+          storage.getLogEntry(req.prevlogindex(), termAtIndex);
+        } catch (std::runtime_error e) {
+          std::cerr << "Error Checking prevLogIndex in AppendEntriesRequest: "
+                    << e.what() << std::endl;
           exit(EXIT_FAILURE);
         }
         if (termAtIndex != req.prevlogterm()) {
@@ -511,13 +526,15 @@ void RaftServer::processAppendEntriesReq(const std::string& senderAddr,
         break;  // exit and start appending from i
       }
       uint64_t termAtIndex;
-      if (!storage.getLogEntry(req.prevlogindex() + i, termAtIndex)) {
-        std::cerr << "[RaftServer.cc]: Checking for conflicting entries in "
-                     "AppendEntriesRequest, error while getting term for log "
-                     "entry at index "
-                  << req.prevlogindex() << std::endl;
+      try {
+        storage.getLogEntry(req.prevlogindex() + i, termAtIndex);
+      } catch (std::runtime_error e) {
+        std::cerr << "Error checking for conflicting entries in Append "
+                     "Entries request: "
+                  << e.what() << std::endl;
         exit(EXIT_FAILURE);
       }
+
       // conflicting entries starting at index (previous index + i)
       if (termAtIndex != req.entries(i - 1).term()) {
         storage.truncateLog(req.prevlogindex() + i);
@@ -529,12 +546,8 @@ void RaftServer::processAppendEntriesReq(const std::string& senderAddr,
     // Step 4) Append new entries not in the log
     for (uint64_t i = newFrom; i <= req.entries_size(); i++) {
       uint64_t index = req.prevlogindex() + i;
-      if (!storage.setLogEntry(index, req.entries(i - 1).term(),
-                               req.entries(i - 1).cmd())) {
-        std::cerr << "[RaftServer.cc]: Error while setting entry at log index "
-                  << index << std::endl;
-        exit(EXIT_FAILURE);
-      }
+      storage.setLogEntry(index, req.entries(i - 1).term(),
+                          req.entries(i - 1).cmd());
     }
 
     // Successful once this point is reached
@@ -561,10 +574,10 @@ void RaftServer::sendNewCommitEntriesToStateMachine() {
   for (; lastSentToStateMachine < commitIndex; lastSentToStateMachine++) {
     uint64_t term;
     std::string cmd;
-    if (!storage.getLogEntry(lastSentToStateMachine + 1, term, cmd)) {
-      std::cerr << "[RaftServer.cc]: Applying to SM in AppendEntries Request, "
-                   "error while getting log entry at index "
-                << (lastSentToStateMachine + 1) << " to apply to state machine."
+    try {
+      storage.getLogEntry(lastSentToStateMachine + 1, term, cmd);
+    } catch (std::runtime_error e) {
+      std::cerr << "[RaftServer.cc]: Error attempting apply to SM: " << e.what()
                 << std::endl;
       exit(EXIT_FAILURE);
     }
@@ -626,10 +639,11 @@ void RaftServer::processAppendEntriesResp(
         matchIndexCount += (volatileServerInfo[serverId].matchIndex >= N);
       }
       uint64_t entryTerm;
-      if (!storage.getLogEntry(N, entryTerm)) {
-        std::cerr << "[RaftServer.cc]: Updating commitIndex, error while "
-                     "getting term for log entry at index "
-                  << N << std::endl;
+      try {
+        storage.getLogEntry(N, entryTerm);
+      } catch (std::runtime_error e) {
+        std::cerr << "[RaftServer.cc]: Error Updating commitIndex: " << e.what()
+                  << std::endl;
         exit(EXIT_FAILURE);
       }
 
@@ -649,19 +663,20 @@ void RaftServer::processAppendEntriesResp(
   // Rules for all servers: if commitIndex is > lastApplied,
   // apply to statemachine
   uint64_t lastApplied = storage.getLastAppliedValue();
-  if (commitIndex > lastApplied) {
-    for (uint64_t i = 1; i <= commitIndex - lastApplied; i++) {
-      uint64_t term;
-      std::string cmd;
-      if (!storage.getLogEntry(lastApplied + i, term, cmd)) {
-        std::cerr
-            << "[RaftServer.cc]: Applying to SM in processAppendEntriesResp, "
-               "error while getting log entry at index "
-            << (lastApplied + i) << " to apply to state machine." << std::endl;
-        exit(EXIT_FAILURE);
-      }
-      shellSM->pushCmd(lastApplied + i, cmd);
+  for (uint64_t idToApply = lastApplied; idToApply <= commitIndex;
+       idToApply++) {
+    uint64_t term;
+    std::string cmd;
+
+    try {
+      storage.getLogEntry(idToApply, term, cmd);
+    } catch (std::runtime_error e) {
+      std::cerr << "Error apply to SM in AppendEntries Resp: " << e.what()
+                << std::endl;
+      exit(EXIT_FAILURE);
     }
+
+    shellSM->pushCmd(idToApply, cmd);
   }
 }
 
@@ -688,10 +703,11 @@ void RaftServer::processRequestVoteReq(const std::string& senderAddr,
 
     // Acquire myLastTerm, setting to 0 if log is empty
     if (storage.getLogLength() != 0) {
-      if (!storage.getLogEntry(storage.getLogLength(), myLastTerm)) {
-        std::cerr << "[RaftServer.cc]: While respond to RequestVote, error "
-                     "while getting term for log entry at index "
-                  << storage.getLogLength() << std::endl;
+      try {
+        storage.getLogEntry(storage.getLogLength(), myLastTerm);
+      } catch (std::runtime_error e) {
+        std::cerr << "Error responding to request vote: " << e.what()
+                  << std::endl;
         exit(EXIT_FAILURE);
       }
     } else {

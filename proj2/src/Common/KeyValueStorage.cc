@@ -21,7 +21,7 @@ KeyValueStorage::~KeyValueStorage() {
   file.close();
 }
 
-bool KeyValueStorage::set(std::string key, std::string value) {
+void KeyValueStorage::set(std::string key, std::string value) {
   file.clear();
   file.seekp(getLinePosition(key));
   std::ostringstream liness;
@@ -36,21 +36,16 @@ bool KeyValueStorage::set(std::string key, std::string value) {
     std::string errorMsg = "[KeyValueStorage.cc] Failed to write file " +
                            filepath + " , key-value pair " + key + "-" + value +
                            ": ";
-    throw std::runtime_error(errorMsg + std::strerror(errno));
+    throw Exception(errorMsg + std::strerror(errno));
   }
-  return true;
 }
 
-bool KeyValueStorage::set(std::string key, uint64_t value) {
-  return set(key, std::to_string(value));
-}
-
-bool KeyValueStorage::get(std::string key, std::string& value) {
+void KeyValueStorage::get(std::string key, std::string& value) {
   file.clear();
   file.seekp(getLinePosition(key));
   // unable to find the key
   if (file.peek() == EOF) {
-    return false;
+    throw Exception("Key " + key + "was not present in storage");
   }
   std::string line;
   getline(file, line);
@@ -60,18 +55,8 @@ bool KeyValueStorage::get(std::string key, std::string& value) {
     std::string errorMsg = "[KeyValueStorage.cc] Failed to read file " +
                            filepath + " , key-value pair " + key + "-" + value +
                            ": ";
-    throw std::runtime_error(errorMsg + std::strerror(errno));
+    throw Exception(errorMsg + std::strerror(errno));
   }
-  return true;
-}
-
-bool KeyValueStorage::get(std::string key, uint64_t& value) {
-  std::string strvalue;
-  if (!get(key, strvalue)) {
-    return false;
-  }
-  value = stoull(strvalue);
-  return true;
 }
 
 std::streampos KeyValueStorage::getLinePosition(std::string key) {
@@ -82,6 +67,8 @@ std::streampos KeyValueStorage::getLinePosition(std::string key) {
   file.clear();
   file.seekg(0);
 
+  // Lines are of form
+  // padding || key:value.
   while (std::getline(file, currLine)) {
     // Remove padding from the beginning of the line
     std::string unpaddedLine = currLine.substr(currLine.find_first_not_of(" "));

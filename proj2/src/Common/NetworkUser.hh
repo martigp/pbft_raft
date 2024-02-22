@@ -10,14 +10,13 @@ namespace Common {
 
 /**
  * @brief Abstract class for a user of a NetworkService.
- *
  */
 class NetworkUser {
  public:
   /**
    * @brief This method is overriden by the derived class. It is
-   * the callback function for Network Service to pass on any messages
-   * it receives to its NetworkUser
+   * the callback function used by the Network Service to pass on any messages
+   * it receives to its NetworkUser.
    *
    * @param receiveAddr The address from which the message was
    * received.
@@ -25,16 +24,6 @@ class NetworkUser {
    */
   virtual void handleNetworkMessage(const std::string& receiveAddr,
                                     const std::string& msg) = 0;
-
- protected:
-  /**
-   * @brief The callback function into the network service to send
-   * a message on the network.
-   * @param sendAddr network address to send message to
-   * @param msg message to send
-   */
-  std::function<void(const std::string& sendAddr, const std::string& msg)>
-      sendMsgFn;
 
 };  // class NetworkUser
 }  // namespace Common

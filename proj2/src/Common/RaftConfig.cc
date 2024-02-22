@@ -39,9 +39,7 @@ RaftConfig::RaftConfig(std::string configPath, RaftHostType type) {
       numClusterServers = clusterMap.size() + 1;
     }
   } catch (libconfig::FileIOException e) {
-    std::cerr << "[ServerConfig] Bad path " << configPath
-              << " provided"
-                 "in command line."
+    std::cerr << "[ServerConfig] Bad path: " << configPath << " does not exist."
               << std::endl;
     throw e;
   } catch (libconfig::SettingNotFoundException e) {
