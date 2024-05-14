@@ -2,6 +2,7 @@
 #define COMMON_RAFTCONFIG_H
 
 #include <string>
+#include <unordered_map>
 
 namespace Common {
 

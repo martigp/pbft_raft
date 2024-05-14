@@ -34,6 +34,7 @@ void RaftClient::handleNetworkMessage(const std::string& sendAddr,
                                       const std::string& networkMsg) {
   receivedMessageLock.lock();
   receivedMessage = networkMsg;
+  std::cout << "[Client] Received a network message from server" << std::endl;
   receivedMessageLock.unlock();
 
   receivedMessageCV.notify_all();
@@ -76,7 +77,10 @@ std::string RaftClient::sendToServer(std::string* cmd) {
               lock, std::chrono::milliseconds(REQUEST_TIMEOUT),
               [&] { return receivedMessage != EMPTY_MSG; })) {
         RPC rpc;
-        if (!rpc.ParseFromString(receivedMessage)) break;
+        if (!rpc.ParseFromString(receivedMessage)) {
+            std::cerr << "[Client] Unable to parse received RPC)" << std::endl;
+            break;
+        }
 
         if (rpc.msg_case() != RPC::kStateMachineCmdResp) {
           std::cerr << "[Client] RPC received wasn't StateMachine "
@@ -112,7 +116,9 @@ std::string RaftClient::sendToServer(std::string* cmd) {
           break;
         }
       } else {
-        break;
+          std::cout << "[Client] CV wait for evaluated as false w response: "
+                    << receivedMessage << std::endl;
+          break;
       }
     }
     lock.unlock();

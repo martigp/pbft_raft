@@ -6,7 +6,7 @@ mkdir -p install
 git submodule add https://github.com/protocolbuffers/protobuf.git
 cd protobuf
 git submodule update --init --recursive
-export ABSEIL_PATH=/opt/homebrew/Cellar/abseil/20230802.1
+export ABSEIL_PATH=/opt/homebrew/Cellar/abseil/20240116.2
 cmake . -DCMAKE_INSTALL_PREFIX=../install -DCMAKE_CXX_STANDARD=17 \
         -Dprotobuf_ABSL_PROVIDER=package -DCMAKE_PREFIX_PATH=$(ABSEIL_PATH)
 
