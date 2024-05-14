@@ -1,5 +1,5 @@
-# raft1
-Raft projects for CS 190 for Ava Jih-Schiff and Gordon Martinez-Piedra
+# raft implementation
+Raft projects taken from Stanford CS 190 project for Ava Jih-Schiff and Gordon Martinez-Piedra
 
 # Set Up
 As a preconditions you must have homebrew installed which you can do via these
