@@ -1,0 +1,15 @@
+syntax = "proto3";
+package HotStuff;
+
+service HotStuffReplica {
+  rpc Echo(EchoRequest) returns (EchoResponse) {}
+}
+
+message EchoRequest {
+  int32 sender_id = 1;
+  string msg = 2;
+}
+
+message EchoResponse {
+  string msg = 1;
+}

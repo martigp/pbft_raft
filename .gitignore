@@ -5,3 +5,6 @@ install/
 protobuf/
 install/*
 proj2/persistence*
+
+env
+__pycache__
