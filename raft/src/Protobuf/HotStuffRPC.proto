@@ -1,0 +1,50 @@
+syntax = "proto3";
+package HotStuff;
+
+enum Type {
+    NEW_VIEW = 0;
+    PROPOSAL = 1; // Generic
+    VOTE = 2; // Generic sent 
+}
+
+message Node {
+    /* Hash of the parent node - b_leaf of leader proposing the node */
+    bytes parent = 1;
+    /* Client Command */
+    bytes cmd = 2;
+    /* The height of the node (1 + b_leaf.height) */
+    uint64 height = 3;
+    /* The highQC of the leader proposing the node */
+    QC justify = 4;
+}
+
+message QC {
+    /* The type of message signed by the QC  */
+    Type type = 1;
+    /* The view number of the message */
+    uint64 viewNumber = 2;
+    /* The node signed by the QC */
+    Node node = 3;
+    /* The combined signatures on the QC */
+    bytes sig = 4;
+}
+
+message msg {
+    /* Need a data field because this is what we are signing over with the
+    partial Sig. To sign call */
+    message Data {
+        /* Type of message */
+        Type type = 1;
+        /* The viewNumber, this will be the current view for GENERIC messages
+         * and viewNumber - 1 for NEW_VIEW messages */
+        uint64 viewNumber = 2;
+        /* This is used for only GENERIC messages (vote and proposal) */
+        optional Node node = 3;
+    }
+    bytes senderId = 1;
+    Data data = 2;
+    /* Only used in a NEW_VIEW */
+    optional QC justify = 3;
+    /* The partialSig, this will only be set in Vote messages */
+    optional bytes partialSig = 4;
+}
