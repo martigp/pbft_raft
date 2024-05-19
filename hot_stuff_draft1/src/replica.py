@@ -6,7 +6,7 @@ from typing import Dict, Set
 import grpc
 from common import (GlobalConfig, ReplicaConfig, ReplicaSession,
                     get_replica_config, get_replica_sessions)
-from proto.HotStuff_pb2 import EchoResponse, EchoRequest
+from proto.HotStuff_pb2 import EchoResponse, EchoRequest, BeatResponse
 from proto.HotStuff_pb2_grpc import (HotStuffReplicaServicer,
                                      add_HotStuffReplicaServicer_to_server)
 from tree import Tree, QC, Node
@@ -164,13 +164,15 @@ class ReplicaServer(HotStuffReplicaServicer):
     def Beat(self, request, context):
         if self.is_leader():
             with self.lock:
-                new_node = self.tree.create_node(
-                    request.cmd, self.leaf_node, self.qc_high)
+                # new_node = self.tree.create_node(
+                #     request.cmd, self.leaf_node, self.qc_high)
 
                 # TODO: Broadcast to other replicas
                 print("Broadcasting to other replicas: "+request.cmd)
 
-                self.leaf_node = new_node
+                # self.leaf_node = new_node
+
+        return BeatResponse()
 
 
 def establish_sessions_async(replica_server: ReplicaServer, global_config: GlobalConfig, delay: int):

@@ -15,7 +15,7 @@ service HotStuffReplica {
 }
 
 message EchoRequest {
-  int32 sender_id = 1;
+  string sender_id = 1;
   string msg = 2;
 }
 
@@ -28,7 +28,7 @@ message BeatRequest {
   // This will be required by all replicas to return replies to client
   // TODO: figure out how replicas know which client to reply to
   // TODO: figure out how to maintain ordering of commands.
-  int32 sender_id = 1;
+  string sender_id = 1;
   // For now command is just a string.
   // We can change this to a more complex type later.
   string cmd = 2;

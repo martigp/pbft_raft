@@ -8,9 +8,9 @@ class EchoRequest(_message.Message):
     __slots__ = ("sender_id", "msg")
     SENDER_ID_FIELD_NUMBER: _ClassVar[int]
     MSG_FIELD_NUMBER: _ClassVar[int]
-    sender_id: int
+    sender_id: str
     msg: str
-    def __init__(self, sender_id: _Optional[int] = ..., msg: _Optional[str] = ...) -> None: ...
+    def __init__(self, sender_id: _Optional[str] = ..., msg: _Optional[str] = ...) -> None: ...
 
 class EchoResponse(_message.Message):
     __slots__ = ("msg",)
@@ -22,9 +22,9 @@ class BeatRequest(_message.Message):
     __slots__ = ("sender_id", "cmd")
     SENDER_ID_FIELD_NUMBER: _ClassVar[int]
     CMD_FIELD_NUMBER: _ClassVar[int]
-    sender_id: int
+    sender_id: str
     cmd: str
-    def __init__(self, sender_id: _Optional[int] = ..., cmd: _Optional[str] = ...) -> None: ...
+    def __init__(self, sender_id: _Optional[str] = ..., cmd: _Optional[str] = ...) -> None: ...
 
 class BeatResponse(_message.Message):
     __slots__ = ()
