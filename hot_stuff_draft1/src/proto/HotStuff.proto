@@ -2,7 +2,16 @@ syntax = "proto3";
 package HotStuff;
 
 service HotStuffReplica {
+  // Simple echo service. If the sender is a client,
+  // the message will also be forwarded to other replicas.
+  // Not relevant for the protocol, just for testing.
   rpc Echo(EchoRequest) returns (EchoResponse) {}
+
+  // Receive command from the client.
+  // This is the entry point for the protocol. 
+  // The name in the paper suggests it is also used
+  // to send heartbeats. But not sure how that works yet.
+  rpc Beat(BeatRequest) returns (BeatResponse) {}
 }
 
 message EchoRequest {
@@ -13,3 +22,16 @@ message EchoRequest {
 message EchoResponse {
   string msg = 1;
 }
+
+message BeatRequest {
+  // The sender id is used to identify the client
+  // This will be required by all replicas to return replies to client
+  // TODO: figure out how replicas know which client to reply to
+  // TODO: figure out how to maintain ordering of commands.
+  int32 sender_id = 1;
+  // For now command is just a string.
+  // We can change this to a more complex type later.
+  string cmd = 2;
+}
+
+message BeatResponse {}

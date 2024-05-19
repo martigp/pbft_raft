@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from proto import HotStuff_pb2 as proto_dot_HotStuff__pb2
+from src.proto import HotStuff_pb2 as src_dot_proto_dot_HotStuff__pb2
 
 GRPC_GENERATED_VERSION = '1.63.0'
 GRPC_VERSION = grpc.__version__
@@ -20,7 +20,7 @@ except ImportError:
 if _version_not_supported:
     warnings.warn(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in proto/HotStuff_pb2_grpc.py depends on'
+        + f' but the generated code in src/proto/HotStuff_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -41,8 +41,13 @@ class HotStuffReplicaStub(object):
         """
         self.Echo = channel.unary_unary(
                 '/HotStuff.HotStuffReplica/Echo',
-                request_serializer=proto_dot_HotStuff__pb2.EchoRequest.SerializeToString,
-                response_deserializer=proto_dot_HotStuff__pb2.EchoResponse.FromString,
+                request_serializer=src_dot_proto_dot_HotStuff__pb2.EchoRequest.SerializeToString,
+                response_deserializer=src_dot_proto_dot_HotStuff__pb2.EchoResponse.FromString,
+                _registered_method=True)
+        self.Beat = channel.unary_unary(
+                '/HotStuff.HotStuffReplica/Beat',
+                request_serializer=src_dot_proto_dot_HotStuff__pb2.BeatRequest.SerializeToString,
+                response_deserializer=src_dot_proto_dot_HotStuff__pb2.BeatResponse.FromString,
                 _registered_method=True)
 
 
@@ -50,7 +55,20 @@ class HotStuffReplicaServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Echo(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Simple echo service. If the sender is a client,
+        the message will also be forwarded to other replicas.
+        Not relevant for the protocol, just for testing.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Beat(self, request, context):
+        """Receive command from the client.
+        This is the entry point for the protocol. 
+        The name in the paper suggests it is also used
+        to send heartbeats. But not sure how that works yet.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -60,8 +78,13 @@ def add_HotStuffReplicaServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Echo': grpc.unary_unary_rpc_method_handler(
                     servicer.Echo,
-                    request_deserializer=proto_dot_HotStuff__pb2.EchoRequest.FromString,
-                    response_serializer=proto_dot_HotStuff__pb2.EchoResponse.SerializeToString,
+                    request_deserializer=src_dot_proto_dot_HotStuff__pb2.EchoRequest.FromString,
+                    response_serializer=src_dot_proto_dot_HotStuff__pb2.EchoResponse.SerializeToString,
+            ),
+            'Beat': grpc.unary_unary_rpc_method_handler(
+                    servicer.Beat,
+                    request_deserializer=src_dot_proto_dot_HotStuff__pb2.BeatRequest.FromString,
+                    response_serializer=src_dot_proto_dot_HotStuff__pb2.BeatResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -88,8 +111,35 @@ class HotStuffReplica(object):
             request,
             target,
             '/HotStuff.HotStuffReplica/Echo',
-            proto_dot_HotStuff__pb2.EchoRequest.SerializeToString,
-            proto_dot_HotStuff__pb2.EchoResponse.FromString,
+            src_dot_proto_dot_HotStuff__pb2.EchoRequest.SerializeToString,
+            src_dot_proto_dot_HotStuff__pb2.EchoResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Beat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/HotStuff.HotStuffReplica/Beat',
+            src_dot_proto_dot_HotStuff__pb2.BeatRequest.SerializeToString,
+            src_dot_proto_dot_HotStuff__pb2.BeatResponse.FromString,
             options,
             channel_credentials,
             insecure,
