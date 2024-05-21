@@ -1,4 +1,7 @@
+import logging
 import pickle
+
+log = logging.getLogger(__name__)
 
 ROOT_ID = 'root_id'
 ROOT_CMD = 'root_cmd'
@@ -45,6 +48,9 @@ class Node:
     def to_bytes(self) -> bytes:
         """Serialize the node to bytes."""
         return pickle.dumps(self)
+    
+    def __str__(self):
+        return f'{self.id}:h{self.height}:{self.cmd}'
 
 
 def node_from_bytes(data: bytes) -> Node:
@@ -86,7 +92,7 @@ class Tree:
 
         qc becomes the justify of the new node.
         """
-        new_id = 'node_'+self.replica_id+'_'+str(len(self.nodes))
+        new_id = f"{self.replica_id}_n{len(self.nodes)}"
         parent = self.get_node(parent_id)
         new_node = Node(new_id, parent.height+1, parent_id, cmd, qc)
         self.nodes[new_id] = new_node
@@ -114,11 +120,20 @@ class Tree:
             descendant_id = self.get_node(descendant_id).parent_id
         return False
 
-    def to_string(self, node_id: str):
-        """Return a string representation of the tree."""
-        node = self.get_node(node_id)
-        ret = ''
-        while node.id != ROOT_ID:
-            ret += node.id+":"+node.cmd + ' -> '
-            node = self.get_node(node.parent_id)
-        return ret
+    def get_ancestry(self, node_id: str) ->str:
+        """Return the ancestry of the node."""
+        ret = "'''"
+        while node_id != ROOT_ID:
+            node = self.get_node(node_id)
+            ret += str(Node) + ' -> '
+            node_id = node.parent_id
+        return ret + f"{ROOT_ID}'''"
+    
+    def get_justify_ancestry(self, node_id: str) -> str:
+        """Return the ancestry of the justify of the node."""
+        ret = "'''"
+        while node_id != ROOT_ID:
+            node = self.get_node(node_id)
+            ret += str(Node) + ' -> '
+            node_id = node.justify.node_id
+        return ret + f"{ROOT_ID}'''"
