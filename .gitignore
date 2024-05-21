@@ -5,3 +5,6 @@ install/
 install/*
 proj2/protobuf
 proj2/persistence*
+
+env
+__pycache__
