@@ -11,11 +11,26 @@ service HotStuffReplica {
   // This is the entry point for the protocol. 
   // The name in the paper suggests it is also used
   // to send heartbeats. But not sure how that works yet.
-  rpc Beat(BeatRequest) returns (BeatResponse) {}
+  rpc Beat(BeatRequest) returns (EmptyResponse) {}
+
+  // Propose a node to the replica
+  // This is broadcast by the leader to all replicas
+  // upon receiving a command from the client.
+  rpc Propose(ProposeRequest) returns (EmptyResponse) {}
+  
+
+  // Vote for a node
+  // This includes th partial signature for the node
+  // This is sent to the leader by the replicas
+  rpc Vote(VoteRequest) returns (EmptyResponse) {}
+  
+
+  // TODO: Run on timeout only. Implement this.
+  rpc NewView(NewViewRequest) returns (EmptyResponse) {}
 }
 
 message EchoRequest {
-  int32 sender_id = 1;
+  string sender_id = 1;
   string msg = 2;
 }
 
@@ -23,15 +38,53 @@ message EchoResponse {
   string msg = 1;
 }
 
+message EmptyResponse {}
+
 message BeatRequest {
   // The sender id is used to identify the client
   // This will be required by all replicas to return replies to client
   // TODO: figure out how replicas know which client to reply to
   // TODO: figure out how to maintain ordering of commands.
-  int32 sender_id = 1;
+  string sender_id = 1;
   // For now command is just a string.
   // We can change this to a more complex type later.
   string cmd = 2;
 }
 
-message BeatResponse {}
+message ProposeRequest {
+  // The sender id is used to identify the leader
+  string sender_id = 1;
+
+  // Serialized version of the node
+  // Node also contains the QC
+  bytes node = 2;
+
+  // TODO: Figure out if we need to add view number here
+}
+
+message VoteRequest {
+  // The sender id is used to identify the replica
+  string sender_id = 1;
+
+  // Serialized version of the node
+  // Node also contains the QC
+  bytes node = 2;
+  // TODO: Figure out if we need to add view number here
+
+  // TODO: Add partial signature here
+}
+
+message NewViewRequest {
+  // The sender id is used to identify the replica
+  string sender_id = 1;
+
+  // Serialized version of the node
+  // Node also contains the QC
+  bytes node = 2;
+
+  // Needed on leader change.
+  // Ignored for now
+  // This is the justify field from the paper
+  // TODO: implement leader change
+  optional bytes qc = 3;
+}

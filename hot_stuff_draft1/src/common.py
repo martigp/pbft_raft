@@ -1,9 +1,12 @@
 import json
+import logging
 import os
 from typing import List, Tuple
 
 import grpc
 from proto.HotStuff_pb2_grpc import HotStuffReplicaStub
+
+log = logging.getLogger(__name__)
 
 
 class ClientConfig:
@@ -41,8 +44,11 @@ class ReplicaSession:
             grpc.insecure_channel(config.host+':'+str(config.port)))
 
 
+
 def get_global_config(file_path: str = '../configs.json') -> GlobalConfig:
     """Reads the global(both clients and replicas) configuration from a file."""
+    # TODO: allow custom file name
+    log.info(f'Reading config from {file_path}')
     with open(file_path) as f:
         config = json.load(f)
     clients = [ClientConfig(**client) for client in config['clients']]
