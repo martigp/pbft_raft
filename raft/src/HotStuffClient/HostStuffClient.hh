@@ -3,8 +3,8 @@
 #include <string>
 
 #include "Common/NetworkService.hh"
-#include "Common/RaftConfig.hh"
-#include "Protobuf/RaftRPC.pb.h"
+#include "Common/HotStuffConfig.hh"
+#include "Protobuf/HotStuffRPC.pb.h"
 
 #define CONFIG_PATH "./config_client.cfg"
 
@@ -13,20 +13,20 @@
 /* Default value for receivedMessage to indicate no message received. */
 #define EMPTY_MSG ""
 
-namespace Raft {
-class RaftClient : public Common::NetworkUser {
+namespace HotStuff {
+class Client : public Common::NetworkUser {
  public:
   /**
    * @brief Constructor. Throws error upon failure.
    * Requires config file at path specified by CONFIG_PATH
    */
-  RaftClient();
+  Client();
 
   /* Destructor */
-  ~RaftClient();
+  ~Client();
 
   /**
-   * @brief Attempts to execute the state machine command on the Raft
+   * @brief Attempts to execute the state machine command on the HotStuff Cluster
    * Cluster. Blocks until the command was successfully executed or if
    * the cmd argument could not be serialized before sending to Raft
    * Cluster.
@@ -53,9 +53,9 @@ class RaftClient : public Common::NetworkUser {
 
  private:
   /**
-   * @brief Configuration object constructed for a RaftClient
+   * @brief Configuration object constructed for a Client
    */
-  Common::RaftConfig config;
+  Common::HotStuff config;
 
   /**
    * @brief The service used by the Raft Server to send and receive

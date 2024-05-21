@@ -1,4 +1,4 @@
-#include "RaftClient.hh"
+#include "HotStuffClient.hh"
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -15,7 +15,7 @@
 
 namespace Raft {
 
-RaftClient::RaftClient()
+Client::Client()
     : config(CONFIG_PATH, Common::RaftHostType::CLIENT),
       network(*this),
       mostRecentRequestId(0),
@@ -28,9 +28,9 @@ RaftClient::RaftClient()
   t.detach();
 }
 
-RaftClient::~RaftClient() {}
+Client::~Client() {}
 
-void RaftClient::handleNetworkMessage(const std::string& sendAddr,
+void Client::handleNetworkMessage(const std::string& sendAddr,
                                       const std::string& networkMsg) {
   receivedMessageLock.lock();
   receivedMessage = networkMsg;
@@ -40,7 +40,7 @@ void RaftClient::handleNetworkMessage(const std::string& sendAddr,
   receivedMessageCV.notify_all();
 }
 
-std::string RaftClient::sendToServer(std::string* cmd) {
+std::string Client::sendToServer(std::string* cmd) {
   // Iterate through each of the servers, send a message and wait on
   // a condition variable which has some timeout. Upon return of the
   // condition variable, parse message if populated otherwise try with

@@ -2,6 +2,6 @@
 ./protobuf
 libconfig/
 install/
-protobuf/
 install/*
+proj2/protobuf
 proj2/persistence*
