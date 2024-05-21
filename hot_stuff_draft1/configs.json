@@ -15,6 +15,18 @@
       "host": "localhost",
       "port": 8001,
       "public_key": "replica_key_1"
+    },
+    {
+      "id": 2,
+      "host": "localhost",
+      "port": 8002,
+      "public_key": "replica_key_2"
+    },
+    {
+      "id": 3,
+      "host": "localhost",
+      "port": 8003,
+      "public_key": "replica_key_3"
     }
   ]
 }

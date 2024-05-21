@@ -18,6 +18,10 @@ class EchoResponse(_message.Message):
     msg: str
     def __init__(self, msg: _Optional[str] = ...) -> None: ...
 
+class EmptyResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class BeatRequest(_message.Message):
     __slots__ = ("sender_id", "cmd")
     SENDER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -26,6 +30,28 @@ class BeatRequest(_message.Message):
     cmd: str
     def __init__(self, sender_id: _Optional[str] = ..., cmd: _Optional[str] = ...) -> None: ...
 
-class BeatResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+class ProposeRequest(_message.Message):
+    __slots__ = ("sender_id", "node")
+    SENDER_ID_FIELD_NUMBER: _ClassVar[int]
+    NODE_FIELD_NUMBER: _ClassVar[int]
+    sender_id: str
+    node: bytes
+    def __init__(self, sender_id: _Optional[str] = ..., node: _Optional[bytes] = ...) -> None: ...
+
+class VoteRequest(_message.Message):
+    __slots__ = ("sender_id", "node")
+    SENDER_ID_FIELD_NUMBER: _ClassVar[int]
+    NODE_FIELD_NUMBER: _ClassVar[int]
+    sender_id: str
+    node: bytes
+    def __init__(self, sender_id: _Optional[str] = ..., node: _Optional[bytes] = ...) -> None: ...
+
+class NewViewRequest(_message.Message):
+    __slots__ = ("sender_id", "node", "qc")
+    SENDER_ID_FIELD_NUMBER: _ClassVar[int]
+    NODE_FIELD_NUMBER: _ClassVar[int]
+    QC_FIELD_NUMBER: _ClassVar[int]
+    sender_id: str
+    node: bytes
+    qc: bytes
+    def __init__(self, sender_id: _Optional[str] = ..., node: _Optional[bytes] = ..., qc: _Optional[bytes] = ...) -> None: ...

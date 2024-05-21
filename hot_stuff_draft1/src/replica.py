@@ -6,10 +6,12 @@ from typing import Dict, Set
 import grpc
 from common import (GlobalConfig, ReplicaConfig, ReplicaSession,
                     get_replica_config, get_replica_sessions)
-from proto.HotStuff_pb2 import EchoResponse, EchoRequest, BeatResponse
+from proto.HotStuff_pb2 import EchoResponse, EchoRequest, EmptyResponse, ProposeRequest, VoteRequest
 from proto.HotStuff_pb2_grpc import (HotStuffReplicaServicer,
                                      add_HotStuffReplicaServicer_to_server)
-from tree import Tree, QC, Node
+from tree import Tree, QC, Node, node_from_bytes
+
+F = 1
 
 
 class ReplicaServer(HotStuffReplicaServicer):
@@ -49,7 +51,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         with self.lock:
             self.replica_sessions = []
             self.votes = {}
-            self.tree = Tree()
+            self.tree = Tree(self.id)
             root = self.tree.get_root_node()
             self.vheight = root.height
             self.locked_node = root
@@ -83,9 +85,15 @@ class ReplicaServer(HotStuffReplicaServicer):
         """
         with self.lock:
             for replica in self.replica_sessions:
-                if replica.id == id:
+                if replica.config.id == id:
+                    print("Found replica: "+id)
                     return replica
         raise ValueError(f'Replica {id} not found')
+    
+    def add_vote(self, node_id: str, sender_id: str):
+        if node_id not in self.votes:
+            self.votes[node_id] = set()
+        self.votes[node_id].add(sender_id)
 
     def Echo(self, request, context):
         if request.msg.startswith("REPLICA:"):
@@ -117,62 +125,129 @@ class ReplicaServer(HotStuffReplicaServicer):
 
         Does nothing if the height of the QC is less than the height of the current highest QC.
         """
-        with self.lock:
-            qc_node = self.tree.get_node(qc.node_id)
-            qc_high_node = self.tree.get_node(self.qc_high.node_id)
-            if qc_node.height > qc_high_node.height:
-                self.qc_high = qc
-                self.leaf_node = qc_node
+        print("Updating qc_high for node: "+qc.node_id+" and cmd: ", end="")
+        # TODO: Check if lock is required here
+        received_qc_node = self.tree.get_node(qc.node_id)
+        print(received_qc_node.cmd)
+        my_qc_high_node = self.tree.get_node(self.qc_high.node_id)
+        if received_qc_node.height > my_qc_high_node.height:
+            self.qc_high = qc
+            self.leaf_node = received_qc_node
 
     def commit(self, node: Node):
         """Commit and execute a node if it's higher than b_exec.
 
         Also do the same for all the ancestors of the node.
         """
-        with self.lock:
-            if self.executed_node.height < node.height:
-                self.commit(self.tree.get_node(node.parent_id))
-                self.execute(node.cmd)
+        print("Committing node: "+node.cmd+" "+node.id+" "+str(node.height))
+        print("SELF executed_node: "+self.executed_node.cmd+" "+self.executed_node.id+" "+str(self.executed_node.height))
+        # TODO: Check if lock is required here
+        if self.executed_node.height < node.height:
+            print("HERERERERE")
+            self.commit(self.tree.get_node(node.parent_id))
+            self.execute(node.cmd)
 
     def update(self, node: Node):
         """Update the replica state.
-        
+
         This is executed when we receive a proposal for a node.
         I think this should also add the node to the tree if its not present already,
         but not sure yet.
         """
-        with self.lock:
-            node_jp = self.tree.get_node(node.justify.node_id) # b'' in paper
-            node_jgp = self.tree.get_node(node_jp.justify.node_id) # b' in paper
-            node_jggp = self.tree.get_node(node_jgp.justify.node_id) # b in paper
+        print("Updating replica state for node: "+node.cmd)
+        # TODO: Check if lock is required here
+        node_jp_dp = self.tree.get_node(node.justify.node_id)  # b'' in paper
+        node_jgp_p = self.tree.get_node(
+            node_jp_dp.justify.node_id)  # b' in paper
+        node_jggp_b = self.tree.get_node(
+            node_jgp_p.justify.node_id)  # b in paper
 
-            self.update_qc_high(node.justify)
-            if node_jgp.height > self.locked_node.height:
-                # node_jgp enters commit phase
-                self.locked_node = node_jgp
+        self.update_qc_high(node.justify)
+        if node_jgp_p.height > self.locked_node.height:
+            # node_jgp enters commit phase
+            print("Node: "+node_jgp_p.cmd+" enters commit phase")
+            self.locked_node = node_jgp_p
+
+        print("node_jp_dp is "+node_jp_dp.cmd
+              + ", node_jgp_p is "+node_jgp_p.cmd
+              + ", node_jggp_b is "+node_jggp_b.cmd)
+        print("node_jp_dp is "+node_jp_dp.id
+              + ", node_jgp_p is "+node_jgp_p.id
+              + ", node_jggp_b is "+node_jggp_b.id)
+        print("node_jp_dp.parent_id is "+node_jp_dp.parent_id
+              + ", node_jgp_p.parent_id is "+node_jgp_p.parent_id
+              + ", node_jggp_b.parent_id is "+node_jggp_b.parent_id)
+        if node_jp_dp.parent_id == node_jgp_p.id and node_jgp_p.parent_id == node_jggp_b.id:
+            # node_jggp can be executed now
             
-            if node_jp.parent_id == node_jgp and node_jgp.parent_id == node_jggp:
-                # node_jggp can be executed now
-                self.commit(node_jggp)
-                self.executed_node = node_jggp
+            print("Commiting node: "+node_jggp_b.cmd+" and its ancestors")
+            self.commit(node_jggp_b)
+            self.executed_node = node_jggp_b
 
-
-            
     #############################
     # Hot stuff protocol endpoints start here
     #############################
+
     def Beat(self, request, context):
         if self.is_leader():
+            print("Processing command from client: "+request.cmd)
             with self.lock:
-                # new_node = self.tree.create_node(
-                #     request.cmd, self.leaf_node, self.qc_high)
+                new_node = self.tree.create_node(
+                    request.cmd, self.leaf_node.id, self.qc_high)
 
-                # TODO: Broadcast to other replicas
-                print("Broadcasting to other replicas: "+request.cmd)
+                print("Old leaf node: "+self.tree.to_string(self.leaf_node.id))
+                print("New leaf node: "+self.tree.to_string(new_node.id))
+                self.leaf_node = new_node
 
-                # self.leaf_node = new_node
+            # TODO: Think if this should be done inside the lock
+            # It can block handling of gRPC call sent to self
+            for replica in self.replica_sessions:
+                print("Sending proposal to replica: "+replica.config.id)
+                replica.stub.Propose(ProposeRequest(
+                    sender_id=self.id, node=new_node.to_bytes()))
 
-        return BeatResponse()
+        return EmptyResponse()
+
+    def Propose(self, request, context):
+        print("Received proposal from leader: "+request.sender_id, flush=True)
+
+        to_vote = False
+        with self.lock:
+            new_node = node_from_bytes(request.node)
+            if not self.is_leader():
+                self.tree.add_node(new_node)
+                print("Added node to tree: "+self.tree.to_string(new_node.id))
+
+            always_true = new_node.height > self.vheight  # Always true for the happy path
+            happy_path = self.tree.is_ancestor(
+                self.locked_node.id, new_node.id)
+            sad_path = self.tree.get_node(
+                new_node.justify.node_id).height > self.locked_node.height
+            print("Conditions:", always_true, happy_path, sad_path)
+            if always_true and (happy_path or sad_path):
+                self.vheight = new_node.height
+
+                # Vote for the proposal
+                # This needs to be done outside the lock
+                to_vote = True
+
+            self.update(new_node)
+
+        if to_vote:
+            print("Voting for proposal: "+new_node.cmd)
+            leader_session = self.get_session(self.get_leader_id())
+            leader_session.stub.Vote(VoteRequest(
+                sender_id=self.id, node=new_node.to_bytes()))
+        return EmptyResponse()
+
+    def Vote(self, request, context):
+        print("Received vote from replica: "+request.sender_id)
+        with self.lock:
+            node = node_from_bytes(request.node)
+            self.add_vote(node.id, request.sender_id)
+            if len(self.votes[node.id]) > len(self.replica_sessions)-F:
+                self.update_qc_high(QC(node.id))
+        return EmptyResponse()
 
 
 def establish_sessions_async(replica_server: ReplicaServer, global_config: GlobalConfig, delay: int):

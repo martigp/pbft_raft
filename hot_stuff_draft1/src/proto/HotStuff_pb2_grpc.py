@@ -47,7 +47,22 @@ class HotStuffReplicaStub(object):
         self.Beat = channel.unary_unary(
                 '/HotStuff.HotStuffReplica/Beat',
                 request_serializer=src_dot_proto_dot_HotStuff__pb2.BeatRequest.SerializeToString,
-                response_deserializer=src_dot_proto_dot_HotStuff__pb2.BeatResponse.FromString,
+                response_deserializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+                _registered_method=True)
+        self.Propose = channel.unary_unary(
+                '/HotStuff.HotStuffReplica/Propose',
+                request_serializer=src_dot_proto_dot_HotStuff__pb2.ProposeRequest.SerializeToString,
+                response_deserializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+                _registered_method=True)
+        self.Vote = channel.unary_unary(
+                '/HotStuff.HotStuffReplica/Vote',
+                request_serializer=src_dot_proto_dot_HotStuff__pb2.VoteRequest.SerializeToString,
+                response_deserializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+                _registered_method=True)
+        self.NewView = channel.unary_unary(
+                '/HotStuff.HotStuffReplica/NewView',
+                request_serializer=src_dot_proto_dot_HotStuff__pb2.NewViewRequest.SerializeToString,
+                response_deserializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
                 _registered_method=True)
 
 
@@ -73,6 +88,31 @@ class HotStuffReplicaServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Propose(self, request, context):
+        """Propose a node to the replica
+        This is broadcast by the leader to all replicas
+        upon receiving a command from the client.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Vote(self, request, context):
+        """Vote for a node
+        This includes th partial signature for the node
+        This is sent to the leader by the replicas
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def NewView(self, request, context):
+        """TODO: Run on timeout only. Implement this.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_HotStuffReplicaServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -84,7 +124,22 @@ def add_HotStuffReplicaServicer_to_server(servicer, server):
             'Beat': grpc.unary_unary_rpc_method_handler(
                     servicer.Beat,
                     request_deserializer=src_dot_proto_dot_HotStuff__pb2.BeatRequest.FromString,
-                    response_serializer=src_dot_proto_dot_HotStuff__pb2.BeatResponse.SerializeToString,
+                    response_serializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
+            ),
+            'Propose': grpc.unary_unary_rpc_method_handler(
+                    servicer.Propose,
+                    request_deserializer=src_dot_proto_dot_HotStuff__pb2.ProposeRequest.FromString,
+                    response_serializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
+            ),
+            'Vote': grpc.unary_unary_rpc_method_handler(
+                    servicer.Vote,
+                    request_deserializer=src_dot_proto_dot_HotStuff__pb2.VoteRequest.FromString,
+                    response_serializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
+            ),
+            'NewView': grpc.unary_unary_rpc_method_handler(
+                    servicer.NewView,
+                    request_deserializer=src_dot_proto_dot_HotStuff__pb2.NewViewRequest.FromString,
+                    response_serializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -139,7 +194,88 @@ class HotStuffReplica(object):
             target,
             '/HotStuff.HotStuffReplica/Beat',
             src_dot_proto_dot_HotStuff__pb2.BeatRequest.SerializeToString,
-            src_dot_proto_dot_HotStuff__pb2.BeatResponse.FromString,
+            src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Propose(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/HotStuff.HotStuffReplica/Propose',
+            src_dot_proto_dot_HotStuff__pb2.ProposeRequest.SerializeToString,
+            src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Vote(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/HotStuff.HotStuffReplica/Vote',
+            src_dot_proto_dot_HotStuff__pb2.VoteRequest.SerializeToString,
+            src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def NewView(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/HotStuff.HotStuffReplica/NewView',
+            src_dot_proto_dot_HotStuff__pb2.NewViewRequest.SerializeToString,
+            src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
             options,
             channel_credentials,
             insecure,
