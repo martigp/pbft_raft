@@ -73,7 +73,7 @@ class ReplicaServer(HotStuffReplicaServicer):
 
     def get_leader_id(self) -> str:
         """Get the leader id."""
-        return 'replica0'
+        return 'r0'
 
     def is_leader(self) -> bool:
         """Check if the replica is the leader."""
