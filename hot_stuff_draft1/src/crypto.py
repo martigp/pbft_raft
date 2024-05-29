@@ -3,6 +3,10 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import utils
+from tree import Tree
+from proto.HotStuff_pb2 import VoteRequest
+
+
 
 from blspy import (PrivateKey, Util, AugSchemeMPL, PopSchemeMPL,
                    G1Element, G2Element)
@@ -67,7 +71,7 @@ def testRSA():
 #############################
 # BLS SIGNATURE using blspy #
 #############################
-def thresholdKeyGen(numKeys) -> list[list[PrivateKey], list[G1Element]]:
+def thresholdKeyGen(numKeys) -> tuple[list[PrivateKey], list[G1Element]]:
     seed: bytes = bytes([ 50, 6,  244, 24,  199, 1,  25,  52,  88,  192,
                         19, 18, 12, 89,  6,   220, 18, 102, 58,  209, 82,
                         12, 62, 89, 110, 182, 9,   44, 20,  254, 22])
@@ -87,25 +91,78 @@ def aggregatePks(pks : list[G1Element]) -> G1Element:
 def partialSign(sk : PrivateKey, message : bytes) -> G2Element:
     return PopSchemeMPL.sign(sk, message)
 
+def verifySigs(message : bytes, sigs : list[bytes], pks : list[G1Element]) -> tuple[bool, G2Element]:
+    decodedSigs = [G2Element.from_bytes(sig) for sig in sigs]
+    aggSig = PopSchemeMPL.aggregate(decodedSigs)
+    return PopSchemeMPL.fast_aggregate_verify(pks, message, aggSig), aggSig
+
+
 def testBLSThreshold(numKeys):
     sks, pks = thresholdKeyGen(numKeys)
     aggPk = aggregatePks(pks)
     message : bytes = b"This is a test message"
-    sigs = [partialSign(sk, message) for sk in sks]
+    sigs : list[G2Element] = [partialSign(sk, message) for sk in sks]
 
     for i in range(numKeys):
-        aggSig = PopSchemeMPL.aggregate(sigs[i+2:i+4])
-        aggPk = pks
+        aggSig = PopSchemeMPL.aggregate(sigs[:i+1])
+        aggPk = pks[:i+1]
         ok = PopSchemeMPL.fast_aggregate_verify(aggPk, message, aggSig)
         print(f"Verification of {i}: {ok}")
+    
+    print(verifyThreshold(4, sigs[:3], pks[:3], message))
+
+    
 
 
-################################
-# SCHORR Threshold using blspy #
-################################
+def verifyThreshold(t: int, sigs : list[G2Element], pks: list[G1Element], message):
+    assert len(sigs) == len(pks)
+    if len(sigs) < t:
+        print(f"Error: Fewer than {t} signatures")
+        return False
+
+    aggSig = PopSchemeMPL.aggregate(sigs)
+    return PopSchemeMPL.fast_aggregate_verify(pks, message, aggSig)
+
+def parsePK(pk_str : str) -> G1Element:
+    pk_bytes = bytes.fromhex(pk_str)
+    return G1Element.from_bytes(pk_bytes)
+
+def parseSK(sk_str : str) -> G2Element:
+    sk_bytes = bytes.fromhex(sk_str)
+    return PrivateKey.from_bytes(sk_bytes)
+
+def seralizePKSK(pk: G1Element, sk : PrivateKey) -> tuple[str, str]:
+    return bytes(pk).hex(), bytes(sk).hex()
+
+
+def getRootQCSiganture():
+    myTree = Tree("r0", "deef")
+    rootNode = myTree.get_root_node()
+    data = VoteRequest.Data(viewNumber=0, node=rootNode.to_bytes())
+    msg = data.SerializeToString()
+    sks, pks = thresholdKeyGen(4)
+    sigs = []
+    for sk in sks:
+        sigs.append(partialSign(sk, msg))
+    
+    print(f"The partial sign worked {verifyThreshold(4, sigs, pks, msg)}")
+    print(PopSchemeMPL.aggregate(sigs))
+
+    
+    
 
 
 
+# testRSA()
+# testBLSThreshold(4)
+# sks, pks = thresholdKeyGen(4)
 
-testRSA()
-testBLSThreshold(4)
+
+# for i in range(len(sks)):
+#     pk_hex, sk_hex = seralizePKSK(pks[i], sks[i])
+#     print(f"Hex PK {i}: {pk_hex}\nSK {i}: {sk_hex}\n")
+
+# getRootQCSiganture()
+
+
+

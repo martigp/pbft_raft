@@ -28,7 +28,13 @@ if __name__ == '__main__':
 
     # Send commands to replicas
     # This is the entry point for the protocol
+    i = 0
     while True:
         cmd = input('Enter command: ')
+        # We should be signing this as a sender req.SerializeToString()
         for replica in replica_sessions:
-            replica.stub.Beat(BeatRequest(sender_id=config.id, cmd=cmd))
+            replica.stub.Beat(BeatRequest(sender_id=config.id, cmd=cmd, req_id = i))
+        
+        i+=1
+        
+        # Multithread receiving responses?

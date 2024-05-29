@@ -2,11 +2,14 @@ import logging
 from threading import Lock
 from typing import Dict, Set
 
-from common import GlobalConfig, ReplicaSession, get_replica_sessions
+from itertools import chain, combinations
+
+from common import GlobalConfig, ReplicaConfig, ReplicaSession, get_replica_sessions
 from proto.HotStuff_pb2 import (EchoRequest, EchoResponse, EmptyResponse,
                                 ProposeRequest, VoteRequest)
 from proto.HotStuff_pb2_grpc import HotStuffReplicaServicer
 from tree import QC, Node, Tree, node_from_bytes
+from crypto import partialSign, parsePK, parseSK, verifySigs
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +32,7 @@ class ReplicaServer(HotStuffReplicaServicer):
     """
     tree: Tree
     """Tree structure to store the nodes. Handles creation and modification of nodes."""
-    votes: Dict[str, Set[str]]
+    votes: Dict[str, Set[tuple[str, bytes]]]
     """Mapping from node_id to votes for that node."""
     vheight: int
     """Height of the highest node that the replica voted for."""
@@ -45,20 +48,25 @@ class ReplicaServer(HotStuffReplicaServicer):
     qc_high: QC
     """The highest QC seen so far."""
 
-    def __init__(self, id: str):
-        self.id = id
+    def __init__(self, config : ReplicaConfig, pks : list[str]):
+        self.id = config.id
+        self.public_key = parsePK(config.public_key)
+        self.secret_key = parseSK(config.secret_key)
+        self.replica_pks = [parsePK(pk_str) for pk_str in pks]
 
         self.lock = Lock()
         with self.lock:
             self.replica_sessions = []
             self.votes = {}
-            self.tree = Tree(self.id)
+            self.tree = Tree(self.id, config.root_qc_sig)
+            self.viewNumber = 1
             root = self.tree.get_root_node()
             self.vheight = root.height
             self.locked_node = root
             self.executed_node = root
             self.leaf_node = root
             self.qc_high = root.justify
+            print(self.qc_high.node_id)
 
     def establish_sessions(self, global_config: GlobalConfig):
         """Establish sessions with other replicas after a delay.
@@ -73,7 +81,8 @@ class ReplicaServer(HotStuffReplicaServicer):
 
     def get_leader_id(self) -> str:
         """Get the leader id."""
-        return 'r0'
+        # return f"r{self.viewNumber - 1 % self.N}"
+        return "r0"
 
     def is_leader(self) -> bool:
         """Check if the replica is the leader."""
@@ -86,15 +95,42 @@ class ReplicaServer(HotStuffReplicaServicer):
         """
         with self.lock:
             for replica in self.replica_sessions:
+                print(replica.config.id)
                 if replica.config.id == id:
                     return replica
         raise ValueError(f'Replica {id} not found')
 
-    def add_vote(self, node_id: str, sender_id: str) -> int:
+    def add_vote(self, node_id: str, vote_reqeust: VoteRequest) -> int:
         if node_id not in self.votes:
             self.votes[node_id] = set()
-        self.votes[node_id].add(sender_id)
+        # Add the tuple of sender_id and the signature for that node
+        self.votes[node_id].add((vote_reqeust.sender_id, vote_reqeust.partial_sig))
+        print(f"Node {node_id} received {len(self.votes[node_id])} votes")
         return len(self.votes[node_id])
+    
+    def check_votes(self, node_id: str):
+        """
+        Checks whether there are sufficient valid signatures for node identified
+        by node_id. If yes, returns the aggregate signature and corresponding
+        server_ids of who contributed to the aggregate signature.
+        """
+        votes = self.votes[node_id]
+        message = self.tree.get_node(node_id).to_bytes()
+
+        # Slow way to do checking without a proper partial Sig library
+        votesPowerset = list(chain.from_iterable(combinations(votes, r) for r in range(self.N - F, len(votes)+1)))
+        for voteSet in votesPowerset:
+            sigs = []
+            pkids = []
+            for sender_id, sig in voteSet:
+                sigs.append(sig)
+                pkids.append(int(sender_id[-1]))
+        
+            pks = [self.replica_pks[pkid] for pkid in pkids]
+            verified, aggSig = verifySigs(message, sigs, pks)
+            if verified:
+                return verified, aggSig, pkids
+        return False, None, None
 
     def Echo(self, request, context):
         if request.sender_id in [replica.config.id for replica in self.replica_sessions]:
@@ -183,6 +219,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 f"Updating executed_node from {self.executed_node} to {node_jggp_b}")
             self.executed_node = node_jggp_b
 
+
     #############################
     # Hot stuff protocol endpoints start here
     #############################
@@ -192,7 +229,8 @@ class ReplicaServer(HotStuffReplicaServicer):
             log.debug(f"Received command from client: {request.cmd}")
             with self.lock:
                 new_node = self.tree.create_node(
-                    request.cmd, self.leaf_node.id, self.qc_high)
+                    request.cmd, self.leaf_node.id, request.sender_id, self.qc_high, self.viewNumber)
+                print(f"New node's jusitfy node id {new_node.justify.node_id}")
 
                 log.debug(f"Proposing {new_node} and setting it as leaf")
                 self.leaf_node = new_node
@@ -202,18 +240,17 @@ class ReplicaServer(HotStuffReplicaServicer):
             for replica in self.replica_sessions:
                 replica.stub.Propose(ProposeRequest(
                     sender_id=self.id, node=new_node.to_bytes()))
-
         return EmptyResponse()
 
     def Propose(self, request, context):
         to_vote = False
+        print("In proposal receipt")
         with self.lock:
             new_node = node_from_bytes(request.node)
             if not self.is_leader():
                 log.debug(
                     f"Received proposal {new_node} from leader {request.sender_id}")
                 self.tree.add_node(new_node)
-
             always_true = new_node.height > self.vheight  # Always true for the happy path
             happy_path = self.tree.is_ancestor(
                 self.locked_node.id, new_node.id)
@@ -233,15 +270,28 @@ class ReplicaServer(HotStuffReplicaServicer):
         if to_vote:
             log.debug(f"Voting for {new_node}")
             leader_session = self.get_session(self.get_leader_id())
-            leader_session.stub.Vote(VoteRequest(
-                sender_id=self.id, node=new_node.to_bytes()))
+            node_bytes = new_node.to_bytes()
+            sig = bytes(partialSign(self.secret_key, node_bytes))
+            vote = VoteRequest(sender_id=self.id, node=node_bytes, partial_sig=sig)
+            leader_session.stub.Vote(vote)
+        
+        # This might be incorrect, do we only update View when we receive a valid
+        # proposal or do we update either way.
+        with self.lock:
+            self.viewNumber += 1
+        
         return EmptyResponse()
 
     def Vote(self, request, context):
         node = node_from_bytes(request.node)
-        log.debug(f"Received vote for {node} from {request.sender_id}")
+        log.debug(f"Received vote for {node} from {request.sender_id} with signature {request.partial_sig[:5]}")
         with self.lock:
-            if self.add_vote(node.id, request.sender_id) > self.N - F:
-                log.debug(f"Got enough votes for {node}")
-                self.update_qc_high(QC(node.id))
+            if self.add_vote(node.id, request) >= self.N - F:
+                # Put in logic for checking
+                verified, aggSig, pkids =  self.check_votes(node.id)
+                if verified:
+                    log.debug(f"Got enough votes for {node}")
+                    newQC = QC(node.id, node.view_number, bytes(aggSig), pkids)
+                    self.update_qc_high(newQC)
+                    self.viewNumber += 1
         return EmptyResponse()

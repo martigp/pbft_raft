@@ -37,8 +37,12 @@ if __name__ == '__main__':
     # Read configs
     config, global_config = get_replica_config()
 
+    pks = []
+    for replicaconfig in global_config.replica_configs:
+        pks.append(replicaconfig.public_key)
+
     # Set up server
-    replica_server = ReplicaServer(config.id)
+    replica_server = ReplicaServer(config, pks)
 
     # Establish sessions with other replicas
     # This is done after a delay to ensure all servers are up

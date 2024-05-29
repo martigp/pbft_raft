@@ -20,11 +20,13 @@ class ClientConfig:
 class ReplicaConfig:
     """Contains the configuration of a replica."""
 
-    def __init__(self, id: str, host: str, port: int, public_key: str):
+    def __init__(self, id: str, host: str, port: int, public_key: str, secret_key: str, root_qc_sig : str):
         self.id = str(id)
         self.host = str(host)
         self.port = str(port)
         self.public_key = public_key
+        self.secret_key = secret_key
+        self.root_qc_sig = root_qc_sig
 
 
 class GlobalConfig:

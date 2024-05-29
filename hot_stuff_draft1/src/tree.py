@@ -1,10 +1,12 @@
 import logging
 import pickle
+from enum import Enum
 
 log = logging.getLogger(__name__)
 
 ROOT_ID = 'root_id'
 ROOT_CMD = 'root_cmd'
+
 
 
 class QC:
@@ -17,8 +19,17 @@ class QC:
     TODO: Implement the actual quorum certificate.
     """
 
-    def __init__(self, node_id: str):
+    def __init__(self, node_id: str, viewNumber : int = None, aggSig : bytes = None, pkids: list[int] = None):
+        # The node this QC corresponds to
         self.node_id = node_id
+        # The combined signatures of the QC
+        self.sig = aggSig
+        # The pkids corresponding to the replicas who make up
+        # the combined signature
+        self.pkids = pkids
+        # The view number of the node this QC corresponds to
+        self.viewNumber = viewNumber
+
 
     def to_bytes(self) -> bytes:
         """Serialize the node to bytes."""
@@ -37,13 +48,15 @@ class Node:
     This class is serlialized and sent to other replicas.
     """
 
-    def __init__(self, id: str, height: int, parent_id: str, cmd: str, qc: QC = None):
+    def __init__(self, id: str, height: int, parent_id: str, cmd: str, client_id : str = "Null", qc: QC = None, view_number = 0):
         self.id = id
         self.height = height
         self.parent_id = parent_id
         self.children_ids = []
         self.cmd = cmd
+        self.client_id = client_id
         self.justify = qc
+        self.view_number = view_number
 
     def to_bytes(self) -> bytes:
         """Serialize the node to bytes."""
@@ -70,10 +83,13 @@ class Tree:
     TODO: figure out when non-leader replicas should create nodes.
     """
 
-    def __init__(self, replica_id: str):
+    def __init__(self, replica_id: str, root_qc_sig : str):
         self.replica_id = replica_id
-        root_node = Node(ROOT_ID, 0, ROOT_ID, ROOT_CMD)
-        root_node.justify = QC(ROOT_ID)
+        root_qc = QC(ROOT_ID, 0,
+                               bytes.fromhex(root_qc_sig),
+                               [0,1,2,3])
+        root_node = Node(ROOT_ID, 0, ROOT_ID, ROOT_CMD, "null", root_qc)
+        print(f"Root node's justify {root_node.justify.node_id}")
         self.nodes = {
             ROOT_ID: root_node
         }
@@ -87,14 +103,14 @@ class Tree:
         return self.nodes[ROOT_ID]
 
     # Returns the id of the newly created node
-    def create_node(self, cmd: str, parent_id: str, qc: QC) -> Node:
+    def create_node(self, cmd: str, parent_id: str, client_id : str, qc: QC, view_number : int) -> Node:
         """Create and add a new node to the tree and return it.
 
         qc becomes the justify of the new node.
         """
         new_id = f"{self.replica_id}_n{len(self.nodes)}"
         parent = self.get_node(parent_id)
-        new_node = Node(new_id, parent.height+1, parent_id, cmd, qc)
+        new_node = Node(new_id, parent.height+1, parent.id, cmd, client_id, qc, view_number)
         self.nodes[new_id] = new_node
         parent.children_ids.append(new_id)
         return new_node
@@ -108,6 +124,7 @@ class Tree:
         if node.id in self.nodes:
             return
         self.nodes[node.id] = node
+        print(f"Parent ID: {node.parent_id}")
         self.get_node(node.parent_id).children_ids.append(node.id)
 
     def is_ancestor(self, ancestor_id: str, descendant_id: str) -> bool:

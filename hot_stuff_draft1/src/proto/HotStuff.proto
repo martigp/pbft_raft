@@ -49,6 +49,8 @@ message BeatRequest {
   // For now command is just a string.
   // We can change this to a more complex type later.
   string cmd = 2;
+
+  uint64 req_id = 3;
 }
 
 message ProposeRequest {
@@ -58,20 +60,18 @@ message ProposeRequest {
   // Serialized version of the node
   // Node also contains the QC
   bytes node = 2;
-
-  // TODO: Figure out if we need to add view number here
 }
 
 message VoteRequest {
   // The sender id is used to identify the replica
+
   string sender_id = 1;
+
+  bytes node = 2;
 
   // Serialized version of the node
   // Node also contains the QC
-  bytes node = 2;
-  // TODO: Figure out if we need to add view number here
-
-  // TODO: Add partial signature here
+  bytes partial_sig = 3;
 }
 
 message NewViewRequest {

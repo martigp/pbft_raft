@@ -8,25 +8,33 @@
       "id": "r0",
       "host": "localhost",
       "port": 8000,
-      "public_key": "replica_key_0"
+      "public_key": "86243290bbcbfd9ae75bdece7981965350208eb5e99b04d5cd24e955ada961f8c0a162dee740be7bdc6c3c0613ba2eb1",
+      "secret_key": "377091f0e728463bc2da7d546c53b9f6b81df4a1cc1ab5bf29c5908b7151a32d",
+      "root_qc_sig": "9391fc02e078595a566a7d6f3c884598ac2bac6d5779d27e5b3f4f590fa9a41d42137dc723b95241e462f44db0e31c75029f73c660b802502f132310bf1cf90b68800403acb0da46defabf74de73f533dc19ab86282291edf03fe9120e0992a1"
     },
     {
       "id": "r1",
       "host": "localhost",
       "port": 8001,
-      "public_key": "replica_key_1"
+      "public_key": "8874fa00d9f3fd0adf706b85251de2e70cbdfbbcff4e26d2bef1a25ac27963b9fd702f364cf3d4cb1c83ff3e36fbcefb",
+      "secret_key": "28cb1968c666f108dd2c69163510859c2a962758571f8e876ca2679000212a9f",
+      "root_qc_sig": "9391fc02e078595a566a7d6f3c884598ac2bac6d5779d27e5b3f4f590fa9a41d42137dc723b95241e462f44db0e31c75029f73c660b802502f132310bf1cf90b68800403acb0da46defabf74de73f533dc19ab86282291edf03fe9120e0992a1"
     },
     {
       "id": "r2",
       "host": "localhost",
       "port": 8002,
-      "public_key": "replica_key_2"
+      "public_key": "b66c0a9dd9576e5f48a25e714a06c03d36075856a080d5ce5d240cf931030134bcd4ceafcdb58310c619e8f940e537c5",
+      "secret_key": "18870216faf9a24def59fca31d455e6a422ea663dff73697c9be15f1918f50d4",
+      "root_qc_sig": "9391fc02e078595a566a7d6f3c884598ac2bac6d5779d27e5b3f4f590fa9a41d42137dc723b95241e462f44db0e31c75029f73c660b802502f132310bf1cf90b68800403acb0da46defabf74de73f533dc19ab86282291edf03fe9120e0992a1"
     },
     {
       "id": "r3",
       "host": "localhost",
       "port": 8003,
-      "public_key": "replica_key_3"
+      "public_key": "936c6d56c543b240ce1e6da0b90487249c60abcabad6738045b951ba2b278b4e2e81aa48a42fa71e83f168a99fa4e153",
+      "secret_key": "66a89adef7d875932c9dfd9fb9352ce093ea9e08c7ba9633a65234b29aabcce3",
+      "root_qc_sig": "9391fc02e078595a566a7d6f3c884598ac2bac6d5779d27e5b3f4f590fa9a41d42137dc723b95241e462f44db0e31c75029f73c660b802502f132310bf1cf90b68800403acb0da46defabf74de73f533dc19ab86282291edf03fe9120e0992a1"
     }
   ]
 }

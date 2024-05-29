@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from src.proto import HotStuff_pb2 as src_dot_proto_dot_HotStuff__pb2
+from proto import HotStuff_pb2 as proto_dot_HotStuff__pb2
 
 GRPC_GENERATED_VERSION = '1.63.0'
 GRPC_VERSION = grpc.__version__
@@ -20,7 +20,7 @@ except ImportError:
 if _version_not_supported:
     warnings.warn(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in src/proto/HotStuff_pb2_grpc.py depends on'
+        + f' but the generated code in proto/HotStuff_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -41,28 +41,28 @@ class HotStuffReplicaStub(object):
         """
         self.Echo = channel.unary_unary(
                 '/HotStuff.HotStuffReplica/Echo',
-                request_serializer=src_dot_proto_dot_HotStuff__pb2.EchoRequest.SerializeToString,
-                response_deserializer=src_dot_proto_dot_HotStuff__pb2.EchoResponse.FromString,
+                request_serializer=proto_dot_HotStuff__pb2.EchoRequest.SerializeToString,
+                response_deserializer=proto_dot_HotStuff__pb2.EchoResponse.FromString,
                 _registered_method=True)
         self.Beat = channel.unary_unary(
                 '/HotStuff.HotStuffReplica/Beat',
-                request_serializer=src_dot_proto_dot_HotStuff__pb2.BeatRequest.SerializeToString,
-                response_deserializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+                request_serializer=proto_dot_HotStuff__pb2.BeatRequest.SerializeToString,
+                response_deserializer=proto_dot_HotStuff__pb2.EmptyResponse.FromString,
                 _registered_method=True)
         self.Propose = channel.unary_unary(
                 '/HotStuff.HotStuffReplica/Propose',
-                request_serializer=src_dot_proto_dot_HotStuff__pb2.ProposeRequest.SerializeToString,
-                response_deserializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+                request_serializer=proto_dot_HotStuff__pb2.ProposeRequest.SerializeToString,
+                response_deserializer=proto_dot_HotStuff__pb2.EmptyResponse.FromString,
                 _registered_method=True)
         self.Vote = channel.unary_unary(
                 '/HotStuff.HotStuffReplica/Vote',
-                request_serializer=src_dot_proto_dot_HotStuff__pb2.VoteRequest.SerializeToString,
-                response_deserializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+                request_serializer=proto_dot_HotStuff__pb2.VoteRequest.SerializeToString,
+                response_deserializer=proto_dot_HotStuff__pb2.EmptyResponse.FromString,
                 _registered_method=True)
         self.NewView = channel.unary_unary(
                 '/HotStuff.HotStuffReplica/NewView',
-                request_serializer=src_dot_proto_dot_HotStuff__pb2.NewViewRequest.SerializeToString,
-                response_deserializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+                request_serializer=proto_dot_HotStuff__pb2.NewViewRequest.SerializeToString,
+                response_deserializer=proto_dot_HotStuff__pb2.EmptyResponse.FromString,
                 _registered_method=True)
 
 
@@ -118,28 +118,28 @@ def add_HotStuffReplicaServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Echo': grpc.unary_unary_rpc_method_handler(
                     servicer.Echo,
-                    request_deserializer=src_dot_proto_dot_HotStuff__pb2.EchoRequest.FromString,
-                    response_serializer=src_dot_proto_dot_HotStuff__pb2.EchoResponse.SerializeToString,
+                    request_deserializer=proto_dot_HotStuff__pb2.EchoRequest.FromString,
+                    response_serializer=proto_dot_HotStuff__pb2.EchoResponse.SerializeToString,
             ),
             'Beat': grpc.unary_unary_rpc_method_handler(
                     servicer.Beat,
-                    request_deserializer=src_dot_proto_dot_HotStuff__pb2.BeatRequest.FromString,
-                    response_serializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
+                    request_deserializer=proto_dot_HotStuff__pb2.BeatRequest.FromString,
+                    response_serializer=proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
             ),
             'Propose': grpc.unary_unary_rpc_method_handler(
                     servicer.Propose,
-                    request_deserializer=src_dot_proto_dot_HotStuff__pb2.ProposeRequest.FromString,
-                    response_serializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
+                    request_deserializer=proto_dot_HotStuff__pb2.ProposeRequest.FromString,
+                    response_serializer=proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
             ),
             'Vote': grpc.unary_unary_rpc_method_handler(
                     servicer.Vote,
-                    request_deserializer=src_dot_proto_dot_HotStuff__pb2.VoteRequest.FromString,
-                    response_serializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
+                    request_deserializer=proto_dot_HotStuff__pb2.VoteRequest.FromString,
+                    response_serializer=proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
             ),
             'NewView': grpc.unary_unary_rpc_method_handler(
                     servicer.NewView,
-                    request_deserializer=src_dot_proto_dot_HotStuff__pb2.NewViewRequest.FromString,
-                    response_serializer=src_dot_proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
+                    request_deserializer=proto_dot_HotStuff__pb2.NewViewRequest.FromString,
+                    response_serializer=proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -166,8 +166,8 @@ class HotStuffReplica(object):
             request,
             target,
             '/HotStuff.HotStuffReplica/Echo',
-            src_dot_proto_dot_HotStuff__pb2.EchoRequest.SerializeToString,
-            src_dot_proto_dot_HotStuff__pb2.EchoResponse.FromString,
+            proto_dot_HotStuff__pb2.EchoRequest.SerializeToString,
+            proto_dot_HotStuff__pb2.EchoResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -193,8 +193,8 @@ class HotStuffReplica(object):
             request,
             target,
             '/HotStuff.HotStuffReplica/Beat',
-            src_dot_proto_dot_HotStuff__pb2.BeatRequest.SerializeToString,
-            src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+            proto_dot_HotStuff__pb2.BeatRequest.SerializeToString,
+            proto_dot_HotStuff__pb2.EmptyResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -220,8 +220,8 @@ class HotStuffReplica(object):
             request,
             target,
             '/HotStuff.HotStuffReplica/Propose',
-            src_dot_proto_dot_HotStuff__pb2.ProposeRequest.SerializeToString,
-            src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+            proto_dot_HotStuff__pb2.ProposeRequest.SerializeToString,
+            proto_dot_HotStuff__pb2.EmptyResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -247,8 +247,8 @@ class HotStuffReplica(object):
             request,
             target,
             '/HotStuff.HotStuffReplica/Vote',
-            src_dot_proto_dot_HotStuff__pb2.VoteRequest.SerializeToString,
-            src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+            proto_dot_HotStuff__pb2.VoteRequest.SerializeToString,
+            proto_dot_HotStuff__pb2.EmptyResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -274,8 +274,8 @@ class HotStuffReplica(object):
             request,
             target,
             '/HotStuff.HotStuffReplica/NewView',
-            src_dot_proto_dot_HotStuff__pb2.NewViewRequest.SerializeToString,
-            src_dot_proto_dot_HotStuff__pb2.EmptyResponse.FromString,
+            proto_dot_HotStuff__pb2.NewViewRequest.SerializeToString,
+            proto_dot_HotStuff__pb2.EmptyResponse.FromString,
             options,
             channel_credentials,
             insecure,
