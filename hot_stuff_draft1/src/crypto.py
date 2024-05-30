@@ -23,13 +23,13 @@ def generateRSAkeypair():
 
 def serializeRSAKeys(sk):
     serializedSk =  sk.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
         encryption_algorithm=serialization.NoEncryption())
     
     serializedPk = sk.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo)
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw)
     
     return serializedSk, serializedPk
 
@@ -59,14 +59,20 @@ def verifySignature(msg, pk, sig):
 
 def testRSA():
     message = b"A message I want to sign"
-    sk, pk = generateRSAkeypair()
-    signature = signMessage(message, sk)
-    result = "Signing and verification was "
-    if verifySignature(message, pk, signature):
-        result += "successful"
-    else:
-        result += "unsuccessful"
-    print(result)
+    for i in range(2):
+        sk, pk = generateRSAkeypair()
+        serialized_sk, seralized_pk = serializeRSAKeys(sk)
+        print(type(seralized_pk))
+        print(f"Client {i} pk : {seralized_pk.decode('utf-8')}")
+        print(f"Client {i} sk : {serialized_sk.decode('utf-8')}")
+    
+    # signature = signMessage(message, sk)
+    # result = "Signing and verification was "
+    # if verifySignature(message, pk, signature):
+    #     result += "successful"
+    # else:
+    #     result += "unsuccessful"
+    # print(result)
 
 #############################
 # BLS SIGNATURE using blspy #
@@ -79,6 +85,16 @@ def thresholdKeyGen(numKeys) -> tuple[list[PrivateKey], list[G1Element]]:
     sks : list[G2Element] = []
     for i in range(numKeys):
         sks.append(PopSchemeMPL.key_gen(bytes([i]) + seed))
+    return [sks, [sk.get_g1() for sk in sks]]
+
+def clientthresholdKeyGen(numKeys) -> tuple[list[PrivateKey], list[G1Element]]:
+    seed: bytes = bytes([ 50, 6,  244, 24,  199, 1,  25,  52,  88,  192,
+                        19, 18, 12, 89,  6,   220, 18, 102, 58,  209, 82,
+                        12, 62, 89, 110, 182, 9,   44, 20,  254, 22])
+    
+    sks : list[G2Element] = []
+    for i in range(numKeys):
+        sks.append(PopSchemeMPL.key_gen(seed + bytes([i])))
     return [sks, [sk.get_g1() for sk in sks]]
 
 def aggregatePks(pks : list[G1Element]) -> G1Element:
@@ -154,6 +170,13 @@ def getRootQCSiganture():
 
 
 # testRSA()
+sks, pks = clientthresholdKeyGen(2)
+for i in range(2):
+    serliazed_pk, serliazed_sk = seralizePKSK(pks[i], sks[i])
+    print(f"Client {i} sk: {serliazed_sk}")
+    print(f"Client {i} pk: {serliazed_pk}")
+
+
 # testBLSThreshold(4)
 # sks, pks = thresholdKeyGen(4)
 

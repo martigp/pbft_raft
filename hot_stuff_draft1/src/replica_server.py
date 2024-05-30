@@ -4,12 +4,14 @@ from typing import Dict, Set
 
 from itertools import chain, combinations
 
-from common import GlobalConfig, ReplicaConfig, ReplicaSession, get_replica_sessions
-from proto.HotStuff_pb2 import (EchoRequest, EchoResponse, EmptyResponse,
-                                ProposeRequest, VoteRequest)
+from common import GlobalConfig, ReplicaConfig, ReplicaSession, ClientConfig, get_replica_sessions
+from proto.HotStuff_pb2 import (BeatRequest, EchoRequest, EchoResponse, EmptyResponse,
+                                ProposeRequest, VoteRequest, NewViewRequest)
 from proto.HotStuff_pb2_grpc import HotStuffReplicaServicer
-from tree import QC, Node, Tree, node_from_bytes
+from tree import QC, Node, Tree, node_from_bytes, qc_from_bytes
 from crypto import partialSign, parsePK, parseSK, verifySigs
+
+from client_history import ClientInformation
 
 log = logging.getLogger(__name__)
 
@@ -48,11 +50,21 @@ class ReplicaServer(HotStuffReplicaServicer):
     qc_high: QC
     """The highest QC seen so far."""
 
-    def __init__(self, config : ReplicaConfig, pks : list[str]):
+    clientMap : Dict[str, ClientInformation]
+    """All client information"""
+
+    def __init__(self, config : ReplicaConfig, pks : list[str],
+                 client_configs : list[ClientConfig]):
         self.id = config.id
         self.public_key = parsePK(config.public_key)
         self.secret_key = parseSK(config.secret_key)
         self.replica_pks = [parsePK(pk_str) for pk_str in pks]
+        self.clientMap = dict()
+        
+        # Populating the client Map
+        for client_config in client_configs:
+            self.clientMap[client_config.id] = ClientInformation(client_config.public_key)
+
 
         self.lock = Lock()
         with self.lock:
@@ -193,6 +205,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         I think this should also add the node to the tree if its not present already,
         but not sure yet.
         """
+
         log.debug(f"Updating {node}")
         # TODO: Check if lock is required here
         node_jp_dp = self.tree.get_node(node.justify.node_id)  # b'' in paper
@@ -224,22 +237,32 @@ class ReplicaServer(HotStuffReplicaServicer):
     # Hot stuff protocol endpoints start here
     #############################
 
-    def Beat(self, request, context):
-        if self.is_leader():
-            log.debug(f"Received command from client: {request.cmd}")
-            with self.lock:
-                new_node = self.tree.create_node(
-                    request.cmd, self.leaf_node.id, request.sender_id, self.qc_high, self.viewNumber)
-                print(f"New node's jusitfy node id {new_node.justify.node_id}")
+    def Beat(self, request : BeatRequest , context):
 
-                log.debug(f"Proposing {new_node} and setting it as leaf")
-                self.leaf_node = new_node
+        data_bytes = request.data.SerializeToString()
+        clientIdStr = request.data.sender_id
+        clientPkStr = self.clientMap[clientIdStr].clientPk
+        validSig, _ = verifySigs(data_bytes, [request.sig], [parsePK(clientPkStr)])
+        
+        if validSig:
+            self.clientMap[clientIdStr].updateReq(request.data.req_id)
+            if self.is_leader():
+                log.debug(f"Received command from client: {request.data.cmd}")
+                with self.lock:
+                    new_node = self.tree.create_node(
+                        request.data.cmd, self.leaf_node.id, request.data.sender_id,
+                          self.qc_high, self.viewNumber, request.data.req_id)
+                    
+                    print(f"New node's jusitfy node id {new_node.justify.node_id}")
 
-            # This should be outside lock as it will call Propose on the
-            # leader and will lead to a deadlock otherwise.
-            for replica in self.replica_sessions:
-                replica.stub.Propose(ProposeRequest(
-                    sender_id=self.id, node=new_node.to_bytes()))
+                    log.debug(f"Proposing {new_node} and setting it as leaf")
+                    self.leaf_node = new_node
+
+                # This should be outside lock as it will call Propose on the
+                # leader and will lead to a deadlock otherwise.
+                for replica in self.replica_sessions:
+                    replica.stub.Propose(ProposeRequest(
+                        sender_id=self.id, node=new_node.to_bytes()))
         return EmptyResponse()
 
     def Propose(self, request, context):
@@ -295,3 +318,6 @@ class ReplicaServer(HotStuffReplicaServicer):
                     self.update_qc_high(newQC)
                     self.viewNumber += 1
         return EmptyResponse()
+    
+    def NewView(self, request : NewViewRequest, context):
+        self.update_qc_high(qc_from_bytes(request.qc))

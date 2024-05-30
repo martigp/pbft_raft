@@ -35,10 +35,10 @@ class QC:
         """Serialize the node to bytes."""
         return pickle.dumps(self)
 
-    @staticmethod
-    def from_bytes(data: bytes):
-        """Deserialize the node from bytes."""
-        return pickle.loads(data)
+
+def qc_from_bytes(data: bytes) -> QC:
+    """Deserialize the node from bytes."""
+    return pickle.loads(data)
 
 
 class Node:
@@ -48,7 +48,7 @@ class Node:
     This class is serlialized and sent to other replicas.
     """
 
-    def __init__(self, id: str, height: int, parent_id: str, cmd: str, client_id : str = "Null", qc: QC = None, view_number = 0):
+    def __init__(self, id: str, height: int, parent_id: str, cmd: str, client_id : str = "Null", qc: QC = None, view_number = 0, client_req_id : int = None):
         self.id = id
         self.height = height
         self.parent_id = parent_id
@@ -57,6 +57,7 @@ class Node:
         self.client_id = client_id
         self.justify = qc
         self.view_number = view_number
+        self.client_req_id = client_req_id
 
     def to_bytes(self) -> bytes:
         """Serialize the node to bytes."""
@@ -103,14 +104,14 @@ class Tree:
         return self.nodes[ROOT_ID]
 
     # Returns the id of the newly created node
-    def create_node(self, cmd: str, parent_id: str, client_id : str, qc: QC, view_number : int) -> Node:
+    def create_node(self, cmd: str, parent_id: str, client_id : str, qc: QC, view_number : int, client_req_id : int) -> Node:
         """Create and add a new node to the tree and return it.
 
         qc becomes the justify of the new node.
         """
         new_id = f"{self.replica_id}_n{len(self.nodes)}"
         parent = self.get_node(parent_id)
-        new_node = Node(new_id, parent.height+1, parent.id, cmd, client_id, qc, view_number)
+        new_node = Node(new_id, parent.height+1, parent.id, cmd, client_id, qc, view_number, client_req_id)
         self.nodes[new_id] = new_node
         parent.children_ids.append(new_id)
         return new_node

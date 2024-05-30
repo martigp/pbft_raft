@@ -3,6 +3,7 @@ import time
 
 from common import get_client_config, get_replica_sessions
 from proto.HotStuff_pb2 import BeatRequest, EchoRequest
+from crypto import partialSign, parseSK
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +34,10 @@ if __name__ == '__main__':
         cmd = input('Enter command: ')
         # We should be signing this as a sender req.SerializeToString()
         for replica in replica_sessions:
-            replica.stub.Beat(BeatRequest(sender_id=config.id, cmd=cmd, req_id = i))
+            data = BeatRequest.Data(sender_id=config.id, cmd=cmd, req_id = i)
+            data_bytes = data.SerializeToString()
+            sig = partialSign(parseSK(config.secret_key), data_bytes)
+            replica.stub.Beat(BeatRequest(data=data,sig=bytes(sig)))
         
         i+=1
         

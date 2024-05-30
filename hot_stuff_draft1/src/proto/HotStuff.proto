@@ -45,12 +45,19 @@ message BeatRequest {
   // This will be required by all replicas to return replies to client
   // TODO: figure out how replicas know which client to reply to
   // TODO: figure out how to maintain ordering of commands.
-  string sender_id = 1;
-  // For now command is just a string.
-  // We can change this to a more complex type later.
-  string cmd = 2;
+  message Data {
+    string sender_id = 1;
+    // For now command is just a string.
+    // We can change this to a more complex type later.
+    string cmd = 2;
 
-  uint64 req_id = 3;
+    uint64 req_id = 3;
+  }
+  // Data from client
+  Data data = 1;
+
+  // Signature from client
+  bytes sig = 2;
 }
 
 message ProposeRequest {

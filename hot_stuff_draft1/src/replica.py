@@ -42,7 +42,7 @@ if __name__ == '__main__':
         pks.append(replicaconfig.public_key)
 
     # Set up server
-    replica_server = ReplicaServer(config, pks)
+    replica_server = ReplicaServer(config, pks, global_config.client_configs)
 
     # Establish sessions with other replicas
     # This is done after a delay to ensure all servers are up
