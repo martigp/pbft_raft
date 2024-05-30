@@ -2,12 +2,14 @@ import json
 import logging
 import os
 from typing import List, Tuple
+import base64
+import requests
 
 import grpc
 from proto.HotStuff_pb2_grpc import HotStuffReplicaStub
 
+logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
 log = logging.getLogger(__name__)
-
 
 class ClientConfig:
     """Contains the configuration of a client."""
@@ -79,3 +81,15 @@ def get_client_config() -> Tuple[ClientConfig, GlobalConfig]:
 def get_replica_sessions(global_config: GlobalConfig) -> List[ReplicaSession]:
     """Establishes sessions with all replicas."""
     return [ReplicaSession(replica_config) for replica_config in global_config.replica_configs]
+
+
+class CustomHttpHandler(logging.handlers.HTTPHandler):
+    def emit(self, record):
+        log_entry = self.format(record)
+        base64encoded_creds = base64.b64encode(
+                bytes(self.credentials[0] + ":" + self.credentials[1], "utf-8")
+            ).decode("utf-8")
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Basic ' + base64encoded_creds}
+        requests.post('self.host+'/'+self.url', headers=headers, data=log_entry)
