@@ -1,0 +1,32 @@
+Client de-deuplication, probably some in memory store of most recent client req
+id seen (seen_request, proposed, locked, commited for each). 
+@Gordon
+
+Making sure clients get responses from everyone
+    - changing client and server commited
+    - client RPC for reception of executed commands, on-demmand server->client
+    connection establishment
+@Soumya
+
+Timeout & Leader Change
+    - Leader changes on every node, (viewNumber >= vHeight). viewNumber is
+    incremented every time is vHeight is incremented and every time a Timeout
+    happens (leader change)
+    - timeouts on client:
+        some time passes before they get N-F identical responses, rebroadcast
+    -on server:
+        upon receipt of client request, start a timer, timer is cancelled when
+        receive corresponding proposal.
+    - leader changes only instigated by a client
+@Onkar
+
+Client signature on messages (should be fairly straightforward)
+@Gordon
+
+
+Catch up when you've fallen behind (maybe just another RPC).
+TODO after others done, related to timeout and leader change to perhaps
+
+
+Writing up the document
+@Ava
