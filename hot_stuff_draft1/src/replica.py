@@ -9,7 +9,7 @@ from common import GlobalConfig, ReplicaConfig, get_replica_config
 from proto.HotStuff_pb2_grpc import add_HotStuffReplicaServicer_to_server
 from replica_server import ReplicaServer
 
-logging.config.fileConfig('logging.ini')
+logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 log = logging.getLogger(__name__)
 
 def establish_sessions_with_delay(replica_server: ReplicaServer, global_config: GlobalConfig, delay: int):

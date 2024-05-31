@@ -12,7 +12,7 @@ from proto.HotStuff_pb2_grpc import HotStuffReplicaServicer
 from tree import QC, Node, Tree, node_from_bytes
 from crypto import partialSign, parsePK, parseSK, verifySigs
 
-logging.config.fileConfig('logging.ini')
+logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 log = logging.getLogger(__name__)
 
 F = 1

@@ -23,4 +23,5 @@ RUN tar -xvf openobserve-v0.10.7-rc2-linux-arm64.tar.gz
 EXPOSE 5080
 ENV ZO_ROOT_USER_EMAIL=root@example.com
 ENV ZO_ROOT_USER_PASSWORD=Complexpass#123
+HEALTHCHECK CMD curl -f http://localhost:5080/ || exit 1
 CMD ["./openobserve"]
