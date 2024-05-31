@@ -33,14 +33,6 @@ The configuration of replicas and clients is expected to be in a file called con
 
 We use logging level DEBUG for verbose logs and INFO for final outputs. To disable DEBUG logs, set loggin level to INFO in main of `client.py` and `replica.py`.
 
-### Logging
-
-Status messages are currently logged to a common log interface. To start this run:
-```
-sh run_logger.sh
-```
-The logger can be accessed at `localhost:5080`. The login credentials are `root@example.com` and `Complexpass#123`.
-
 ### Replica
 
 A replica is a gRPC server that implements the HotStuff protocol. The following command will run the replica, start the server and establish connections with other replicas after a small delay(to ensure other replicas are up).

@@ -1,14 +1,13 @@
 import logging
-import logging.config
 import time
 
 from common import get_client_config, get_replica_sessions
 from proto.HotStuff_pb2 import BeatRequest, EchoRequest
 
-logging.config.fileConfig('logging.ini')
 log = logging.getLogger(__name__)
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     log.debug("Logging set to DEBUG level")
     # Read configs
     config, global_config = get_client_config()
