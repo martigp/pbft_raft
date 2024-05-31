@@ -83,15 +83,3 @@ def get_client_config() -> Tuple[ClientConfig, GlobalConfig]:
 def get_replica_sessions(global_config: GlobalConfig) -> List[ReplicaSession]:
     """Establishes sessions with all replicas."""
     return [ReplicaSession(replica_config) for replica_config in global_config.replica_configs]
-
-
-class CustomHttpHandler(logging.handlers.HTTPHandler):
-    def emit(self, record):
-        log_entry = self.format(record)
-        base64encoded_creds = base64.b64encode(
-                bytes(self.credentials[0] + ":" + self.credentials[1], "utf-8")
-            ).decode("utf-8")
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': 'Basic ' + base64encoded_creds}
-        requests.post('self.host+'/'+self.url', headers=headers, data=log_entry)
