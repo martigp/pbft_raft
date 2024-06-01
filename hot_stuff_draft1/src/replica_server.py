@@ -272,7 +272,7 @@ class ReplicaServer(HotStuffReplicaServicer):
     def Vote(self, request, context):
         node = node_from_bytes(request.node)
         self.log.debug("Received vote for %s from %s with signature %s",
-                  node, request, request.partial_sig[:5])
+                  node, request.sender_id, request.partial_sig[:5])
         with self.lock:
             if self.add_vote(node.id, request) >= self.num_replica - F:
                 # Put in logic for checking
