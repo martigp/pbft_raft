@@ -17,4 +17,5 @@ class CustomHttpHandler(logging.Handler):
 
     def emit(self, record):
         log_entry = self.format(record)
-        requests.post(self.url, headers=self.headers, data=log_entry)
+        requests.post(
+            self.url, headers=self.headers, data=log_entry, timeout=20)

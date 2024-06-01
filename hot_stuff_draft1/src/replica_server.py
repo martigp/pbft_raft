@@ -12,8 +12,7 @@ from proto.HotStuff_pb2_grpc import HotStuffReplicaServicer
 from tree import QC, Node, Tree, node_from_bytes
 from crypto import partialSign, parsePK, parseSK, verifySigs
 
-logging.config.fileConfig('logging.ini')
-log = logging.getLogger(__name__)
+logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 
 F = 1
 
@@ -25,7 +24,7 @@ class ReplicaServer(HotStuffReplicaServicer):
     Main class implementing the protocol.
     """
 
-    N: int  # Number of replicas
+    num_replica: int  # Number of replicas
     lock: Lock  # Coarse grain lock. For now we lock during the entire execution of a function
     tree: Tree  # Tree structure to store the nodes. Handles creation and modification of nodes
     votes: Dict[str, Set[str]]  # Mapping from node_id to votes for that node
@@ -34,6 +33,7 @@ class ReplicaServer(HotStuffReplicaServicer):
     executed_node: Node  # Highest node that has been executed
     leaf_node: Node  # Highest node in the tree
     qc_high: QC  # Highest QC seen so far
+    log: logging.Logger  # Logger
 
 
     def __init__(self, config : ReplicaConfig, pks : list[str]):
@@ -41,13 +41,14 @@ class ReplicaServer(HotStuffReplicaServicer):
         self.public_key = parsePK(config.public_key)
         self.secret_key = parseSK(config.secret_key)
         self.replica_pks = [parsePK(pk_str) for pk_str in pks]
+        self.log = logging.getLogger(self.id)
 
         self.lock = Lock()
         with self.lock:
             self.replica_sessions = []
             self.votes = {}
             self.tree = Tree(self.id, config.root_qc_sig)
-            self.viewNumber = 1
+            self.view_number = 1
             root = self.tree.get_root_node()
             self.vheight = root.height
             self.locked_node = root
@@ -64,8 +65,8 @@ class ReplicaServer(HotStuffReplicaServicer):
         """
         with self.lock:
             self.replica_sessions = get_replica_sessions(global_config)
-            self.N = len(self.replica_sessions)
-        log.info("Established sessions with all replicas")
+            self.num_replica = len(self.replica_sessions)
+        self.log.info("Established sessions with all replicas")
 
     def get_leader_id(self) -> str:
         """Get the leader id."""
@@ -76,7 +77,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         """Check if the replica is the leader."""
         return self.id == self.get_leader_id()
 
-    def get_session(self, id: str) -> ReplicaSession:
+    def get_session(self, _id: str) -> ReplicaSession:
         """Get the session of the replica with the specified id.
 
         Helper function not relevant to the protocol.
@@ -84,9 +85,9 @@ class ReplicaServer(HotStuffReplicaServicer):
         with self.lock:
             for replica in self.replica_sessions:
                 print(replica.config.id)
-                if replica.config.id == id:
+                if replica.config.id == _id:
                     return replica
-        raise ValueError(f'Replica {id} not found')
+        raise ValueError(f'Replica {_id} not found')
 
     def add_vote(self, node_id: str, vote_reqeust: VoteRequest) -> int:
         if node_id not in self.votes:
@@ -95,7 +96,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         self.votes[node_id].add((vote_reqeust.sender_id, vote_reqeust.partial_sig))
         print(f"Node {node_id} received {len(self.votes[node_id])} votes")
         return len(self.votes[node_id])
-    
+
     def check_votes(self, node_id: str):
         """
         Checks whether there are sufficient valid signatures for node identified
@@ -106,33 +107,33 @@ class ReplicaServer(HotStuffReplicaServicer):
         message = self.tree.get_node(node_id).to_bytes()
 
         # Slow way to do checking without a proper partial Sig library
-        votesPowerset = list(chain.from_iterable(combinations(votes, r) for r in range(self.N - F, len(votes)+1)))
-        for voteSet in votesPowerset:
+        votes_powerset = list(
+            chain.from_iterable(combinations(votes, r)
+            for r in range(self.num_replica - F, len(votes)+1)))
+        for vote_set in votes_powerset:
             sigs = []
             pkids = []
-            for sender_id, sig in voteSet:
+            for sender_id, sig in vote_set:
                 sigs.append(sig)
                 pkids.append(int(sender_id[-1]))
-        
+
             pks = [self.replica_pks[pkid] for pkid in pkids]
-            verified, aggSig = verifySigs(message, sigs, pks)
+            verified, agg_sig = verifySigs(message, sigs, pks)
             if verified:
-                return verified, aggSig, pkids
+                return verified, agg_sig, pkids
         return False, None, None
 
     def Echo(self, request, context):
         if request.sender_id in [replica.config.id for replica in self.replica_sessions]:
-            log.info(
-                f"Received from replica {request.sender_id}: '''{request.msg}'''")
+            self.log.info("Received from replica %s: '''%s'''", request.sender_id, request.msg)
         else:
-            log.info(
-                f"Received from client {request.sender_id}: '''{request.msg}'''")
+            self.log.info("Received from client %s: '''%s'''", request.sender_id, request.msg)
             with self.lock:
                 for replica in self.replica_sessions:
                     response = replica.stub.Echo(EchoRequest(
                         sender_id=self.id, msg=request.msg))
-                    log.info(
-                        f"Received response from replica {replica.config.id}: '''{response.msg}'''")
+                    self.log.info("Received response from replica %s: '''%s'''",
+                             replica.config.id, response.msg)
         return EchoResponse(msg=f"Echoed: '''{request.msg}'''")
 
     #############################
@@ -144,7 +145,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         For now, it just prints the command.
         Idally, it should append to some log file.
         """
-        log.info(f"Executing command: {cmd}")
+        self.log.info("Executing command: %s", cmd)
 
     def update_qc_high(self, received_qc: QC):
         """Update the highest QC seen so far. Also set it as b_leaf.
@@ -154,13 +155,13 @@ class ReplicaServer(HotStuffReplicaServicer):
         received_qc_node = self.tree.get_node(received_qc.node_id)
         my_qc_high_node = self.tree.get_node(self.qc_high.node_id)
         if received_qc_node.height > my_qc_high_node.height:
-            log.debug(
-                f"Updating qc_high from {my_qc_high_node} to {received_qc_node} and seeing it as leaf")
+            self.log.debug("Updating qc_high from %s to %s and seeing it as leaf",
+                      my_qc_high_node, received_qc_node)
             self.qc_high = received_qc
             self.leaf_node = received_qc_node
         else:
-            log.debug(
-                f"Skipping update of qc_high from {my_qc_high_node} to {received_qc_node}")
+            self.log.debug("Skipping update of qc_high from %s to %s",
+                      my_qc_high_node, received_qc_node)
 
     def commit(self, node: Node):
         """Commit and execute a node if it's higher than b_exec.
@@ -168,11 +169,11 @@ class ReplicaServer(HotStuffReplicaServicer):
         Also do the same for all the ancestors of the node.
         """
         if self.executed_node.height < node.height:
-            log.debug(f"Commiting {node}")
+            self.log.debug("Commiting %s", node)
             self.commit(self.tree.get_node(node.parent_id))
             self.execute(node.cmd)
         else:
-            log.debug(f"Skipping commit of {node}")
+            self.log.debug("Skipping commit of %s", node)
 
     def update(self, node: Node):
         """Update the replica state.
@@ -181,7 +182,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         I think this should also add the node to the tree if its not present already,
         but not sure yet.
         """
-        log.debug(f"Updating {node}")
+        self.log.debug("Updating %s", node)
         # TODO: Check if lock is required here
         node_jp_dp = self.tree.get_node(node.justify.node_id)  # b'' in paper
         node_jgp_p = self.tree.get_node(
@@ -189,22 +190,21 @@ class ReplicaServer(HotStuffReplicaServicer):
         node_jggp_b = self.tree.get_node(
             node_jgp_p.justify.node_id)  # b in paper
 
-        log.debug(
-            f"Justify ancestors: {node} -> {node_jp_dp} -> {node_jgp_p} -> {node_jggp_b}")
+        self.log.debug("Justify ancestors: %s -> %s -> %s -> %s",
+                  node, node_jp_dp, node_jgp_p, node_jggp_b)
 
         self.update_qc_high(node.justify)
         if node_jgp_p.height > self.locked_node.height:
-            log.debug(f"Locking {node_jgp_p} over {self.locked_node}")
+            self.log.debug("Locking %s over %s", node_jgp_p, self.locked_node)
             # node_jgp enters commit phase
             self.locked_node = node_jgp_p
         else:
-            log.debug(f"Skipping lock of {node_jgp_p} over {self.locked_node}")
+            self.log.debug("Skipping lock of %s over %s", node_jgp_p, self.locked_node)
 
         if node_jp_dp.parent_id == node_jgp_p.id and node_jgp_p.parent_id == node_jggp_b.id:
             # node_jggp can be executed now
             self.commit(node_jggp_b)
-            log.debug(
-                f"Updating executed_node from {self.executed_node} to {node_jggp_b}")
+            self.log.debug("Updating executed_node from %s to %s", self.executed_node, node_jggp_b)
             self.executed_node = node_jggp_b
 
 
@@ -214,13 +214,13 @@ class ReplicaServer(HotStuffReplicaServicer):
 
     def Beat(self, request, context):
         if self.is_leader():
-            log.debug(f"Received command from client: {request.cmd}")
+            self.log.debug("Received command from client: %s", request.cmd)
             with self.lock:
                 new_node = self.tree.create_node(
-                    request.cmd, self.leaf_node.id, request.sender_id, self.qc_high, self.viewNumber)
-                print(f"New node's jusitfy node id {new_node.justify.node_id}")
-
-                log.debug(f"Proposing {new_node} and setting it as leaf")
+                    request.cmd, self.leaf_node.id, request.sender_id,
+                    self.qc_high, self.view_number)
+                self.log.debug("New node's jusitfy node id %s", new_node.justify.node_id)
+                self.log.debug("Proposing %s and setting it as leaf", new_node)
                 self.leaf_node = new_node
 
             # This should be outside lock as it will call Propose on the
@@ -236,16 +236,15 @@ class ReplicaServer(HotStuffReplicaServicer):
         with self.lock:
             new_node = node_from_bytes(request.node)
             if not self.is_leader():
-                log.debug(
-                    f"Received proposal {new_node} from leader {request.sender_id}")
+                self.log.debug("Received proposal %s from leader %s",
+                          new_node, request.sender_id)
                 self.tree.add_node(new_node)
             always_true = new_node.height > self.vheight  # Always true for the happy path
             happy_path = self.tree.is_ancestor(
                 self.locked_node.id, new_node.id)
             sad_path = self.tree.get_node(
                 new_node.justify.node_id).height > self.locked_node.height
-            log.debug(
-                f"Proposal: {always_true} and ({happy_path} or {sad_path})")
+            self.log.debug("Proposal: %s and (%s or %s)", always_true, happy_path, sad_path)
             if always_true and (happy_path or sad_path):
                 self.vheight = new_node.height
 
@@ -256,30 +255,31 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.update(new_node)
 
         if to_vote:
-            log.debug(f"Voting for {new_node}")
+            self.log.debug("Voting for %s", new_node)
             leader_session = self.get_session(self.get_leader_id())
             node_bytes = new_node.to_bytes()
             sig = bytes(partialSign(self.secret_key, node_bytes))
             vote = VoteRequest(sender_id=self.id, node=node_bytes, partial_sig=sig)
             leader_session.stub.Vote(vote)
-        
+
         # This might be incorrect, do we only update View when we receive a valid
         # proposal or do we update either way.
         with self.lock:
-            self.viewNumber += 1
-        
+            self.view_number += 1
+
         return EmptyResponse()
 
     def Vote(self, request, context):
         node = node_from_bytes(request.node)
-        log.debug(f"Received vote for {node} from {request.sender_id} with signature {request.partial_sig[:5]}")
+        self.log.debug("Received vote for %s from %s with signature %s",
+                  node, request.sender_id, request.partial_sig[:5])
         with self.lock:
-            if self.add_vote(node.id, request) >= self.N - F:
+            if self.add_vote(node.id, request) >= self.num_replica - F:
                 # Put in logic for checking
-                verified, aggSig, pkids =  self.check_votes(node.id)
+                verified, agg_sig, pkids =  self.check_votes(node.id)
                 if verified:
-                    log.debug(f"Got enough votes for {node}")
-                    newQC = QC(node.id, node.view_number, bytes(aggSig), pkids)
-                    self.update_qc_high(newQC)
-                    self.viewNumber += 1
+                    self.log.debug("Got enough votes for %s", node)
+                    new_qc = QC(node.id, node.view_number, bytes(agg_sig), pkids)
+                    self.update_qc_high(new_qc)
+                    self.view_number += 1
         return EmptyResponse()
