@@ -4,3 +4,5 @@ protobuf==5.26.1
 cryptography==42.0.7
 blspy==2.0.3
 ecdsa==0.13.3
+python-json-logger
+requests==2.31.0

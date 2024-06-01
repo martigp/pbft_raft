@@ -1,4 +1,5 @@
 import logging
+import logging.config
 from threading import Lock
 from typing import Dict, Set
 
@@ -11,6 +12,7 @@ from proto.HotStuff_pb2_grpc import HotStuffReplicaServicer
 from tree import QC, Node, Tree, node_from_bytes
 from crypto import partialSign, parsePK, parseSK, verifySigs
 
+logging.config.fileConfig('logging.ini')
 log = logging.getLogger(__name__)
 
 F = 1
@@ -23,30 +25,16 @@ class ReplicaServer(HotStuffReplicaServicer):
     Main class implementing the protocol.
     """
 
-    N: int
-    """Number of replicas."""
-    lock: Lock
-    """Coarse grain lock. 
-    
-    For now we lock during the entire execution of a function.
-    """
-    tree: Tree
-    """Tree structure to store the nodes. Handles creation and modification of nodes."""
-    votes: Dict[str, Set[tuple[str, bytes]]]
-    """Mapping from node_id to votes for that node."""
-    vheight: int
-    """Height of the highest node that the replica voted for."""
-    locked_node: Node
-    """The node in commit phase.
-    
-    Highest node for which we have justify-grandchildren.
-    """
-    executed_node: Node
-    """The highest node that has been executed."""
-    leaf_node: Node
-    """The highest node in the tree."""
-    qc_high: QC
-    """The highest QC seen so far."""
+    N: int  # Number of replicas
+    lock: Lock  # Coarse grain lock. For now we lock during the entire execution of a function
+    tree: Tree  # Tree structure to store the nodes. Handles creation and modification of nodes
+    votes: Dict[str, Set[str]]  # Mapping from node_id to votes for that node
+    vheight: int  # Height of the highest node that the replica voted for
+    locked_node: Node  # Node in commit phase. Highest node for which we have justify-grandchildren
+    executed_node: Node  # Highest node that has been executed
+    leaf_node: Node  # Highest node in the tree
+    qc_high: QC  # Highest QC seen so far
+
 
     def __init__(self, config : ReplicaConfig, pks : list[str]):
         self.id = config.id
