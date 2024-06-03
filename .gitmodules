@@ -1,6 +1,0 @@
-[submodule "protobuf"]
-	path = protobuf
-	url = https://github.com/protocolbuffers/protobuf.git
-[submodule "libconfig"]
-	path = libconfig
-	url = https://github.com/hyperrealm/libconfig

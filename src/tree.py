@@ -48,7 +48,8 @@ class Node:
     This class is serlialized and sent to other replicas.
     """
 
-    def __init__(self, id: str, height: int, parent_id: str, cmd: str, client_id : str = "Null", qc: QC = None, view_number = 0, client_req_id : int = None):
+    def __init__(self, id: str, height: int, parent_id: str, cmd: str, client_id : str = "Null",
+                 qc: QC = None, view_number = 0, client_req_id : int = None):
         self.id = id
         self.height = height
         self.parent_id = parent_id
@@ -90,7 +91,7 @@ class Tree:
                                bytes.fromhex(root_qc_sig),
                                [0,1,2,3])
         root_node = Node(ROOT_ID, 0, ROOT_ID, ROOT_CMD, "null", root_qc)
-        print(f"Root node's justify {root_node.justify.node_id}")
+        log.debug(f"Root node's justify {root_node.justify.node_id}")
         self.nodes = {
             ROOT_ID: root_node
         }
@@ -104,14 +105,16 @@ class Tree:
         return self.nodes[ROOT_ID]
 
     # Returns the id of the newly created node
-    def create_node(self, cmd: str, parent_id: str, client_id : str, qc: QC, view_number : int, client_req_id : int) -> Node:
+    def create_node(self, cmd: str, parent_id: str, client_id : str, qc: QC, view_number : int,
+                     client_req_id : int) -> Node:
         """Create and add a new node to the tree and return it.
 
         qc becomes the justify of the new node.
         """
         new_id = f"{self.replica_id}_n{len(self.nodes)}"
         parent = self.get_node(parent_id)
-        new_node = Node(new_id, parent.height+1, parent.id, cmd, client_id, qc, view_number, client_req_id)
+        new_node = Node(new_id, parent.height+1, parent.id, cmd, client_id, qc,
+                        view_number, client_req_id)
         self.nodes[new_id] = new_node
         parent.children_ids.append(new_id)
         return new_node

@@ -1,4 +1,5 @@
 import logging
+import logging.config
 import time
 from concurrent import futures
 from threading import Thread
@@ -8,8 +9,8 @@ from common import GlobalConfig, ReplicaConfig, get_replica_config
 from proto.HotStuff_pb2_grpc import add_HotStuffReplicaServicer_to_server
 from replica_server import ReplicaServer
 
+logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 log = logging.getLogger(__name__)
-
 
 def establish_sessions_with_delay(replica_server: ReplicaServer, global_config: GlobalConfig, delay: int):
     """Establish sessions with other replicas after a delay.
@@ -25,15 +26,13 @@ def serve(replica_server: ReplicaServer, config: ReplicaConfig):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     add_HotStuffReplicaServicer_to_server(replica_server, server)
     server.add_insecure_port('[::]:'+str(config.port))
-    log.info(
-        f"Listining on port: {config.port}, replica id: {  config.id}, public key: {config.public_key}")
+    log.info("Listining on port: %s, replica id: %s, public key: %s",
+             config.port, config.id, config.public_key)
     server.start()
     server.wait_for_termination()
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
-    log.debug("Logging set to DEBUG level")
     # Read configs
     config, global_config = get_replica_config()
 
@@ -46,9 +45,8 @@ if __name__ == '__main__':
 
     # Establish sessions with other replicas
     # This is done after a delay to ensure all servers are up
-    delay = 3
-    log.info(
-        f"Establishing sessions with other replicas after a delay of {delay} seconds")
+    delay = 10
+    log.info("Establishing sessions with other replicas after a delay of %d seconds", delay)
     Thread(target=establish_sessions_with_delay, args=(
         replica_server, global_config, delay)).start()
 

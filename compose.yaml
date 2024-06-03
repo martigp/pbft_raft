@@ -1,0 +1,67 @@
+services:
+  logger:
+    build:
+      context: .
+      target: logger
+    ports:
+      - "5080:5080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5080/ || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+  # client0:
+  #   build:
+  #     context: .
+  #     target: client
+  #   network_mode: host
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - CLIENT_ID=c0
+  #   depends_on:
+  #     logger:
+  #       condition: service_healthy
+  #   tty: true
+  #   stdin_open: true
+  replica0:
+    build:
+      context: .
+      target: replica
+    network_mode: host
+    environment:
+      - REPLICA_ID=r0
+    depends_on:
+      logger:
+        condition: service_healthy
+  replica1:
+    build:
+      context: .
+      target: replica
+    network_mode: host
+    environment:
+      - REPLICA_ID=r1
+    depends_on:
+      logger:
+        condition: service_healthy
+  replica2:
+    build:
+      context: .
+      target: replica
+    network_mode: host
+    environment:
+      - REPLICA_ID=r2
+    depends_on:
+      logger:
+        condition: service_healthy
+  replica3:
+    build:
+      context: .
+      target: replica
+    network_mode: host
+    environment:
+      - REPLICA_ID=r3
+    depends_on:
+      logger:
+        condition: service_healthy

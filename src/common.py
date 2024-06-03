@@ -2,12 +2,14 @@ import json
 import logging
 import os
 from typing import List, Tuple
+import base64
+import requests
 
 import grpc
 from proto.HotStuff_pb2_grpc import HotStuffReplicaStub
 
+logging.config.fileConfig('logging.ini', disable_existing_loggers=False)
 log = logging.getLogger(__name__)
-
 
 class ClientConfig:
     """Contains the configuration of a client."""
