@@ -1,7 +1,7 @@
 {
   "clients": [
-    { "id": "c0", "public_key": "client_key_0" },
-    { "id": "c1", "public_key": "client_key_1" }
+    { "id": "c0", "host": "localhost", "port": 8100, "public_key": "client_key_0" },
+    { "id": "c1", "host": "localhost", "port": 8101, "public_key": "client_key_1" }
   ],
   "replicas": [
     {
