@@ -1,10 +1,14 @@
 {
   "clients": [
     { "id": "c0",
+      "host": "localhost",
+      "port": 8100,
       "public_key": "870b8535db423973243df28bb1967d4e28cee161fbf18d35d5576fa7b67da2eb6077381557fac7c0bbcf7ae513aaea20",
       "secret_key" : "53998406203d5476272af0efc9e260200ce5403335614b25bcd6a772d15b93fa"
     },
     { "id": "c1",
+      "host": "localhost",
+      "port": 8101,
       "public_key": "a1a850a7fdaa84686d829794622774c49e96d520d11a93fe565f9fd517ed9f4e3d427da4f0e22556ab1bd0a2d500bf55",
       "secret_key" : "4d7d485755b1e6e4180f66c2f4081371bdfe5cf9e8ff63a01b82dd86e0dc97f0"
     }

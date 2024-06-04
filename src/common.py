@@ -14,8 +14,10 @@ log = logging.getLogger(__name__)
 class ClientConfig:
     """Contains the configuration of a client."""
 
-    def __init__(self, id: str, public_key: str, secret_key : str):
+    def __init__(self, id: str, host: str, port: int, public_key: str, secret_key : str):
         self.id = str(id)
+        self.host = host
+        self.port = str(port)
         self.public_key = public_key
         self.secret_key = secret_key
 

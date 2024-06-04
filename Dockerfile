@@ -7,6 +7,7 @@ RUN pip install -r requirements.txt
 COPY . .
 WORKDIR /src
 RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/HotStuff.proto
+RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/Client.proto
 
 FROM base as replica
 CMD ["python", "replica.py"]

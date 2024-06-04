@@ -13,6 +13,9 @@ from tree import QC, Node, Tree, node_from_bytes, qc_from_bytes
 from crypto import partialSign, parsePK, parseSK, verifySigs
 
 from client_history import ClientInformation
+import grpc
+from proto.Client_pb2 import Response
+from proto.Client_pb2_grpc import HotStuffClientStub
 
 logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 
@@ -36,6 +39,7 @@ class ReplicaServer(HotStuffReplicaServicer):
     leaf_node: Node  # Highest node in the tree
     qc_high: QC  # Highest QC seen so far
     log: logging.Logger  # Logger
+    global_config: GlobalConfig  # Global configuration
 
     clientMap : Dict[str, ClientInformation] # All client infomration
 
@@ -79,6 +83,7 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.replica_sessions = get_replica_sessions(global_config)
             self.N = len(self.replica_sessions)
         self.log.info("Established sessions with all replicas")
+        self.global_config = global_config
 
     def get_leader_id(self) -> str:
         """Get the leader id."""
@@ -148,13 +153,22 @@ class ReplicaServer(HotStuffReplicaServicer):
     #############################
     # Internal procedures related to HotStuff start here
     #############################
-    def execute(self, cmd: str):
+    def execute(self, node: Node):
         """Execute a command.
 
         For now, it just prints the command.
         Idally, it should append to some log file.
         """
-        self.log.info(f"Executing command: {cmd}")
+        self.log.info("Executing command: %s", node.cmd)
+        client_id = node.client_id
+        client = None
+        for client_config in self.global_config.client_configs:
+            if client_config.id == client_id:
+                client = client_config
+        channel = grpc.insecure_channel(f'{client.host}:{client.port}')
+        stub = HotStuffClientStub(channel)
+        stub.reply(Response(message=node.cmd, sender_id=self.id))
+
 
     def update_qc_high(self, received_qc: QC):
         """Update the highest QC seen so far. Also set it as b_leaf.
@@ -180,7 +194,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         if self.executed_node.height < node.height:
             self.log.debug(f"Commiting {node}")
             self.commit(self.tree.get_node(node.parent_id))
-            self.execute(node.cmd)
+            self.execute(node)
         else:
             self.log.debug(f"Skipping commit of {node}")
 

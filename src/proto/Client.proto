@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+service HotStuffClient {
+  // Service for replicas to send responses to clients
+  rpc reply(Response) returns (EmptyResponse) {}
+}
+
+message EmptyResponse {}
+
+message Response {
+    string sender_id = 1;
+    string message = 2;
+}
