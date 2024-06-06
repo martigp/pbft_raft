@@ -12,6 +12,8 @@ from proto.HotStuff_pb2_grpc import HotStuffReplicaServicer
 from tree import QC, Node, Tree, node_from_bytes, qc_from_bytes
 from crypto import partialSign, parsePK, parseSK, verifySigs
 
+from pacemaker import Pacemaker
+
 from client_history import ClientInformation
 import grpc
 from proto.Client_pb2 import Response
@@ -44,7 +46,7 @@ class ReplicaServer(HotStuffReplicaServicer):
     clientMap : Dict[str, ClientInformation] # All client infomration
 
     def __init__(self, config : ReplicaConfig, pks : list[str],
-                 client_configs : list[ClientConfig], new_view_event : Event):
+                 client_configs : list[ClientConfig], pacemaker : Pacemaker):
         self.id = config.id
         self.public_key = parsePK(config.public_key)
         self.secret_key = parseSK(config.secret_key)
@@ -72,7 +74,7 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.executed_node = root
             self.leaf_node = root
             self.qc_high = root.justify
-            self.new_view_event = new_view_event
+            self.pacemaker = pacemaker
 
     def establish_sessions(self, global_config: GlobalConfig):
         """Establish sessions with other replicas after a delay.
@@ -277,7 +279,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         to_vote = False
         new_node = node_from_bytes(request.node)
         self.log.debug(f"Received proposal {new_node}")
-        self.new_view_event.set()
+        self.pacemaker.new_view_event.set()
         with self.lock:
             self.clientMap[new_node.client_id].updateReq(new_node.client_req_id)
             # if not self.is_leader():
