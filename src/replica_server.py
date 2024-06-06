@@ -65,7 +65,7 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.replica_sessions = []
             self.votes = {}
             self.tree = Tree(self.id, config.root_qc_sig)
-            self.viewNumber = 1
+            self.viewNumber = None
             root = self.tree.get_root_node()
             self.vheight = root.height
             self.locked_node = root
@@ -87,8 +87,8 @@ class ReplicaServer(HotStuffReplicaServicer):
 
     def get_leader_id(self) -> str:
         """Get the leader id."""
-        # return f"r{self.viewNumber - 1 % self.N}"
-        return "r0"
+        return f"r{self.vheight % self.N}"
+        # return "r0"
 
     def is_leader(self) -> bool:
         """Check if the replica is the leader."""
@@ -167,7 +167,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 client = client_config
         channel = grpc.insecure_channel(f'{client.host}:{client.port}')
         stub = HotStuffClientStub(channel)
-        stub.reply(Response(message=node.cmd, sender_id=self.id))
+        stub.reply(Response(message=str(node), sender_id=self.id))
 
 
     def update_qc_high(self, received_qc: QC):
@@ -179,7 +179,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         my_qc_high_node = self.tree.get_node(self.qc_high.node_id)
         if received_qc_node.height > my_qc_high_node.height:
             self.log.debug(
-                f"Updating qc_high from {my_qc_high_node} to {received_qc_node} and seeing it as leaf")
+                f"Updating qc_high from {my_qc_high_node} to {received_qc_node} and setting it as leaf")
             self.qc_high = received_qc
             self.leaf_node = received_qc_node
         else:
@@ -243,13 +243,12 @@ class ReplicaServer(HotStuffReplicaServicer):
         validSig, _ = verifySigs(data_bytes, [request.sig], [parsePK(clientPkStr)])
         
         if validSig:
-            self.clientMap[clientIdStr].updateReq(request.data.req_id)
-            if self.is_leader():
+            if self.is_leader() and self.clientMap[clientIdStr].updateReq(request.data.req_id):
                 self.log.debug(f"Received command from client: {request.data.cmd}")
                 with self.lock:
                     new_node = self.tree.create_node(
                         request.data.cmd, self.leaf_node.id, request.data.sender_id,
-                          self.qc_high, self.viewNumber, request.data.req_id)
+                          self.qc_high, None, request.data.req_id)
                     
                     self.log.debug(f"New node's jusitfy node id {new_node.justify.node_id}")
 
@@ -267,13 +266,16 @@ class ReplicaServer(HotStuffReplicaServicer):
 
     def Propose(self, request, context):
         to_vote = False
-        self.log.debug(f"{self.id} in proposal receipt")
+        new_node = node_from_bytes(request.node)
+        self.log.debug(f"Received proposal {new_node}")
         with self.lock:
-            new_node = node_from_bytes(request.node)
-            if not self.is_leader():
-                self.log.debug(
-                    f"Received proposal {new_node} from leader {request.sender_id}")
-                self.tree.add_node(new_node)
+            self.clientMap[new_node.client_id].updateReq(new_node.client_req_id)
+            # if not self.is_leader():
+            #     self.log.debug(
+            #         f"Received proposal {new_node} from leader {request.sender_id}")
+            #     self.tree.add_node(new_node)
+            self.log.debug(f"Received proposal {new_node} from leader {request.sender_id}")
+            self.tree.add_node(new_node)
             always_true = new_node.height > self.vheight  # Always true for the happy path
             happy_path = self.tree.is_ancestor(
                 self.locked_node.id, new_node.id)
@@ -301,14 +303,15 @@ class ReplicaServer(HotStuffReplicaServicer):
         
         # This might be incorrect, do we only update View when we receive a valid
         # proposal or do we update either way.
-        with self.lock:
-            if not self.is_leader():
-                self.viewNumber += 1
+        # with self.lock:
+        #     if not self.is_leader():
+        #         self.viewNumber += 1
         
         return EmptyResponse()
 
     def Vote(self, request, context):
         node = node_from_bytes(request.node)
+        self.tree.add_node(node)
         self.log.debug(f"Received vote for {node} from {request.sender_id} with signature {request.partial_sig[:5]}")
         with self.lock:
             numVotes = self.add_vote(node.id, request)
@@ -319,7 +322,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                     self.log.debug(f"Got enough votes for {node}")
                     newQC = QC(node.id, node.view_number, bytes(aggSig), pkids)
                     self.update_qc_high(newQC)
-                    self.viewNumber += 1
+                    # self.viewNumber += 1
                 else:
                     self.log.debug(f"Received {numVotes} but votes weren't valid")
             else:

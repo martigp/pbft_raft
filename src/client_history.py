@@ -17,9 +17,11 @@ class ClientInformation:
         # Latest req_id that is commited / executed for this client
         self.latestCommitedId : int = latestCommitedId
     
-    def updateReq(self, reqId : int):
+    def updateReq(self, reqId : int) -> bool:
         if reqId > self.latestReqId:
             self.latestReqId = reqId
+            return True
+        return False
     
     def updateProposed(self, reqId : int):
         if reqId > self.latestProposedId:
