@@ -1,6 +1,6 @@
 import logging
 import logging.config
-from threading import Lock
+from threading import Lock, Event
 from typing import Dict, Set
 
 from itertools import chain, combinations
@@ -21,7 +21,6 @@ logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 
 F = 1
 
-
 class ReplicaServer(HotStuffReplicaServicer):
     """Replica server implementation.
 
@@ -40,11 +39,12 @@ class ReplicaServer(HotStuffReplicaServicer):
     qc_high: QC  # Highest QC seen so far
     log: logging.Logger  # Logger
     global_config: GlobalConfig  # Global configuration
+    timer_event : Event # Timer event used to signal to reset the timer
 
     clientMap : Dict[str, ClientInformation] # All client infomration
 
     def __init__(self, config : ReplicaConfig, pks : list[str],
-                 client_configs : list[ClientConfig]):
+                 client_configs : list[ClientConfig], timer_event : Event):
         self.id = config.id
         self.public_key = parsePK(config.public_key)
         self.secret_key = parseSK(config.secret_key)
@@ -65,13 +65,14 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.replica_sessions = []
             self.votes = {}
             self.tree = Tree(self.id, config.root_qc_sig)
-            self.viewNumber = None
             root = self.tree.get_root_node()
             self.vheight = root.height
+            self.view_number = root.height + 1
             self.locked_node = root
             self.executed_node = root
             self.leaf_node = root
             self.qc_high = root.justify
+            self.timer_event = timer_event
 
     def establish_sessions(self, global_config: GlobalConfig):
         """Establish sessions with other replicas after a delay.
@@ -81,13 +82,13 @@ class ReplicaServer(HotStuffReplicaServicer):
         """
         with self.lock:
             self.replica_sessions = get_replica_sessions(global_config)
-            self.N = len(self.replica_sessions)
+            self.num_replica = len(self.replica_sessions)                
         self.log.info("Established sessions with all replicas")
         self.global_config = global_config
 
     def get_leader_id(self) -> str:
         """Get the leader id."""
-        return f"r{self.vheight % self.N}"
+        return f"r{(self.view_number - 1) % self.num_replica}"
         # return "r0"
 
     def is_leader(self) -> bool:
@@ -123,7 +124,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         message = self.tree.get_node(node_id).to_bytes()
 
         # Slow way to do checking without a proper partial Sig library
-        votesPowerset = list(chain.from_iterable(combinations(votes, r) for r in range(self.N - F, len(votes)+1)))
+        votesPowerset = list(chain.from_iterable(combinations(votes, r) for r in range(self.num_replica - F, len(votes)+1)))
         for voteSet in votesPowerset:
             sigs = []
             pkids = []
@@ -230,6 +231,16 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.log.debug(
                 f"Updating executed_node from {self.executed_node} to {node_jggp_b}")
             self.executed_node = node_jggp_b
+    
+    def on_new_view_sync(self):
+        with self.lock:
+            self.view_number += 1
+        self.log.info(f"Sending NEW_VIEW to {self.get_leader_id()}")
+        new_view_req = NewViewRequest(sender_id=self.id, node=None, qc=self.qc_high.to_bytes())
+        leader_session = self.get_session(self.get_leader_id())
+        leader_session.stub.NewView(new_view_req)
+        
+
 
 
     #############################
@@ -248,7 +259,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 with self.lock:
                     new_node = self.tree.create_node(
                         request.data.cmd, self.leaf_node.id, request.data.sender_id,
-                          self.qc_high, None, request.data.req_id)
+                          self.qc_high, self.view_number, request.data.req_id)
                     
                     self.log.debug(f"New node's jusitfy node id {new_node.justify.node_id}")
 
@@ -268,6 +279,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         to_vote = False
         new_node = node_from_bytes(request.node)
         self.log.debug(f"Received proposal {new_node}")
+        self.timer_event.set()
         with self.lock:
             self.clientMap[new_node.client_id].updateReq(new_node.client_req_id)
             # if not self.is_leader():
@@ -291,6 +303,8 @@ class ReplicaServer(HotStuffReplicaServicer):
                 to_vote = True
 
             self.update(new_node)
+            self.view_number += 1
+
 
         if to_vote:
             self.log.debug(f"Voting for {new_node}")
@@ -301,11 +315,11 @@ class ReplicaServer(HotStuffReplicaServicer):
             leader_session.stub.Vote(vote)
             self.log.debug(f"SENT vote for {new_node.id} to leader {self.get_leader_id()}")
         
-        # This might be incorrect, do we only update View when we receive a valid
-        # proposal or do we update either way.
+        # # This might be incorrect, do we only update View when we receive a valid
+        # # proposal or do we update either way.
         # with self.lock:
         #     if not self.is_leader():
-        #         self.viewNumber += 1
+        #         self.view_number += 1
         
         return EmptyResponse()
 
@@ -322,10 +336,14 @@ class ReplicaServer(HotStuffReplicaServicer):
                     self.log.debug(f"Got enough votes for {node}")
                     newQC = QC(node.id, node.view_number, bytes(aggSig), pkids)
                     self.update_qc_high(newQC)
-                    # self.viewNumber += 1
                 else:
                     self.log.debug(f"Received {numVotes} but votes weren't valid")
             else:
-                self.log.debug(f"Received {numVotes} : < {self.N - F}")
+                self.log.debug(f"Received {numVotes} : < {self.num_replica - F}")
 
+        return EmptyResponse()
+    
+    def NewView(self, request: NewViewRequest, context):
+        self.log.info(f"Received NEW_VIEW from {request.sender_id}")
+        self.update_qc_high(qc_from_bytes(request.qc))
         return EmptyResponse()
