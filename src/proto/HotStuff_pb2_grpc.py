@@ -44,9 +44,9 @@ class HotStuffReplicaStub(object):
                 request_serializer=proto_dot_HotStuff__pb2.EchoRequest.SerializeToString,
                 response_deserializer=proto_dot_HotStuff__pb2.EchoResponse.FromString,
                 _registered_method=True)
-        self.Beat = channel.unary_unary(
-                '/HotStuff.HotStuffReplica/Beat',
-                request_serializer=proto_dot_HotStuff__pb2.BeatRequest.SerializeToString,
+        self.ClientCommand = channel.unary_unary(
+                '/HotStuff.HotStuffReplica/ClientCommand',
+                request_serializer=proto_dot_HotStuff__pb2.ClientCommandRequest.SerializeToString,
                 response_deserializer=proto_dot_HotStuff__pb2.EmptyResponse.FromString,
                 _registered_method=True)
         self.Propose = channel.unary_unary(
@@ -78,7 +78,7 @@ class HotStuffReplicaServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def Beat(self, request, context):
+    def ClientCommand(self, request, context):
         """Receive command from the client.
         This is the entry point for the protocol. 
         The name in the paper suggests it is also used
@@ -121,9 +121,9 @@ def add_HotStuffReplicaServicer_to_server(servicer, server):
                     request_deserializer=proto_dot_HotStuff__pb2.EchoRequest.FromString,
                     response_serializer=proto_dot_HotStuff__pb2.EchoResponse.SerializeToString,
             ),
-            'Beat': grpc.unary_unary_rpc_method_handler(
-                    servicer.Beat,
-                    request_deserializer=proto_dot_HotStuff__pb2.BeatRequest.FromString,
+            'ClientCommand': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClientCommand,
+                    request_deserializer=proto_dot_HotStuff__pb2.ClientCommandRequest.FromString,
                     response_serializer=proto_dot_HotStuff__pb2.EmptyResponse.SerializeToString,
             ),
             'Propose': grpc.unary_unary_rpc_method_handler(
@@ -179,7 +179,7 @@ class HotStuffReplica(object):
             _registered_method=True)
 
     @staticmethod
-    def Beat(request,
+    def ClientCommand(request,
             target,
             options=(),
             channel_credentials=None,
@@ -192,8 +192,8 @@ class HotStuffReplica(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/HotStuff.HotStuffReplica/Beat',
-            proto_dot_HotStuff__pb2.BeatRequest.SerializeToString,
+            '/HotStuff.HotStuffReplica/ClientCommand',
+            proto_dot_HotStuff__pb2.ClientCommandRequest.SerializeToString,
             proto_dot_HotStuff__pb2.EmptyResponse.FromString,
             options,
             channel_credentials,

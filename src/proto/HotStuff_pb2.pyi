@@ -22,7 +22,7 @@ class EmptyResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
-class BeatRequest(_message.Message):
+class ClientCommandRequest(_message.Message):
     __slots__ = ("sender_id", "cmd")
     SENDER_ID_FIELD_NUMBER: _ClassVar[int]
     CMD_FIELD_NUMBER: _ClassVar[int]

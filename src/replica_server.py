@@ -6,7 +6,7 @@ from typing import Dict, Set
 from itertools import chain, combinations
 
 from common import GlobalConfig, ReplicaConfig, ReplicaSession, ClientConfig, get_replica_sessions
-from proto.HotStuff_pb2 import (BeatRequest, EchoRequest, EchoResponse, EmptyResponse,
+from proto.HotStuff_pb2 import (ClientCommandRequest, EchoRequest, EchoResponse, EmptyResponse,
                                 ProposeRequest, VoteRequest, NewViewRequest)
 from proto.HotStuff_pb2_grpc import HotStuffReplicaServicer
 from tree import QC, Node, Tree, node_from_bytes, qc_from_bytes
@@ -39,12 +39,12 @@ class ReplicaServer(HotStuffReplicaServicer):
     qc_high: QC  # Highest QC seen so far
     log: logging.Logger  # Logger
     global_config: GlobalConfig  # Global configuration
-    timer_event : Event # Timer event used to signal to reset the timer
+    new_view_event : Event # Timer event used to signal to reset the timer
 
     clientMap : Dict[str, ClientInformation] # All client infomration
 
     def __init__(self, config : ReplicaConfig, pks : list[str],
-                 client_configs : list[ClientConfig], timer_event : Event):
+                 client_configs : list[ClientConfig], new_view_event : Event):
         self.id = config.id
         self.public_key = parsePK(config.public_key)
         self.secret_key = parseSK(config.secret_key)
@@ -72,7 +72,7 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.executed_node = root
             self.leaf_node = root
             self.qc_high = root.justify
-            self.timer_event = timer_event
+            self.new_view_event = new_view_event
 
     def establish_sessions(self, global_config: GlobalConfig):
         """Establish sessions with other replicas after a delay.
@@ -241,13 +241,11 @@ class ReplicaServer(HotStuffReplicaServicer):
         leader_session.stub.NewView(new_view_req)
         
 
-
-
     #############################
     # Hot stuff protocol endpoints start here
     #############################
 
-    def Beat(self, request : BeatRequest, context):
+    def ClientCommand(self, request : ClientCommandRequest, context):
         data_bytes = request.data.SerializeToString()
         clientIdStr = request.data.sender_id
         clientPkStr = self.clientMap[clientIdStr].clientPk
@@ -279,7 +277,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         to_vote = False
         new_node = node_from_bytes(request.node)
         self.log.debug(f"Received proposal {new_node}")
-        self.timer_event.set()
+        self.new_view_event.set()
         with self.lock:
             self.clientMap[new_node.client_id].updateReq(new_node.client_req_id)
             # if not self.is_leader():

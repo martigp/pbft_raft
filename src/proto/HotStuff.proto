@@ -11,7 +11,7 @@ service HotStuffReplica {
   // This is the entry point for the protocol. 
   // The name in the paper suggests it is also used
   // to send heartbeats. But not sure how that works yet.
-  rpc Beat(BeatRequest) returns (EmptyResponse) {}
+  rpc ClientCommand(ClientCommandRequest) returns (EmptyResponse) {}
 
   // Propose a node to the replica
   // This is broadcast by the leader to all replicas
@@ -40,7 +40,7 @@ message EchoResponse {
 
 message EmptyResponse {}
 
-message BeatRequest {
+message ClientCommandRequest {
   // The sender id is used to identify the client
   // This will be required by all replicas to return replies to client
   // TODO: figure out how replicas know which client to reply to

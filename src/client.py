@@ -5,7 +5,7 @@ from threading import Thread
 import grpc
 
 from common import get_client_config, get_replica_sessions, ClientConfig
-from proto.HotStuff_pb2 import BeatRequest
+from proto.HotStuff_pb2 import ClientCommandRequest
 from proto import Client_pb2, Client_pb2_grpc
 from crypto import partialSign, parseSK
 
@@ -59,10 +59,10 @@ def main():
         cmd = input('Enter command: ')
         # We should be signing this as a sender req.SerializeToString()
         for replica in replica_sessions:
-            data = BeatRequest.Data(sender_id=config.id, cmd=cmd, req_id = i)
+            data = ClientCommandRequest.Data(sender_id=config.id, cmd=cmd, req_id = i)
             data_bytes = data.SerializeToString()
             sig = partialSign(parseSK(config.secret_key), data_bytes)
-            replica.stub.Beat(BeatRequest(data=data,sig=bytes(sig)))
+            replica.stub.ClientCommand(ClientCommandRequest(data=data,sig=bytes(sig)))
         i+=1
 
         # Multithread receiving responses?
