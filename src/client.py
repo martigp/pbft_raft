@@ -16,7 +16,7 @@ from crypto import partialSign, parseSK
 logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--runner', type=str, default='stdin', help='stdin or random_kv')
+parser.add_argument('--runner', type=str, default='async', help='sync, async or random_kv')
 
 
 class ClientServicer(Client_pb2_grpc.HotStuffClientServicer):
@@ -74,7 +74,7 @@ class ClientServicer(Client_pb2_grpc.HotStuffClientServicer):
             sig = partialSign(parseSK(self.config.secret_key), data_bytes)
             replica.stub.ClientCommand(ClientCommandRequest(data=data,sig=bytes(sig)))
         self.log.debug(f"Sent command {cmd}")
-        return str(curr_req_id)
+        return f"Request ID: {curr_req_id}"
 
     
     def execute(self, cmd:str)->str:
@@ -121,11 +121,18 @@ def main(args):
             print(f"COMMAND: {cmd}, RESPONSE: {client_servicer.async_execute(cmd)}")
             # TODO: For now using a value larger than timeout but we probably need a smaller value
             time.sleep(5)
-    else:
+    elif args.runner == 'sync':
         while True:
             cmd = input('Enter command: ')
             # We should be signing this as a sender req.SerializeToString()
             print(f"COMMAND: {cmd}, RESPONSE: {client_servicer.execute(cmd)}")
+    elif args.runner == 'async':
+        while True:
+            cmd = input('Enter command: ')
+            # We should be signing this as a sender req.SerializeToString()
+            print(f"COMMAND: {cmd}, RESPONSE: {client_servicer.async_execute(cmd)}")
+    else:
+        raise ValueError(f'Invalid runner: {args.runner}')
 
         # Multithread receiving responses?
 

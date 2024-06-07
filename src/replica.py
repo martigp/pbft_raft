@@ -48,7 +48,7 @@ def establish_sessions_with_delay(replica_server: ReplicaServer, global_config: 
     replica_server.establish_sessions(global_config)
 
 
-def serve(replica_server: ReplicaServer, config: ReplicaConfig, packemaker : Pacemaker):
+def serve(replica_server: ReplicaServer, config: ReplicaConfig, pacemaker : Pacemaker):
     """Start the gRPC server for the replica listening on the specified port."""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     add_HotStuffReplicaServicer_to_server(replica_server, server)
