@@ -89,8 +89,6 @@ def serve(replica_server: ReplicaServer, config: ReplicaConfig, packemaker : Pac
                 log.debug("CENTRAL CONTROL Calling new view")
                 replica_server.on_new_view_sync()
                 pacemaker.new_view_event.set(PacemakerEventStatus.NOT_SET)
-            else:
-                log.debug(f"CENTRAL CONTROL new view status was: {new_view_status}")
             
         pacemaker.central_control_event.set(PacemakerEventStatus.NOT_SET)
 
