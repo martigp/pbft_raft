@@ -1,5 +1,7 @@
 from threading import Event, Condition, Lock
 from enum import Enum
+from collections import deque
+from proto.HotStuff_pb2 import ClientCommandRequest
 
 
 class PacemakerEventStatus(Enum):
@@ -90,3 +92,26 @@ class Pacemaker():
     def __init__(self):
         self.new_view_event = PacemakerEvent()
         self.central_control_event = PacemakerEvent()
+        self.heartbeat_event = PacemakerEvent()
+
+        self.client_requests : deque[ClientCommandRequest] = deque()
+        self.queue_lock = Lock()
+    
+    def on_client_request(self, client_req : ClientCommandRequest):
+        with self.queue_lock:
+            self.client_requests.append(client_req)
+    
+    def dedup_req(self, client_id :str , client_req_id : int):
+        with self.queue_lock:
+            for i in range(len(self.client_requests)):
+                client_req = self.client_requests[i]
+                if client_req.data.sender_id == client_id and client_req.data.req_id == client_req_id:
+                    self.client_requests.remove(client_req)
+                    return
+    
+    def get_next_req(self) -> ClientCommandRequest:
+        with self.queue_lock:
+            try:
+                return self.client_requests.pop()
+            except IndexError:
+                return None

@@ -17,19 +17,25 @@ log = logging.getLogger(__name__)
 HEARTBEAT_EVENT_TIMEOUT = 2
 NEW_SYNC_TIMEOUT = 10
 
-# def wait_on_heartbeat_event(pacemaker : Pacemaker):
-#     while True:
-#         pacemaker.heartbeat_event.wait(timeout=HEARTBEAT_EVENT_TIMEOUT)
-#         pacemaker.central_control_event.set()
-#         pacemaker.heartbeat_event.wait(PacemakerEventStatus.NOT_SET)
+def wait_on_heartbeat_event(pacemaker : Pacemaker):
+    while True:
+        pacemaker.heartbeat_event.wait(timeout=HEARTBEAT_EVENT_TIMEOUT)
+        if pacemaker.heartbeat_event.status() == PacemakerEventStatus.TIMED_OUT:
+            log.debug(f"HEARTBEAT TIMEOUT")
+            pacemaker.central_control_event.set()
+            pacemaker.central_control_event.wait(PacemakerEventStatus.NOT_SET)
+        else:
+            pacemaker.heartbeat_event.set(PacemakerEventStatus.NOT_SET)
 
 def wait_on_new_sync_event(pacemaker : Pacemaker):
     while True:
         pacemaker.new_view_event.wait(timeout=NEW_SYNC_TIMEOUT)
-        pacemaker.central_control_event.set()
-        pacemaker.central_control_event.wait(PacemakerEventStatus.NOT_SET)
-
-    
+        if pacemaker.new_view_event.status() == PacemakerEventStatus.TIMED_OUT:
+            log.debug(f"NEW VIEW TIMEOUT")
+            pacemaker.central_control_event.set()
+            pacemaker.central_control_event.wait(PacemakerEventStatus.NOT_SET)
+        else:
+            pacemaker.new_view_event.set(PacemakerEventStatus.NOT_SET)
 
 
 
@@ -53,35 +59,39 @@ def serve(replica_server: ReplicaServer, config: ReplicaConfig, packemaker : Pac
 
     time.sleep(10)
 
-    # heartbeat_thread = Thread(target=wait_on_heartbeat_event, args=(pacemaker,))
+    heartbeat_thread = Thread(target=wait_on_heartbeat_event, args=(pacemaker,))
     
     new_sync_thread = Thread(target=wait_on_new_sync_event,
                               args=(pacemaker,))
     
-    # heartbeat_thread.start()
+    heartbeat_thread.start()
     new_sync_thread.start()
 
 
     while True:
         pacemaker.central_control_event.wait()
-        print("CENTRAL CONTROL THREAD RECEIVED EVENT")
-        # Check for a timer timeout, if this happens then we should call
-        if server._state.termination_event.is_set():
-            # heartbeat_thread.stop()
-            new_sync_thread.stop()
-            break
+        with pacemaker.central_control_event._cond:
+            print("CENTRAL CONTROL THREAD RECEIVED EVENT")
+            # Check for a timer timeout, if this happens then we should call
+            if server._state.termination_event.is_set():
+                # heartbeat_thread.stop()
+                new_sync_thread.stop()
+                break
 
-        # heartbeat_status = pacemaker.heartbeat_event.status()
-        # print(f"Heartbeat status upon signal was {new_view_status}")
-        # if heartbeat_status == pacemaker.
-        
-        new_view_status  = pacemaker.new_view_event.status()
-        print(f"New View status upon signal was {new_view_status}")
-        if new_view_status == PacemakerEventStatus.TIMED_OUT:
-            replica_server.on_new_view_sync()
-        else:
-            pacemaker.new_view_event.set(PacemakerEventStatus.NOT_SET)
-        
+            heartbeat_status  = pacemaker.heartbeat_event.status()
+            if heartbeat_status == PacemakerEventStatus.TIMED_OUT:
+                next_req  = pacemaker.get_next_req()
+                replica_server.on_beat(next_req)
+                pacemaker.heartbeat_event.set(PacemakerEventStatus.NOT_SET)
+            
+            new_view_status  = pacemaker.new_view_event.status()
+            if new_view_status == PacemakerEventStatus.TIMED_OUT:
+                log.debug("CENTRAL CONTROL Calling new view")
+                replica_server.on_new_view_sync()
+                pacemaker.new_view_event.set(PacemakerEventStatus.NOT_SET)
+            else:
+                log.debug(f"CENTRAL CONTROL new view status was: {new_view_status}")
+            
         pacemaker.central_control_event.set(PacemakerEventStatus.NOT_SET)
 
 if __name__ == '__main__':

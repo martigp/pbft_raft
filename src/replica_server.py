@@ -241,6 +241,31 @@ class ReplicaServer(HotStuffReplicaServicer):
         new_view_req = NewViewRequest(sender_id=self.id, node=None, qc=self.qc_high.to_bytes())
         leader_session = self.get_session(self.get_leader_id())
         leader_session.stub.NewView(new_view_req)
+
+    def on_beat(self, request : ClientCommandRequest):
+        if request is None:
+            return
+        
+        clientIdStr = request.data.sender_id
+        if self.is_leader() and self.clientMap[clientIdStr].updateReq(request.data.req_id):
+            self.log.debug(f"Received command from client: {request.data.cmd}")
+            with self.lock:
+                new_node = self.tree.create_node(
+                    request.data.cmd, self.leaf_node.id, request.data.sender_id,
+                        self.qc_high, self.view_number, request.data.req_id)
+                
+                self.log.debug(f"New node's jusitfy node id {new_node.justify.node_id}")
+
+                self.log.debug(f"Proposing {new_node} and setting it as leaf")
+                self.leaf_node = new_node
+
+            # This should be outside lock as it will call Propose on the
+            # leader and will lead to a deadlock otherwise.
+            for replica in self.replica_sessions:
+                self.log.debug(f"ABOUT TO SEND cmd {request.data.cmd} to replica {replica.config.id}")
+                replica.stub.Propose(ProposeRequest(
+                    sender_id=self.id, node=new_node.to_bytes()))
+                self.log.debug(f"SENT cmd {request.data.cmd} to replica {replica.config.id}")
         
 
     #############################
@@ -252,27 +277,9 @@ class ReplicaServer(HotStuffReplicaServicer):
         clientIdStr = request.data.sender_id
         clientPkStr = self.clientMap[clientIdStr].clientPk
         validSig, _ = verifySigs(data_bytes, [request.sig], [parsePK(clientPkStr)])
-        
         if validSig:
-            if self.is_leader() and self.clientMap[clientIdStr].updateReq(request.data.req_id):
-                self.log.debug(f"Received command from client: {request.data.cmd}")
-                with self.lock:
-                    new_node = self.tree.create_node(
-                        request.data.cmd, self.leaf_node.id, request.data.sender_id,
-                          self.qc_high, self.view_number, request.data.req_id)
-                    
-                    self.log.debug(f"New node's jusitfy node id {new_node.justify.node_id}")
-
-                    self.log.debug(f"Proposing {new_node} and setting it as leaf")
-                    self.leaf_node = new_node
-
-                # This should be outside lock as it will call Propose on the
-                # leader and will lead to a deadlock otherwise.
-                for replica in self.replica_sessions:
-                    self.log.debug(f"ABOUT TO SEND cmd {request.data.cmd} to replica {replica.config.id}")
-                    replica.stub.Propose(ProposeRequest(
-                        sender_id=self.id, node=new_node.to_bytes()))
-                    self.log.debug(f"SENT cmd {request.data.cmd} to replica {replica.config.id}")
+            self.pacemaker.on_client_request(request)
+        self.log.debug("CLIENT SHOULD RETURN")
         return EmptyResponse()
 
     def Propose(self, request, context):
@@ -282,6 +289,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         self.pacemaker.new_view_event.set()
         with self.lock:
             self.clientMap[new_node.client_id].updateReq(new_node.client_req_id)
+            self.pacemaker.dedup_req(new_node.client_id, new_node.client_req_id)
             # if not self.is_leader():
             #     self.log.debug(
             #         f"Received proposal {new_node} from leader {request.sender_id}")
@@ -305,6 +313,9 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.update(new_node)
             self.view_number += 1
 
+        # TODO: Note sure if this is necessary but reflects a change in central control
+        if self.is_leader():
+            self.pacemaker.central_control_event.set()
 
         if to_vote:
             self.log.debug(f"Voting for {new_node}")
