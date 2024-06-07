@@ -42,15 +42,36 @@ class GlobalConfig:
         self.replica_configs = replicas
         self.F = F
 
+class ErrorIgnoringStub:
+    def __init__(self, config: ReplicaConfig):
+        self.config = config
+        self.stub = HotStuffReplicaStub(
+                grpc.insecure_channel(self.config.host+':'+str(self.config.port)))
+
+    @staticmethod
+    def ignore_error(func, name, id):
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                log.error(f"Failed to call {name} on {id}")
+                return None
+        return wrapper
+
+    def __getattr__(self, name):
+        attr = getattr(self.stub, name)
+        if callable(attr):
+            return ErrorIgnoringStub.ignore_error(
+                attr, name, self.config.id)
+        return attr
+
 
 class ReplicaSession:
     """Class used to communicate with replicas."""
 
     def __init__(self, config: ReplicaConfig):
         self.config = config
-        self.stub = HotStuffReplicaStub(
-            grpc.insecure_channel(config.host+':'+str(config.port)))
-
+        self.stub = ErrorIgnoringStub(config)
 
 
 def get_global_config(file_path: str = '../configs.json') -> GlobalConfig:

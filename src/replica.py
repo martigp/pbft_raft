@@ -37,17 +37,6 @@ def wait_on_new_sync_event(pacemaker : Pacemaker):
         else:
             pacemaker.new_view_event.set(PacemakerEventStatus.NOT_SET)
 
-
-
-def establish_sessions_with_delay(replica_server: ReplicaServer, global_config: GlobalConfig, delay: int):
-    """Establish sessions with other replicas after a delay.
-
-    The delay is to ensure all servers are up before establishing sessions.
-    """
-    time.sleep(delay)
-    replica_server.establish_sessions(global_config)
-
-
 def serve(replica_server: ReplicaServer, config: ReplicaConfig, pacemaker : Pacemaker):
     """Start the gRPC server for the replica listening on the specified port."""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
@@ -59,12 +48,12 @@ def serve(replica_server: ReplicaServer, config: ReplicaConfig, pacemaker : Pace
 
     time.sleep(10)
 
-    heartbeat_thread = Thread(target=wait_on_heartbeat_event, args=(pacemaker,))
+    # heartbeat_thread = Thread(target=wait_on_heartbeat_event, args=(pacemaker,))
     
     new_sync_thread = Thread(target=wait_on_new_sync_event,
                               args=(pacemaker,))
     
-    heartbeat_thread.start()
+    # heartbeat_thread.start()
     new_sync_thread.start()
 
 
@@ -110,12 +99,8 @@ if __name__ == '__main__':
     # Set up server
     replica_server = ReplicaServer(config, pks, global_config.client_configs, pacemaker, executor, global_config.F)
 
-    # Establish sessions with other replicas
-    # This is done after a delay to ensure all servers are up
-    delay = 10
-    log.info("Establishing sessions with other replicas after a delay of %d seconds", delay)
-    Thread(target=establish_sessions_with_delay, args=(
-        replica_server, global_config, delay)).start()
+    log.info("Establishing sessions with other replicas")
+    replica_server.establish_sessions(global_config)
 
     # Start gRPC server
     serve(replica_server, config, pacemaker)

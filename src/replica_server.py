@@ -282,7 +282,8 @@ class ReplicaServer(HotStuffReplicaServicer):
         clientPkStr = self.clientMap[clientIdStr].clientPk
         validSig, _ = verifySigs(data_bytes, [request.sig], [parsePK(clientPkStr)])
         if validSig:
-            self.pacemaker.on_client_request(request)
+            # self.pacemaker.on_client_request(request)
+            self.on_beat(request)
         self.log.debug("CLIENT SHOULD RETURN")
         return EmptyResponse()
 
