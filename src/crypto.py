@@ -4,7 +4,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import utils
 from tree import Tree
-from proto.HotStuff_pb2 import VoteRequest
+# from proto.HotStuff_pb2 import VoteRequest
 
 
 
@@ -169,23 +169,21 @@ def getRootQCSiganture():
 
 
 
-# testRSA()
-sks, pks = clientthresholdKeyGen(2)
-for i in range(2):
-    serliazed_pk, serliazed_sk = seralizePKSK(pks[i], sks[i])
-    print(f"Client {i} sk: {serliazed_sk}")
-    print(f"Client {i} pk: {serliazed_pk}")
+# # testRSA()
+# sks, pks = clientthresholdKeyGen(5)
+# for i in range(5):
+#     serliazed_pk, serliazed_sk = seralizePKSK(pks[i], sks[i])
+#     print(f"Client {i} sk: {serliazed_sk}")
+#     print(f"Client {i} pk: {serliazed_pk}")
 
 
-# testBLSThreshold(4)
-# sks, pks = thresholdKeyGen(4)
-
-
+# # testBLSThreshold(4)
+# sks, pks = thresholdKeyGen(5)
 # for i in range(len(sks)):
 #     pk_hex, sk_hex = seralizePKSK(pks[i], sks[i])
 #     print(f"Hex PK {i}: {pk_hex}\nSK {i}: {sk_hex}\n")
 
-# getRootQCSiganture()
+# # getRootQCSiganture()
 
 
 

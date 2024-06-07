@@ -7,11 +7,33 @@
       "public_key": "870b8535db423973243df28bb1967d4e28cee161fbf18d35d5576fa7b67da2eb6077381557fac7c0bbcf7ae513aaea20",
       "secret_key" : "53998406203d5476272af0efc9e260200ce5403335614b25bcd6a772d15b93fa"
     },
-    { "id": "c1",
+    {
+      "id": "c1",
       "host": "localhost",
       "port": 8101,
       "public_key": "a1a850a7fdaa84686d829794622774c49e96d520d11a93fe565f9fd517ed9f4e3d427da4f0e22556ab1bd0a2d500bf55",
-      "secret_key" : "4d7d485755b1e6e4180f66c2f4081371bdfe5cf9e8ff63a01b82dd86e0dc97f0"
+      "secret_key": "4d7d485755b1e6e4180f66c2f4081371bdfe5cf9e8ff63a01b82dd86e0dc97f0"
+    },
+    {
+      "id": "c2",
+      "host": "localhost",
+      "port": 8102,
+      "public_key": "96fb31ed6b63ffc29efd884abe58712648128353c2c909fc6be221b3450b8bea7572e70a138903edeb7b515e5fb58fb0",
+      "secret_key": "2b2d0f9da608a1a847cdef8444263d820ba5cd70c0a6070a812cbcd18bc3f584"
+    },
+    {
+      "id": "c3",
+      "host": "localhost",
+      "port": 8103,
+      "public_key": "836edebc6e78fb0f498028c520cec8e0d7571ef8be7de4e81a0f497c02595d777e8b64cea4464748e75933b87cceb4a6",
+      "secret_key": "4637da8eaeec4abb2db8bc425b37459ac01f0d1b62b9a3cf0f077a1aed2fe139"
+    },
+    {
+      "id": "c4",
+      "host": "localhost",
+      "port": 8104,
+      "public_key": "9069bf6785dc1e165e26e9cbb84158c9714737728a6d42a91360b28ded248bd976d3552bd9f3ae835b7217bbaeaced9a",
+      "secret_key": "29918e8eeb67109ff7b082d7187817027e16692ced3591ed39b7a609955daad5"
     }
   ],
   "replicas": [
@@ -45,6 +67,14 @@
       "port": 8003,
       "public_key": "936c6d56c543b240ce1e6da0b90487249c60abcabad6738045b951ba2b278b4e2e81aa48a42fa71e83f168a99fa4e153",
       "secret_key": "66a89adef7d875932c9dfd9fb9352ce093ea9e08c7ba9633a65234b29aabcce3",
+      "root_qc_sig": "9391fc02e078595a566a7d6f3c884598ac2bac6d5779d27e5b3f4f590fa9a41d42137dc723b95241e462f44db0e31c75029f73c660b802502f132310bf1cf90b68800403acb0da46defabf74de73f533dc19ab86282291edf03fe9120e0992a1"
+    },
+    {
+      "id": "r4",
+      "host": "localhost",
+      "port": 8004,
+      "public_key": "b5b1e2a7cfa21d6647923b04a922c97900253cde87f8fd9c6dd18dab42fb5bb725b99f3e07146cf05d7938e2ac329f05",
+      "secret_key": "49c66d17cc778fff08c82d59c231a0fab6a68863cc414d193e2e6fe555d9f00d",
       "root_qc_sig": "9391fc02e078595a566a7d6f3c884598ac2bac6d5779d27e5b3f4f590fa9a41d42137dc723b95241e462f44db0e31c75029f73c660b802502f132310bf1cf90b68800403acb0da46defabf74de73f533dc19ab86282291edf03fe9120e0992a1"
     }
   ]

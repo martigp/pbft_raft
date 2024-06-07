@@ -66,3 +66,13 @@ services:
     depends_on:
       logger:
         condition: service_healthy
+  replica4:
+    build:
+      context: .
+      target: replica
+    network_mode: host
+    environment:
+      - REPLICA_ID=r4
+    depends_on:
+      logger:
+        condition: service_healthy

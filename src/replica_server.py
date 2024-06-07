@@ -116,7 +116,7 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.votes[node_id] = set()
         # Add the tuple of sender_id and the signature for that node
         self.votes[node_id].add((vote_reqeust.sender_id, vote_reqeust.partial_sig))
-        self.log.debug(f"Node {node_id} received {len(self.votes[node_id])} votes")
+        self.log.info(f"Node {node_id} received {len(self.votes[node_id])} votes")
         return len(self.votes[node_id])
     
     def check_votes(self, node_id: str):
@@ -186,7 +186,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         received_qc_node = self.tree.get_node(received_qc.node_id)
         my_qc_high_node = self.tree.get_node(self.qc_high.node_id)
         if received_qc_node.height > my_qc_high_node.height:
-            self.log.debug(
+            self.log.info(
                 f"Updating qc_high from {my_qc_high_node} to {received_qc_node} and setting it as leaf")
             self.qc_high = received_qc
             self.leaf_node = received_qc_node
@@ -226,7 +226,7 @@ class ReplicaServer(HotStuffReplicaServicer):
 
         self.update_qc_high(node.justify)
         if node_jgp_p.height > self.locked_node.height:
-            self.log.debug(f"Locking {node_jgp_p} over {self.locked_node}")
+            self.log.info(f"Locking {node_jgp_p} over {self.locked_node}")
             # node_jgp enters commit phase
             self.locked_node = node_jgp_p
         else:
@@ -262,7 +262,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 
                 self.log.debug(f"New node's jusitfy node id {new_node.justify.node_id}")
 
-                self.log.debug(f"Proposing {new_node} and setting it as leaf")
+                self.log.info(f"Proposing {new_node} and setting it as leaf")
                 self.leaf_node = new_node
                 send_proposal = True
                 
@@ -327,7 +327,7 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.pacemaker.central_control_event.set()
 
         if to_vote:
-            self.log.debug(f"Voting for {new_node}")
+            self.log.info(f"Voting for {new_node}")
             leader_session = self.get_session(self.get_leader_id())
             node_bytes = new_node.to_bytes()
             sig = bytes(partialSign(self.secret_key, node_bytes))
