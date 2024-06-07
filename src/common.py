@@ -4,7 +4,7 @@ import os
 from typing import List, Tuple
 import base64
 import requests
-
+from executor import Executor, KVStore
 import grpc
 from proto.HotStuff_pb2_grpc import HotStuffReplicaStub
 
@@ -86,3 +86,10 @@ def get_client_config() -> Tuple[ClientConfig, GlobalConfig]:
 def get_replica_sessions(global_config: GlobalConfig) -> List[ReplicaSession]:
     """Establishes sessions with all replicas."""
     return [ReplicaSession(replica_config) for replica_config in global_config.replica_configs]
+
+def get_executor()->Executor:
+    executor = os.getenv('EXECUTOR', 'KVStore')
+    if executor == 'KVStore':
+        return KVStore()
+    else:
+        raise ValueError(f'Executor {executor} not found')

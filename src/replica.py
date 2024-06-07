@@ -5,7 +5,7 @@ from concurrent import futures
 from threading import Thread, Event
 
 import grpc
-from common import GlobalConfig, ReplicaConfig, get_replica_config
+from common import GlobalConfig, ReplicaConfig, get_replica_config, get_executor
 from proto.HotStuff_pb2_grpc import add_HotStuffReplicaServicer_to_server
 from replica_server import ReplicaServer
 
@@ -95,6 +95,7 @@ def serve(replica_server: ReplicaServer, config: ReplicaConfig, packemaker : Pac
 if __name__ == '__main__':
     # Read configs
     config, global_config = get_replica_config()
+    executor = get_executor()
 
     pks = []
     for replicaconfig in global_config.replica_configs:
@@ -107,7 +108,7 @@ if __name__ == '__main__':
 
     #
     # Set up server
-    replica_server = ReplicaServer(config, pks, global_config.client_configs, pacemaker)
+    replica_server = ReplicaServer(config, pks, global_config.client_configs, pacemaker, executor)
 
     # Establish sessions with other replicas
     # This is done after a delay to ensure all servers are up

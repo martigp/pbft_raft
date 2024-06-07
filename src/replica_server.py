@@ -11,7 +11,7 @@ from proto.HotStuff_pb2 import (ClientCommandRequest, EchoRequest, EchoResponse,
 from proto.HotStuff_pb2_grpc import HotStuffReplicaServicer
 from tree import QC, Node, Tree, node_from_bytes, qc_from_bytes
 from crypto import partialSign, parsePK, parseSK, verifySigs
-
+from executor import Executor
 from pacemaker import Pacemaker
 
 from client_history import ClientInformation
@@ -42,11 +42,12 @@ class ReplicaServer(HotStuffReplicaServicer):
     log: logging.Logger  # Logger
     global_config: GlobalConfig  # Global configuration
     new_view_event : Event # Timer event used to signal to reset the timer
+    executor: Executor  # Application executor
 
     clientMap : Dict[str, ClientInformation] # All client infomration
 
     def __init__(self, config : ReplicaConfig, pks : list[str],
-                 client_configs : list[ClientConfig], pacemaker : Pacemaker):
+                 client_configs : list[ClientConfig], pacemaker : Pacemaker, executor : Executor):
         self.id = config.id
         self.public_key = parsePK(config.public_key)
         self.secret_key = parseSK(config.secret_key)
@@ -75,6 +76,7 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.leaf_node = root
             self.qc_high = root.justify
             self.pacemaker = pacemaker
+        self.executor = executor
 
     def establish_sessions(self, global_config: GlobalConfig):
         """Establish sessions with other replicas after a delay.
@@ -163,6 +165,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         Idally, it should append to some log file.
         """
         self.log.info("Executing command: %s", node.cmd)
+        response = self.executor.execute(node.cmd)
         client_id = node.client_id
         client = None
         for client_config in self.global_config.client_configs:
@@ -170,7 +173,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 client = client_config
         channel = grpc.insecure_channel(f'{client.host}:{client.port}')
         stub = HotStuffClientStub(channel)
-        stub.reply(Response(message=str(node), sender_id=self.id))
+        stub.reply(Response(message=response, sender_id=self.id))
 
 
     def update_qc_high(self, received_qc: QC):
