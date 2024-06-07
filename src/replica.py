@@ -14,7 +14,7 @@ from pacemaker import Pacemaker, PacemakerEventStatus
 logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 log = logging.getLogger(__name__)
 
-HEARTBEAT_EVENT_TIMEOUT = 2
+HEARTBEAT_EVENT_TIMEOUT = 5
 NEW_SYNC_TIMEOUT = 10
 
 def wait_on_heartbeat_event(pacemaker : Pacemaker):
@@ -48,7 +48,7 @@ def serve(replica_server: ReplicaServer, config: ReplicaConfig, pacemaker : Pace
 
     time.sleep(10)
 
-    # heartbeat_thread = Thread(target=wait_on_heartbeat_event, args=(pacemaker,))
+    heartbeat_thread = Thread(target=wait_on_heartbeat_event, args=(pacemaker,))
     
     new_sync_thread = Thread(target=wait_on_new_sync_event,
                               args=(pacemaker,))

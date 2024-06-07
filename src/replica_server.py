@@ -172,6 +172,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         for client_config in self.global_config.client_configs:
             if client_config.id == client_id:
                 client = client_config
+        self.log.info(f"Sending response to client {client_id}: {response}")
         channel = grpc.insecure_channel(f'{client.host}:{client.port}')
         stub = HotStuffClientStub(channel)
         stub.reply(Response(message=f"{node.client_req_id}: {response}", sender_id=self.id))
@@ -199,7 +200,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         Also do the same for all the ancestors of the node.
         """
         if self.executed_node.height < node.height:
-            self.log.debug(f"Commiting {node}")
+            self.log.info(f"Commiting {node}")
             self.commit(self.tree.get_node(node.parent_id))
             self.execute(node)
         else:
@@ -220,7 +221,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         node_jggp_b = self.tree.get_node(
             node_jgp_p.justify.node_id)  # b in paper
 
-        self.log.debug(
+        self.log.info(
             f"Justify ancestors: {node} -> {node_jp_dp} -> {node_jgp_p} -> {node_jggp_b}")
 
         self.update_qc_high(node.justify)
@@ -241,7 +242,7 @@ class ReplicaServer(HotStuffReplicaServicer):
     def on_new_view_sync(self):
         with self.lock:
             self.view_number += 1
-        self.log.info(f"Sending NEW_VIEW to {self.get_leader_id()}")
+        self.log.debug(f"Sending NEW_VIEW to {self.get_leader_id()}")
         new_view_req = NewViewRequest(sender_id=self.id, node=None, qc=self.qc_high.to_bytes())
         leader_session = self.get_session(self.get_leader_id())
         leader_session.stub.NewView(new_view_req)
@@ -251,9 +252,10 @@ class ReplicaServer(HotStuffReplicaServicer):
             return
         
         clientIdStr = request.data.sender_id
-        if self.is_leader() and self.clientMap[clientIdStr].updateReq(request.data.req_id):
-            self.log.debug(f"Received command from client: {request.data.cmd}")
-            with self.lock:
+        send_proposal = False
+        with self.lock:
+            if self.is_leader() and self.clientMap[clientIdStr].updateReq(request.data.req_id):
+                self.log.info(f"Processing command from client: {request.data.cmd}")
                 new_node = self.tree.create_node(
                     request.data.cmd, self.leaf_node.id, request.data.sender_id,
                         self.qc_high, self.view_number, request.data.req_id)
@@ -262,7 +264,9 @@ class ReplicaServer(HotStuffReplicaServicer):
 
                 self.log.debug(f"Proposing {new_node} and setting it as leaf")
                 self.leaf_node = new_node
-
+                send_proposal = True
+                
+        if send_proposal:
             # This should be outside lock as it will call Propose on the
             # leader and will lead to a deadlock otherwise.
             for replica in self.replica_sessions:
@@ -282,15 +286,15 @@ class ReplicaServer(HotStuffReplicaServicer):
         clientPkStr = self.clientMap[clientIdStr].clientPk
         validSig, _ = verifySigs(data_bytes, [request.sig], [parsePK(clientPkStr)])
         if validSig:
-            # self.pacemaker.on_client_request(request)
             self.on_beat(request)
+            # self.pacemaker.on_client_request(request)
         self.log.debug("CLIENT SHOULD RETURN")
         return EmptyResponse()
 
     def Propose(self, request, context):
         to_vote = False
         new_node = node_from_bytes(request.node)
-        self.log.debug(f"Received proposal {new_node}")
+        self.log.info(f"Received proposal {new_node}")
         self.pacemaker.new_view_event.set()
         with self.lock:
             self.clientMap[new_node.client_id].updateReq(new_node.client_req_id)
@@ -342,7 +346,7 @@ class ReplicaServer(HotStuffReplicaServicer):
     def Vote(self, request, context):
         node = node_from_bytes(request.node)
         self.tree.add_node(node)
-        self.log.debug(f"Received vote for {node} from {request.sender_id} with signature {request.partial_sig[:5]}")
+        self.log.info(f"Received vote for {node} from {request.sender_id} with signature {request.partial_sig[:5]}")
         with self.lock:
             numVotes = self.add_vote(node.id, request)
             if numVotes >= self.num_replica - self.F:

@@ -58,7 +58,7 @@ class ClientServicer(Client_pb2_grpc.HotStuffClientServicer):
                 if agreements > self.F:
                     if req_id not in self.agreed_responses:
                         self.agreed_responses[req_id] = response
-                        self.log.debug("Agreed response: %s", response)
+                        self.log.info(f"Received response for request id {req_id}: {response}")
                     break
 
         return Client_pb2.EmptyResponse()
@@ -74,17 +74,19 @@ class ClientServicer(Client_pb2_grpc.HotStuffClientServicer):
             sig = partialSign(parseSK(self.config.secret_key), data_bytes)
             replica.stub.ClientCommand(ClientCommandRequest(data=data,sig=bytes(sig)))
         self.log.debug(f"Sent command {cmd}")
-        return f"Request ID: {curr_req_id}"
+        return f"{curr_req_id}"
 
     
     def execute(self, cmd:str)->str:
         req_id = self.async_execute(cmd)
-        with self.lock:
-            while req_id not in self.agreed_responses:
-                # print(self.agreed_responses)
-                time.sleep(0.1)
-            return self.agreed_responses[req_id]
-            # return str(self.agreed_responses)
+        for _ in range(50):
+            with self.lock:
+                self.log.debug(f"Agreed Responses: {self.agreed_responses}")
+                if req_id in self.agreed_responses:
+                    return self.agreed_responses[req_id]
+            time.sleep(0.5)
+        return "Failed"
+                
 
 
 
@@ -114,23 +116,19 @@ def main(args):
     # Send commands to replicas
     # This is the entry point for the protocol
     if args.runner == 'random_kv':
-        time.sleep(10)
         while True:
-            cmd = f"SET {random.randint(0, 100)} {random.randint(0, 100)}"
-            # TODO: Change to log.info and sleep time
-            print(f"COMMAND: {cmd}, RESPONSE: {client_servicer.async_execute(cmd)}")
-            # TODO: For now using a value larger than timeout but we probably need a smaller value
-            time.sleep(5)
+            time.sleep(4)
+            client_servicer.log.info(f"Sending commands to replicas")
+            response = client_servicer.async_execute(f"SET {random.randint(0, 100)} {random.randint(0, 100)}")
+            client_servicer.log.info(f"Response: {response}")
     elif args.runner == 'sync':
         while True:
-            cmd = input('Enter command: ')
-            # We should be signing this as a sender req.SerializeToString()
-            print(f"COMMAND: {cmd}, RESPONSE: {client_servicer.execute(cmd)}")
+            response = client_servicer.execute(input('Enter command: '))
+            client_servicer.log.info(f"Response: {response}")
     elif args.runner == 'async':
         while True:
-            cmd = input('Enter command: ')
-            # We should be signing this as a sender req.SerializeToString()
-            print(f"COMMAND: {cmd}, RESPONSE: {client_servicer.async_execute(cmd)}")
+            response = client_servicer.async_execute(input('Enter command: '))
+            client_servicer.log.info(f"Request id: {response}")
     else:
         raise ValueError(f'Invalid runner: {args.runner}')
 
