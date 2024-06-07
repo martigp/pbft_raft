@@ -117,14 +117,14 @@ def main(args):
     # This is the entry point for the protocol
     if args.runner == 'random_kv':
         while True:
-            time.sleep(4)
+            time.sleep(2)
             client_servicer.log.info(f"Sending commands to replicas")
-            response = client_servicer.async_execute(f"SET {random.randint(0, 100)} {random.randint(0, 100)}")
+            response = client_servicer.async_execute(f"set {random.randint(0, 100)} {random.randint(0, 100)}")
             client_servicer.log.info(f"Response: {response}")
     elif args.runner == 'sync':
         while True:
             response = client_servicer.execute(input('Enter command: '))
-            client_servicer.log.info(f"Response: {response}")
+            print(f"Response: {response}")
     elif args.runner == 'async':
         while True:
             response = client_servicer.async_execute(input('Enter command: '))
