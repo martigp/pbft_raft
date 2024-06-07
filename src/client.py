@@ -1,15 +1,22 @@
 import logging
 import logging.config
+import time
+import argparse
 from concurrent import futures
-from threading import Thread
+from threading import Thread, Lock
+from typing import List
 import grpc
+import random
 
-from common import get_client_config, get_replica_sessions, ClientConfig
+from common import get_client_config, get_replica_sessions, ClientConfig, ReplicaSession
 from proto.HotStuff_pb2 import ClientCommandRequest
 from proto import Client_pb2, Client_pb2_grpc
 from crypto import partialSign, parseSK
 
 logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--runner', type=str, default='stdin', help='stdin or random_kv')
 
 
 class ClientServicer(Client_pb2_grpc.HotStuffClientServicer):
@@ -17,16 +24,68 @@ class ClientServicer(Client_pb2_grpc.HotStuffClientServicer):
     Implements the HotStuffClientServicer interface defined in the proto file.
     """
 
-    def __init__(self, id, *args, **kwargs):
+    def __init__(self, config:ClientConfig, F:int, replica_sessions:List[ReplicaSession],  *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.id = id
-        self.log = logging.getLogger(self.id)
+        self.config = config
+        self.log = logging.getLogger(self.config.id)
+        self.F = F
+        self.responses = {} # Dict from request id to replica ids to reponses
+        self.agreed_responses = {} # Dict from request id to agreed response
+        self.replica_sessions = replica_sessions
+        self.curr_req_id = 0
+        self.lock = Lock()
 
     def reply(self, request, _):
         """ Handles execution replies from replicas. """
-        self.log.info("Received reply (%s): %s",
+        self.log.debug("Received reply (%s): %s",
                       request.sender_id, request.message)
+        req_id, response = request.message.split(":")
+        with self.lock:
+            if req_id not in self.responses:
+                self.responses[req_id] = {}
+            self.responses[req_id][request.sender_id] = response
+            responses = self.responses[req_id].values()
+            # Check if there are F equal responses
+            responses = sorted(responses)
+            prev_response = None
+            agreements = 0
+            for response in responses:
+                if response == prev_response:
+                    agreements += 1
+                else:
+                    agreements = 1
+                prev_response = response
+                if agreements > self.F:
+                    if req_id not in self.agreed_responses:
+                        self.agreed_responses[req_id] = response
+                        self.log.debug("Agreed response: %s", response)
+                    break
+
         return Client_pb2.EmptyResponse()
+    
+    def async_execute(self, cmd:str)->str:
+        self.log.debug(f"Sending {cmd}")
+        with self.lock:
+            curr_req_id = self.curr_req_id
+            self.curr_req_id+=1
+        for replica in self.replica_sessions:
+            data = ClientCommandRequest.Data(sender_id=self.config.id, cmd=cmd, req_id = curr_req_id)
+            data_bytes = data.SerializeToString()
+            sig = partialSign(parseSK(self.config.secret_key), data_bytes)
+            replica.stub.ClientCommand(ClientCommandRequest(data=data,sig=bytes(sig)))
+        self.log.debug(f"Sent command {cmd}")
+        return str(curr_req_id)
+
+    
+    def execute(self, cmd:str)->str:
+        req_id = self.async_execute(cmd)
+        with self.lock:
+            while req_id not in self.agreed_responses:
+                # print(self.agreed_responses)
+                time.sleep(0.1)
+            return self.agreed_responses[req_id]
+            # return str(self.agreed_responses)
+
 
 
 def serve(client_servicer: ClientServicer, config: ClientConfig):
@@ -40,33 +99,36 @@ def serve(client_servicer: ClientServicer, config: ClientConfig):
     server.wait_for_termination()
 
 
-def main():
+def main(args):
     """Main function for the client."""
     # Read configs
     config, global_config = get_client_config()
 
     # Start server
-    client_servicer = ClientServicer(config.id)
+    replica_sessions = get_replica_sessions(global_config)
+    client_servicer = ClientServicer(config, global_config.F, replica_sessions)
     Thread(target=serve, args=(client_servicer, config)).start()
 
     # Establish sessions with replicas
-    replica_sessions = get_replica_sessions(global_config)
 
     # Send commands to replicas
     # This is the entry point for the protocol
-    i = 0
-    while True:
-        cmd = input('Enter command: ')
-        # We should be signing this as a sender req.SerializeToString()
-        for replica in replica_sessions:
-            data = ClientCommandRequest.Data(sender_id=config.id, cmd=cmd, req_id = i)
-            data_bytes = data.SerializeToString()
-            sig = partialSign(parseSK(config.secret_key), data_bytes)
-            replica.stub.ClientCommand(ClientCommandRequest(data=data,sig=bytes(sig)))
-        i+=1
+    if args.runner == 'random_kv':
+        time.sleep(10)
+        while True:
+            cmd = f"SET {random.randint(0, 100)} {random.randint(0, 100)}"
+            # TODO: Change to log.info and sleep time
+            print(f"COMMAND: {cmd}, RESPONSE: {client_servicer.async_execute(cmd)}")
+            # TODO: For now using a value larger than timeout but we probably need a smaller value
+            time.sleep(5)
+    else:
+        while True:
+            cmd = input('Enter command: ')
+            # We should be signing this as a sender req.SerializeToString()
+            print(f"COMMAND: {cmd}, RESPONSE: {client_servicer.execute(cmd)}")
 
         # Multithread receiving responses?
 
 
 if __name__ == '__main__':
-    main()
+    main(parser.parse_args())

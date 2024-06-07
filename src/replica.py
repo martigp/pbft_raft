@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
     #
     # Set up server
-    replica_server = ReplicaServer(config, pks, global_config.client_configs, pacemaker, executor)
+    replica_server = ReplicaServer(config, pks, global_config.client_configs, pacemaker, executor, global_config.F)
 
     # Establish sessions with other replicas
     # This is done after a delay to ensure all servers are up

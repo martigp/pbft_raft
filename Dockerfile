@@ -18,6 +18,9 @@ CMD ["python", "replica.py"]
 FROM base as client
 CMD ["python", "client.py"]
 
+FROM base as client_random_kv
+CMD ["python", "client.py", "--runner", "random_kv"]
+
 FROM base as crypto
 CMD ["python" "crypto.py"]
 

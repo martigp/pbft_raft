@@ -37,9 +37,10 @@ class ReplicaConfig:
 class GlobalConfig:
     """Contains the configuration of all clients and replicas."""
 
-    def __init__(self, clients: List[ClientConfig], replicas: List[ReplicaConfig]):
+    def __init__(self, clients: List[ClientConfig], replicas: List[ReplicaConfig], F: int = 1):
         self.client_configs = clients
         self.replica_configs = replicas
+        self.F = F
 
 
 class ReplicaSession:
@@ -60,7 +61,7 @@ def get_global_config(file_path: str = '../configs.json') -> GlobalConfig:
         config = json.load(f)
     clients = [ClientConfig(**client) for client in config['clients']]
     replicas = [ReplicaConfig(**replica) for replica in config['replicas']]
-    return GlobalConfig(clients, replicas)
+    return GlobalConfig(clients, replicas, config['F'])
 
 
 def get_replica_config() -> Tuple[ReplicaConfig, GlobalConfig]:

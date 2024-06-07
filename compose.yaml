@@ -14,7 +14,7 @@ services:
   # client0:
   #   build:
   #     context: .
-  #     target: client
+  #     target: client_random_kv
   #   network_mode: host
   #   ports:
   #     - "8080:8080"

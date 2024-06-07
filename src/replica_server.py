@@ -21,7 +21,6 @@ from proto.Client_pb2_grpc import HotStuffClientStub
 
 logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 
-F = 1
 
 class ReplicaServer(HotStuffReplicaServicer):
     """Replica server implementation.
@@ -43,12 +42,14 @@ class ReplicaServer(HotStuffReplicaServicer):
     global_config: GlobalConfig  # Global configuration
     new_view_event : Event # Timer event used to signal to reset the timer
     executor: Executor  # Application executor
+    F: int # Number of Byzantine faults
 
     clientMap : Dict[str, ClientInformation] # All client infomration
 
     def __init__(self, config : ReplicaConfig, pks : list[str],
-                 client_configs : list[ClientConfig], pacemaker : Pacemaker, executor : Executor):
+                 client_configs : list[ClientConfig], pacemaker : Pacemaker, executor : Executor, F : int):
         self.id = config.id
+        self.F = F
         self.public_key = parsePK(config.public_key)
         self.secret_key = parseSK(config.secret_key)
         self.replica_pks = [parsePK(pk_str) for pk_str in pks]
@@ -128,7 +129,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         message = self.tree.get_node(node_id).to_bytes()
 
         # Slow way to do checking without a proper partial Sig library
-        votesPowerset = list(chain.from_iterable(combinations(votes, r) for r in range(self.num_replica - F, len(votes)+1)))
+        votesPowerset = list(chain.from_iterable(combinations(votes, r) for r in range(self.num_replica - self.F, len(votes)+1)))
         for voteSet in votesPowerset:
             sigs = []
             pkids = []
@@ -173,7 +174,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 client = client_config
         channel = grpc.insecure_channel(f'{client.host}:{client.port}')
         stub = HotStuffClientStub(channel)
-        stub.reply(Response(message=response, sender_id=self.id))
+        stub.reply(Response(message=f"{node.client_req_id}: {response}", sender_id=self.id))
 
 
     def update_qc_high(self, received_qc: QC):
@@ -343,7 +344,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         self.log.debug(f"Received vote for {node} from {request.sender_id} with signature {request.partial_sig[:5]}")
         with self.lock:
             numVotes = self.add_vote(node.id, request)
-            if numVotes >= self.num_replica - F:
+            if numVotes >= self.num_replica - self.F:
                 # Put in logic for checking
                 verified, aggSig, pkids =  self.check_votes(node.id)
                 if verified:
@@ -353,7 +354,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 else:
                     self.log.debug(f"Received {numVotes} but votes weren't valid")
             else:
-                self.log.debug(f"Received {numVotes} : < {self.num_replica - F}")
+                self.log.debug(f"Received {numVotes} : < {self.num_replica - self.F}")
 
         return EmptyResponse()
     
