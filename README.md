@@ -56,3 +56,15 @@ To run client:
 ```
 sh run_client.sh <client_id> #c0
 ```
+
+## Testing
+
+Run replicas
+```
+docker compose up --build
+```
+
+Run client
+```
+timeout 5m docker compose -f compose_clients.yaml up --build &> test_logs/replicas_5_down_0_client_2_mean_4.txt
+```
