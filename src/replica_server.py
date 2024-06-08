@@ -256,6 +256,8 @@ class ReplicaServer(HotStuffReplicaServicer):
         with self.lock:
             if self.is_leader() and self.clientMap[clientIdStr].updateReq(request.data.req_id):
                 self.log.info(f"Processing command from client: {request.data.cmd}")
+                self.log.info(' '.join([str(k) for k in [request.data.cmd, self.leaf_node.id, request.data.sender_id,
+                        self.qc_high, self.view_number, request.data.req_id]]))
                 new_node = self.tree.create_node(
                     request.data.cmd, self.leaf_node.id, request.data.sender_id,
                         self.qc_high, self.view_number, request.data.req_id)
@@ -299,10 +301,6 @@ class ReplicaServer(HotStuffReplicaServicer):
         with self.lock:
             self.clientMap[new_node.client_id].updateReq(new_node.client_req_id)
             self.pacemaker.dedup_req(new_node.client_id, new_node.client_req_id)
-            # if not self.is_leader():
-            #     self.log.debug(
-            #         f"Received proposal {new_node} from leader {request.sender_id}")
-            #     self.tree.add_node(new_node)
             self.log.debug(f"Received proposal {new_node} from leader {request.sender_id}")
             self.tree.add_node(new_node)
             always_true = new_node.height > self.vheight  # Always true for the happy path
@@ -310,11 +308,11 @@ class ReplicaServer(HotStuffReplicaServicer):
                 self.locked_node.id, new_node.id)
             sad_path = self.tree.get_node(
                 new_node.justify.node_id).height > self.locked_node.height
-            self.log.debug(
-                f"Proposal: {always_true} and ({happy_path} or {sad_path})")
+            self.log.info(
+                f"Proposal: {always_true} ({new_node.height} > {self.vheight}) and ({happy_path} or {sad_path})")
             if always_true and (happy_path or sad_path):
                 self.vheight = new_node.height
-
+                self.leaf_node = new_node
                 # Call to the vote function must happen outside the lock
                 # otherwise this will cause a deadlock in leader
                 to_vote = True
