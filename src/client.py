@@ -79,7 +79,7 @@ class ClientServicer(Client_pb2_grpc.HotStuffClientServicer):
     
     def execute(self, cmd:str)->str:
         req_id = self.async_execute(cmd)
-        for _ in range(50):
+        for _ in range(100):
             with self.lock:
                 self.log.debug(f"Agreed Responses: {self.agreed_responses}")
                 if req_id in self.agreed_responses:
@@ -116,8 +116,9 @@ def main(args):
     # Send commands to replicas
     # This is the entry point for the protocol
     if args.runner == 'random_kv':
+        time.sleep(10)
         while True:
-            time.sleep(2)
+            time.sleep(random.uniform(2, 5))
             client_servicer.log.info(f"Sending commands to replicas")
             response = client_servicer.async_execute(f"set {random.randint(0, 100)} {random.randint(0, 100)}")
             client_servicer.log.info(f"Response: {response}")

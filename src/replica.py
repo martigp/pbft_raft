@@ -15,7 +15,7 @@ logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 log = logging.getLogger(__name__)
 
 HEARTBEAT_EVENT_TIMEOUT = 5
-NEW_SYNC_TIMEOUT = 20
+NEW_SYNC_TIMEOUT = 5
 
 def wait_on_heartbeat_event(pacemaker : Pacemaker):
     while True:

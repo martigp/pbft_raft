@@ -1,0 +1,22 @@
+services:
+  client0:
+    build:
+      context: .
+      target: client_random_kv
+    network_mode: host
+    environment:
+      - CLIENT_ID=c0
+  client1:
+    build:
+      context: .
+      target: client_random_kv
+    network_mode: host
+    environment:
+      - CLIENT_ID=c1
+  # client2:
+  #   build:
+  #     context: .
+  #     target: client_random_kv
+  #   network_mode: host
+  #   environment:
+  #     - CLIENT_ID=c2

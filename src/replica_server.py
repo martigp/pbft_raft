@@ -93,8 +93,12 @@ class ReplicaServer(HotStuffReplicaServicer):
 
     def get_leader_id(self) -> str:
         """Get the leader id."""
-        return f"r{(self.view_number - 1) % self.num_replica}"
+        return self.get_leader_id_from_view_number(self.view_number - 1)
         # return "r0"
+    
+    def get_leader_id_from_view_number(self, view_number : int) -> ReplicaSession:
+        """Get the leader id."""
+        return f"r{(view_number) % self.num_replica}"
 
     def is_leader(self) -> bool:
         """Check if the replica is the leader."""
@@ -165,7 +169,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         For now, it just prints the command.
         Idally, it should append to some log file.
         """
-        self.log.info("Executing command: %s", node.cmd)
+        self.log.info("Executing command: %s", node)
         response = self.executor.execute(node.cmd)
         client_id = node.client_id
         client = None
@@ -189,8 +193,8 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.log.info(
                 f"Updating qc_high from {my_qc_high_node} to {received_qc_node} and setting it as leaf")
             self.qc_high = received_qc
-            self.log.info(f"Changing inside update qc leaf node from {self.leaf_node} to {received_qc_node}")
             if not self.tree.is_ancestor(received_qc_node.id, self.leaf_node.id):
+                self.log.debug(f"Changing inside update qc leaf node from {self.leaf_node} to {received_qc_node}")
                 self.leaf_node = received_qc_node
         else:
             self.log.debug(
@@ -223,7 +227,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         node_jggp_b = self.tree.get_node(
             node_jgp_p.justify.node_id)  # b in paper
 
-        self.log.info(
+        self.log.warn(
             f"Justify ancestors: {node} -> {node_jp_dp} -> {node_jgp_p} -> {node_jggp_b}")
 
         self.update_qc_high(node.justify)
@@ -255,11 +259,12 @@ class ReplicaServer(HotStuffReplicaServicer):
         
         clientIdStr = request.data.sender_id
         send_proposal = False
+        self.log.info(f"Received command from client {clientIdStr}: {request.data.cmd}")
         with self.lock:
             if self.is_leader() and self.clientMap[clientIdStr].updateReq(request.data.req_id):
-                self.log.info(f"Processing command from client: {request.data.cmd}")
-                self.log.info(' '.join([str(k) for k in [request.data.cmd, self.leaf_node.id, request.data.sender_id,
-                        self.qc_high, self.view_number, request.data.req_id]]))
+                self.log.warn(f"Processing command from client: {request.data.cmd}")
+                self.log.info(' '.join([str(k) for k in [request.data.cmd, self.leaf_node, request.data.sender_id,
+                        self.qc_high, self.id, request.data.req_id]]))
                 new_node = self.tree.create_node(
                     request.data.cmd, self.leaf_node.id, request.data.sender_id,
                         self.qc_high, self.view_number, request.data.req_id)
@@ -329,8 +334,9 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.pacemaker.central_control_event.set()
 
         if to_vote:
-            self.log.info(f"Voting for {new_node}")
-            leader_session = self.get_session(self.get_leader_id())
+            leader_id = self.get_leader_id_from_view_number(new_node.view_number)
+            self.log.info(f"Voting for {new_node} to leader {leader_id}")
+            leader_session = self.get_session(leader_id)
             node_bytes = new_node.to_bytes()
             sig = bytes(partialSign(self.secret_key, node_bytes))
             vote = VoteRequest(sender_id=self.id, node=node_bytes, partial_sig=sig)

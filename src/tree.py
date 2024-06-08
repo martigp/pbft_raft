@@ -65,7 +65,7 @@ class Node:
         return pickle.dumps(self)
     
     def __str__(self):
-        return f'{self.id}:h{self.height}:{self.cmd}'
+        return f'{self.id}:h{self.height}:{self.client_id}:{self.cmd}'
 
 
 def node_from_bytes(data: bytes) -> Node:
