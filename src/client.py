@@ -58,16 +58,16 @@ class ClientServicer(Client_pb2_grpc.HotStuffClientServicer):
                 if agreements > self.F:
                     if req_id not in self.agreed_responses:
                         self.agreed_responses[req_id] = response
-                        self.log.info(f"Received response for request id {req_id}: {response}")
+                        self.log.info(f"Received req {req_id}: {response}")
                     break
 
         return Client_pb2.EmptyResponse()
     
     def async_execute(self, cmd:str)->str:
-        self.log.debug(f"Sending {cmd}")
         with self.lock:
             curr_req_id = self.curr_req_id
             self.curr_req_id+=1
+        self.log.info(f"Sending req {curr_req_id}:{cmd}")
         for replica in self.replica_sessions:
             data = ClientCommandRequest.Data(sender_id=self.config.id, cmd=cmd, req_id = curr_req_id)
             data_bytes = data.SerializeToString()
@@ -118,8 +118,8 @@ def main(args):
     if args.runner == 'random_kv':
         time.sleep(10)
         while True:
-            time.sleep(random.uniform(2, 5))
-            client_servicer.log.info(f"Sending commands to replicas")
+            time.sleep(random.expovariate(0.3))
+            # client_servicer.log.info(f"Sending commands to replicas")
             response = client_servicer.async_execute(f"set {random.randint(0, 100)} {random.randint(0, 100)}")
             client_servicer.log.info(f"Response: {response}")
     elif args.runner == 'sync':
