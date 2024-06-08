@@ -8,11 +8,36 @@ import grpc
 from common import GlobalConfig, ReplicaConfig, get_replica_config, get_executor
 from proto.HotStuff_pb2_grpc import add_HotStuffReplicaServicer_to_server
 from replica_server import ReplicaServer
+from proto import CatchUp_pb2, CatchUp_pb2_grpc
 
 from pacemaker import Pacemaker, PacemakerEventStatus
 
 logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 log = logging.getLogger(__name__)
+
+class CatchUpServicer(CatchUp_pb2_grpc.NodeSenderServicer):
+    """Implements the CatchUpServicer interface defined in the proto file. Use for catching up requests that have fallen behind."""
+
+    def __init__(self, replica_server: ReplicaServer, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.replica_server = replica_server
+
+    def send_node(self, request, _):
+        """Handles a request to send a node."""
+        if request.node_id in self.replica_server.tree.nodes:
+            return CatchUp_pb2.NodeResponse(
+                node=self.replica_server.tree.nodes[request.node_id].to_bytes())
+        else:
+            return CatchUp_pb2.NodeResponse()
+
+    @staticmethod
+    def serve(catchup_servicer, port):
+        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        CatchUp_pb2_grpc.add_NodeSenderServicer_to_server(catchup_servicer, server)
+        server.add_insecure_port('[::]:1' + port)
+        server.start()
+        server.wait_for_termination()
+
 
 HEARTBEAT_EVENT_TIMEOUT = 5
 NEW_SYNC_TIMEOUT = 20
@@ -101,6 +126,13 @@ if __name__ == '__main__':
 
     log.info("Establishing sessions with other replicas")
     replica_server.establish_sessions(global_config)
+
+    # Start catchup service
+    Thread(
+        target=CatchUpServicer.serve, 
+        args=(CatchUpServicer(replica_server), config.port), 
+        daemon=True
+    ).start()
 
     # Start gRPC server
     serve(replica_server, config, pacemaker)

@@ -127,6 +127,9 @@ class Tree:
         """
         if node.id in self.nodes:
             return
+        if node.parent_id not in self.nodes:
+            log.error(f"Parent node {node.parent_id} not in the tree")
+            return
         self.nodes[node.id] = node
         print(f"Parent ID: {node.parent_id}")
         self.get_node(node.parent_id).children_ids.append(node.id)

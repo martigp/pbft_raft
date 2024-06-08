@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+service NodeSender {
+    rpc send_node(NodeRequest) returns (NodeResponse) {}
+}
+
+message NodeRequest {
+    string node_id = 1;
+}
+
+message NodeResponse {
+    bytes node = 1;
+}

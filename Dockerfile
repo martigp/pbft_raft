@@ -11,6 +11,7 @@ COPY . .
 WORKDIR /src
 RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/HotStuff.proto
 RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/Client.proto
+RUN python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/CatchUp.proto
 
 FROM base as replica
 CMD ["python", "replica.py"]

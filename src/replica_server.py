@@ -18,6 +18,8 @@ from client_history import ClientInformation
 import grpc
 from proto.Client_pb2 import Response
 from proto.Client_pb2_grpc import HotStuffClientStub
+from proto.CatchUp_pb2 import NodeRequest
+from proto.CatchUp_pb2_grpc import NodeSenderStub
 
 logging.config.fileConfig('logging.ini', disable_existing_loggers=True)
 
@@ -126,7 +128,10 @@ class ReplicaServer(HotStuffReplicaServicer):
         server_ids of who contributed to the aggregate signature.
         """
         votes = self.votes[node_id]
-        message = self.tree.get_node(node_id).to_bytes()
+        try:
+            message = self.tree.get_node(node_id).to_bytes()
+        except KeyError:
+            return False, None, None
 
         # Slow way to do checking without a proper partial Sig library
         votesPowerset = list(chain.from_iterable(combinations(votes, r) for r in range(self.num_replica - self.F, len(votes)+1)))
@@ -178,18 +183,42 @@ class ReplicaServer(HotStuffReplicaServicer):
         stub.reply(Response(message=f"{node.client_req_id}: {response}", sender_id=self.id))
 
 
-    def update_qc_high(self, received_qc: QC):
+    def maybe_get_node(self, node_id: str, sender_id: str):
+        try:
+            return self.tree.get_node(node_id)
+        except KeyError:
+            sender = None
+            for replica_config in self.global_config.replica_configs:
+                if replica_config.id == sender_id:
+                    sender = replica_config
+            self.log.info(f"Fetching node {node_id} from {sender_id}")
+            channel = grpc.insecure_channel(f'{sender.host}:1{sender.port}')
+            stub = NodeSenderStub(channel)
+            nodes = []
+            node_response = stub.send_node(NodeRequest(node_id=node_id))
+            nodes.append(node_from_bytes(node_response.node))
+            while nodes[-1].parent_id not in self.tree.nodes:
+                node_response = stub.send_node(NodeRequest(node_id=nodes[-1].parent_id))
+                nodes.append(node_from_bytes(node_response.node))
+            for node in reversed(nodes):
+                self.tree.add_node(node)
+                self.view_number = max(self.view_number, node.view_number)
+            return self.tree.get_node(node_id)
+
+    def update_qc_high(self, received_qc: QC, sender_id: str):
         """Update the highest QC seen so far. Also set it as b_leaf.
 
         Does nothing if the height of the QC is less than the height of the current highest QC.
         """
-        received_qc_node = self.tree.get_node(received_qc.node_id)
+        received_qc_node = self.maybe_get_node(received_qc.node_id, sender_id)
         my_qc_high_node = self.tree.get_node(self.qc_high.node_id)
         if received_qc_node.height > my_qc_high_node.height:
             self.log.info(
                 f"Updating qc_high from {my_qc_high_node} to {received_qc_node} and setting it as leaf")
             self.qc_high = received_qc
             self.log.info(f"Changing inside update qc leaf node from {self.leaf_node} to {received_qc_node}")
+            self.maybe_get_node(received_qc_node.id, sender_id)
+            self.maybe_get_node(self.leaf_node.id, sender_id)
             if not self.tree.is_ancestor(received_qc_node.id, self.leaf_node.id):
                 self.leaf_node = received_qc_node
         else:
@@ -208,7 +237,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         else:
             self.log.debug(f"Skipping commit of {node}")
 
-    def update(self, node: Node):
+    def update(self, node: Node, sender_id: str):
         """Update the replica state.
 
         This is executed when we receive a proposal for a node.
@@ -217,16 +246,16 @@ class ReplicaServer(HotStuffReplicaServicer):
         """
         self.log.debug(f"Updating {node}")
         # TODO: Check if lock is required here
-        node_jp_dp = self.tree.get_node(node.justify.node_id)  # b'' in paper
-        node_jgp_p = self.tree.get_node(
-            node_jp_dp.justify.node_id)  # b' in paper
-        node_jggp_b = self.tree.get_node(
-            node_jgp_p.justify.node_id)  # b in paper
+        node_jp_dp = self.maybe_get_node(node.justify.node_id, sender_id)  # b'' in paper
+        node_jgp_p = self.maybe_get_node(
+            node_jp_dp.justify.node_id, sender_id)  # b' in paper
+        node_jggp_b = self.maybe_get_node(
+            node_jgp_p.justify.node_id, sender_id)  # b in paper
 
         self.log.info(
             f"Justify ancestors: {node} -> {node_jp_dp} -> {node_jgp_p} -> {node_jggp_b}")
 
-        self.update_qc_high(node.justify)
+        self.update_qc_high(node.justify, sender_id)
         if node_jgp_p.height > self.locked_node.height:
             self.log.info(f"Locking {node_jgp_p} over {self.locked_node}")
             # node_jgp enters commit phase
@@ -250,6 +279,7 @@ class ReplicaServer(HotStuffReplicaServicer):
         leader_session.stub.NewView(new_view_req)
 
     def on_beat(self, request : ClientCommandRequest):
+        self.log.error(f"Received command from client {request.data.sender_id}, {self.is_leader()}")
         if request is None:
             return
         
@@ -257,12 +287,17 @@ class ReplicaServer(HotStuffReplicaServicer):
         send_proposal = False
         with self.lock:
             if self.is_leader() and self.clientMap[clientIdStr].updateReq(request.data.req_id):
+                breakpoint()
                 self.log.info(f"Processing command from client: {request.data.cmd}")
                 self.log.info(' '.join([str(k) for k in [request.data.cmd, self.leaf_node.id, request.data.sender_id,
                         self.qc_high, self.view_number, request.data.req_id]]))
-                new_node = self.tree.create_node(
-                    request.data.cmd, self.leaf_node.id, request.data.sender_id,
-                        self.qc_high, self.view_number, request.data.req_id)
+                try:
+                    new_node = self.tree.create_node(
+                        request.data.cmd, self.leaf_node.id, request.data.sender_id,
+                            self.qc_high, self.view_number, request.data.req_id)
+                except KeyError:
+                    self.log.error(f"Parent node {self.leaf_node.id} not in the tree")
+                    return
                 
                 self.log.debug(f"New node's jusitfy node id {new_node.justify.node_id}")
 
@@ -309,8 +344,8 @@ class ReplicaServer(HotStuffReplicaServicer):
             always_true = new_node.height > self.vheight  # Always true for the happy path
             happy_path = self.tree.is_ancestor(
                 self.locked_node.id, new_node.id)
-            sad_path = self.tree.get_node(
-                new_node.justify.node_id).height > self.locked_node.height
+            sad_path = self.maybe_get_node(
+                new_node.justify.node_id, request.sender_id).height > self.locked_node.height
             self.log.info(
                 f"Proposal: {always_true} ({new_node.height} > {self.vheight}) and ({happy_path} or {sad_path})")
             if always_true and (happy_path or sad_path):
@@ -321,7 +356,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 # otherwise this will cause a deadlock in leader
                 to_vote = True
 
-            self.update(new_node)
+            self.update(new_node, request.sender_id)
             self.view_number += 1
 
         # TODO: Note sure if this is necessary but reflects a change in central control
@@ -357,7 +392,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 if verified:
                     self.log.debug(f"Got enough votes for {node}")
                     newQC = QC(node.id, node.view_number, bytes(aggSig), pkids)
-                    self.update_qc_high(newQC)
+                    self.update_qc_high(newQC, self.id)
                 else:
                     self.log.debug(f"Received {numVotes} but votes weren't valid")
             else:
@@ -368,5 +403,5 @@ class ReplicaServer(HotStuffReplicaServicer):
     def NewView(self, request: NewViewRequest, context):
         self.log.info(f"Received NEW_VIEW from {request.sender_id}")
         with self.lock:
-            self.update_qc_high(qc_from_bytes(request.qc))
+            self.update_qc_high(qc_from_bytes(request.qc), request.sender_id)
         return EmptyResponse()
