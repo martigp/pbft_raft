@@ -48,10 +48,10 @@ def serve(replica_server: ReplicaServer, config: ReplicaConfig, pacemaker : Pace
 
     time.sleep(10)
 
-    heartbeat_thread = Thread(target=wait_on_heartbeat_event, args=(pacemaker,))
+    heartbeat_thread = Thread(target=wait_on_heartbeat_event, args=(pacemaker,),daemon=True)
     
     new_sync_thread = Thread(target=wait_on_new_sync_event,
-                              args=(pacemaker,))
+                              args=(pacemaker,),daemon=True)
     
     # heartbeat_thread.start()
     new_sync_thread.start()

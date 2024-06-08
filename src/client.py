@@ -109,7 +109,7 @@ def main(args):
     # Start server
     replica_sessions = get_replica_sessions(global_config)
     client_servicer = ClientServicer(config, global_config.F, replica_sessions)
-    Thread(target=serve, args=(client_servicer, config)).start()
+    Thread(target=serve, args=(client_servicer, config), daemon=True).start()
 
     # Establish sessions with replicas
 

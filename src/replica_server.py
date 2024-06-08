@@ -189,7 +189,9 @@ class ReplicaServer(HotStuffReplicaServicer):
             self.log.info(
                 f"Updating qc_high from {my_qc_high_node} to {received_qc_node} and setting it as leaf")
             self.qc_high = received_qc
-            self.leaf_node = received_qc_node
+            self.log.info(f"Changing inside update qc leaf node from {self.leaf_node} to {received_qc_node}")
+            if not self.tree.is_ancestor(received_qc_node.id, self.leaf_node.id):
+                self.leaf_node = received_qc_node
         else:
             self.log.debug(
                 f"Skipping update of qc_high from {my_qc_high_node} to {received_qc_node}")
@@ -265,6 +267,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 self.log.debug(f"New node's jusitfy node id {new_node.justify.node_id}")
 
                 self.log.info(f"Proposing {new_node} and setting it as leaf")
+                self.log.info(f"Changing leaf node from {self.leaf_node} to {new_node}")
                 self.leaf_node = new_node
                 send_proposal = True
                 
@@ -312,6 +315,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 f"Proposal: {always_true} ({new_node.height} > {self.vheight}) and ({happy_path} or {sad_path})")
             if always_true and (happy_path or sad_path):
                 self.vheight = new_node.height
+                self.log.info(f"Changing inside propose leaf node from {self.leaf_node} to {new_node}")
                 self.leaf_node = new_node
                 # Call to the vote function must happen outside the lock
                 # otherwise this will cause a deadlock in leader
@@ -343,9 +347,9 @@ class ReplicaServer(HotStuffReplicaServicer):
 
     def Vote(self, request, context):
         node = node_from_bytes(request.node)
-        self.tree.add_node(node)
         self.log.info(f"Received vote for {node} from {request.sender_id} with signature {request.partial_sig[:5]}")
         with self.lock:
+            self.tree.add_node(node)
             numVotes = self.add_vote(node.id, request)
             if numVotes >= self.num_replica - self.F:
                 # Put in logic for checking
@@ -363,5 +367,6 @@ class ReplicaServer(HotStuffReplicaServicer):
     
     def NewView(self, request: NewViewRequest, context):
         self.log.info(f"Received NEW_VIEW from {request.sender_id}")
-        self.update_qc_high(qc_from_bytes(request.qc))
+        with self.lock:
+            self.update_qc_high(qc_from_bytes(request.qc))
         return EmptyResponse()
