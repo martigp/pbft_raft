@@ -287,7 +287,6 @@ class ReplicaServer(HotStuffReplicaServicer):
         send_proposal = False
         with self.lock:
             if self.is_leader() and self.clientMap[clientIdStr].updateReq(request.data.req_id):
-                breakpoint()
                 self.log.info(f"Processing command from client: {request.data.cmd}")
                 self.log.info(' '.join([str(k) for k in [request.data.cmd, self.leaf_node.id, request.data.sender_id,
                         self.qc_high, self.view_number, request.data.req_id]]))
@@ -346,6 +345,7 @@ class ReplicaServer(HotStuffReplicaServicer):
                 self.locked_node.id, new_node.id)
             sad_path = self.maybe_get_node(
                 new_node.justify.node_id, request.sender_id).height > self.locked_node.height
+            self.view_number = max(self.view_number, new_node.view_number + 1)
             self.log.info(
                 f"Proposal: {always_true} ({new_node.height} > {self.vheight}) and ({happy_path} or {sad_path})")
             if always_true and (happy_path or sad_path):
